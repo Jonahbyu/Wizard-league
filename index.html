@@ -1157,6 +1157,7 @@
     <button class="brun-tab active" onclick="switchBrunTab('history',this)">📜 History</button>
     <button class="brun-tab" onclick="switchBrunTab('artifacts',this)">🏺 Artifacts</button>
     <button class="brun-tab" onclick="switchBrunTab('talents',this)">🌟 Talents</button>
+    <button class="brun-tab" onclick="switchBrunTab('skins',this)">🧙 Skins</button>
   </div>
   <div class="brun-tab-content" id="brun-tab-content"></div>
   <button class="btn-main" style="width:220px;margin-top:.8rem;" onclick="showHub()">↩ New Run</button>
@@ -1241,12 +1242,12 @@
           <div class="queue-label">Queued Actions <span id="queue-slots-left" style="color:#6a4a20"></span></div>
           <div class="queue-slots" id="queue-slots"><span class="queue-empty">No actions queued</span></div>
         </div>
+        <button class="end-turn-btn" id="end-turn-btn" onclick="commitEndTurn()" disabled>⚔ End Turn — Resolve Actions</button>
         <div class="spell-grid" id="spell-grid"></div>
         <button class="inv-toggle" id="inv-toggle-btn" onclick="toggleInventory()" disabled>
           <span>🎒 Use Item</span><span id="inv-count-label">0 items</span>
         </button>
         <div class="inv-panel" id="inv-panel"></div>
-        <button class="end-turn-btn" id="end-turn-btn" onclick="commitEndTurn()" disabled>⚔ End Turn — Resolve Actions</button>
         <button class="btn-back" onclick="promptAbandon()">↩ Back to Main Menu</button>
         <button id="sandbox-skip-btn" style="display:none;width:100%;background:#0a1a0a;border:1px solid #2a6a2a;color:#4aaa4a;padding:.5rem 1.5rem;font-family:'Cinzel',serif;font-size:.66rem;letter-spacing:.1em;cursor:pointer;border-radius:4px;text-transform:uppercase;margin-top:.3rem;" onclick="sandboxSkipBattle()">⚡ Skip Battle (Sandbox)</button>
       </div>
@@ -4485,6 +4486,10 @@ function saveRunStats() {
     spells:   player.spellbook.length,
     phos:     phosEarned,
     date:     new Date().toLocaleDateString(),
+    dmgDealt: _runDmgDealt,
+    dmgTaken: _runDmgTaken,
+    rooms:    _runRoomsCompleted,
+    zone:     _runZoneReached || playerElement || '?',
   });
   if(meta.runHistory.length > 15) meta.runHistory.pop();
   saveMeta();
@@ -5008,6 +5013,10 @@ function inGymZone(){ return !gymDefeated && currentGymDef() !== null; }
 
 let playerName="",playerElement="",playerEmoji="",playerColor="";
 let currentZoneElement="";  // tracks the element of the current zone/encounter for BG rendering
+function _setZoneElement(z) {
+  currentZoneElement = z;
+  if (z) _runZoneReached = z;
+}
 
 const player = {
   hp:BASE_MAX_HP, level:1, xp:0,
@@ -5094,6 +5103,10 @@ function setActiveEnemy(idx){
 
 let battleNumber=1;
 let currentGymIdx = 0;          // which gym we're currently working toward (0-7)
+let _runDmgDealt  = 0;          // total damage player dealt this run
+let _runDmgTaken  = 0;          // total damage player took this run
+let _runRoomsCompleted = 0;     // rooms cleared this run
+let _runZoneReached = '';       // last zone element entered
 let zoneBattleCount = 0;        // battles fought in current gym's zone (resets after each gym)
 let gymSkips = 0;               // times player skipped gym this zone (resets per gym)
 let gymDefeated = false;        // true when ALL 8 gyms are beaten
@@ -6594,6 +6607,7 @@ function applyDirectDamage(attackerSide, defenderSide, dmg, label){
     const e = combat.enemies[combat.activeEnemyIdx];
     if(!e || !e.alive) return;
     e.hp = Math.max(0, e.hp - dmg);
+    if(attackerSide === 'player') _runDmgDealt += dmg;
     log(`${label} deals ${dmg} to ${e.name}. (${e.hp}/${e.enemyMaxHP})`, attackerSide==='player'?'player':'enemy');
     triggerHitFlash('enemy', combat.activeEnemyIdx);
     if(e.hp <= 0){
@@ -6620,8 +6634,10 @@ function applyDirectDamage(attackerSide, defenderSide, dmg, label){
     // For Plasma: allow HP to go negative so heals must actually cover the full deficit
     if(playerElement === 'Plasma'){
       player.hp = player.hp - dmg; // no floor — can go negative
+      _runDmgTaken += dmg;
     } else {
       player.hp = Math.max(0, player.hp - dmg);
+      _runDmgTaken += dmg;
     }
     log(`${label} deals ${dmg} to you. (${Math.max(0,player.hp)}/${maxHPFor('player')})`, 'enemy');
     triggerHitFlash('player');
@@ -7303,6 +7319,7 @@ function endBattle(won){
       advanceToNextGym(); // resets zoneBattleCount and gymSkips
     } else {
       battleNumber++;
+      _runRoomsCompleted++;
       zoneBattleCount++; // track progress through this gym's zone
     }
     // Warlord's Banner reward on every win
@@ -7586,6 +7603,7 @@ function restartToSelect(){
   });
   Object.assign(combat,{enemies:[],targetIdx:0,activeEnemyIdx:0,enemy:{},enemyHP:0,playerTurn:false,over:false,tempDmgBonus:0,actionsLeft:0,basicCD:0,playerAirToggle:false,enemyAirToggle:false,actionQueue:[],summons:[],totalXP:0,totalGold:0});
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[];
+  _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = '';
   sandboxMode = false;
   GYM_ROSTER.length = 0;
   showHub();
@@ -8621,7 +8639,7 @@ function renderRunInfo(){
 
 function showMap(){
   const _gymDef = currentGymDef();
-  currentZoneElement = (_gymDef && _gymDef.element) ? _gymDef.element : playerElement;
+  _setZoneElement((_gymDef && _gymDef.element) ? _gymDef.element : playerElement);
 
   // ── Sandbox zone switcher ──
   const sandboxBar = document.getElementById('sandbox-zone-bar');
@@ -8637,7 +8655,7 @@ function showMap(){
           currentGymIdx = i;
           gymDefeated = false;
           zoneBattleCount = 0;
-          currentZoneElement = gym.element;
+          _setZoneElement(gym.element);
           showMap();
         };
         sandboxBar.appendChild(btn);
@@ -8987,7 +9005,7 @@ function loadBattle(enc){
 
   // Zone background = the map zone you are fighting in, never the enemy element
   const _gymDef = currentGymDef();
-  currentZoneElement = (_gymDef && _gymDef.element) ? _gymDef.element : playerElement;
+  _setZoneElement((_gymDef && _gymDef.element) ? _gymDef.element : playerElement);
   resetStatusForBattle();
   player.spellbook.forEach(s=>s.currentCD=0);
   // Apply per-battle character buff effects
@@ -11693,13 +11711,16 @@ function renderBrunLastRun() {
   if (!el) return;
   const meta = getMeta();
   const phosEarned = _lastRunPhos || 0;
+  const zoneStr = _runZoneReached && _runZoneReached !== playerElement ? ` → ${_runZoneReached} Zone` : '';
   el.innerHTML = `
-    <div class="brun-run-title">${playerEmoji} ${playerElement} — Run Ended</div>
+    <div class="brun-run-title">${playerEmoji} ${playerElement}${zoneStr} — Run Ended</div>
     <div class="brun-run-grid">
       <div class="brun-run-stat"><div class="brun-run-label">Level</div><div class="brun-run-val">${player.level}</div></div>
-      <div class="brun-run-stat"><div class="brun-run-label">Battles</div><div class="brun-run-val">${battleNumber}</div></div>
+      <div class="brun-run-stat"><div class="brun-run-label">Rooms</div><div class="brun-run-val">${_runRoomsCompleted}</div></div>
+      <div class="brun-run-stat"><div class="brun-run-label">⚔ Dealt</div><div class="brun-run-val" style="color:#e84a4a">${_runDmgDealt}</div></div>
+      <div class="brun-run-stat"><div class="brun-run-label">🛡 Taken</div><div class="brun-run-val" style="color:#4a8aaa">${_runDmgTaken}</div></div>
       <div class="brun-run-stat"><div class="brun-run-label">Gold</div><div class="brun-run-val" style="color:#c8a830">${player.gold}g</div></div>
-      <div class="brun-run-stat"><div class="brun-run-label">Phos Earned</div><div class="brun-run-val" style="color:#a080ff">+${phosEarned} ✦</div></div>
+      <div class="brun-run-stat"><div class="brun-run-label">Phos</div><div class="brun-run-val" style="color:#a080ff">+${phosEarned} ✦</div></div>
     </div>
     <div style="margin-top:.5rem;font-size:.65rem;color:#5a4a80;">Total Phos: <span style="color:#a080ff;font-family:'Cinzel',serif;">${meta.phos||0} ✦</span></div>`;
 }
@@ -11723,12 +11744,18 @@ function switchBrunTab(tab, btnEl) {
     }
     content.innerHTML = history.map(r => `
       <div class="brun-hist-row">
-        <div class="brun-hist-el">${r.emoji||'⚔'} ${r.element||'?'}</div>
+        <div class="brun-hist-el">${r.emoji||'⚔'} ${r.element||'?'} <span style="color:#4a6a8a;font-size:.6rem;margin-left:.3rem;">${r.zone && r.zone !== r.element ? '→ '+r.zone+' Zone' : ''}</span></div>
         <div class="brun-hist-stats">
           <span>Lv.${r.level||'?'}</span>
           <span>${r.battles||0} battles</span>
+          <span>${r.rooms||r.battles||0} rooms</span>
           <span style="color:#c8a830">${r.gold||0}g</span>
           <span style="color:#a080ff">${r.phos||0}✦</span>
+        </div>
+        <div class="brun-hist-details" style="display:flex;gap:.8rem;font-size:.6rem;color:#555;margin-top:.2rem;">
+          <span>⚔ ${r.dmgDealt||0} dealt</span>
+          <span>🛡 ${r.dmgTaken||0} taken</span>
+          <span>📚 ${r.spells||0} spells</span>
         </div>
         <div class="brun-hist-date">${r.date||''}</div>
       </div>`).join('');
@@ -11755,6 +11782,11 @@ function switchBrunTab(tab, btnEl) {
 
   } else if (tab === 'talents') {
     renderTalentTab(content, meta);
+  } else if (tab === 'skins') {
+    content.innerHTML = `<div style="text-align:center;padding:2rem 1rem;">
+      <div style="font-family:'Cinzel',serif;font-size:1rem;color:#c8a060;margin-bottom:.5rem;">🧙 Wizard Skins</div>
+      <div style="color:#555;font-size:.72rem;line-height:1.6;">Coming soon — unlock unique wizard appearances<br>as you complete runs and earn Phos.</div>
+    </div>`;
   }
 }
 
@@ -11980,6 +12012,7 @@ function beginRun(){
   });
   resetStatusForBattle();
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[];
+  _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = '';
   initGymRoster();
   initZoneSpecial();
 
