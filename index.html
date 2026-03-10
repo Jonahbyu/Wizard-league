@@ -347,7 +347,7 @@
       position: relative;
       width: 100%;
       max-width: 980px;
-      height: 200px;
+      height: 240px;
       overflow: hidden;
       background: #080618;
       border-top: 1px solid #1a1030;
@@ -356,10 +356,13 @@
     }
 
     @media (min-height: 680px) {
-      .battle-arena { height: 230px; }
+      .battle-arena { height: 280px; }
     }
     @media (min-height: 800px) {
-      .battle-arena { height: 260px; }
+      .battle-arena { height: 340px; }
+    }
+    @media (min-height: 900px) {
+      .battle-arena { height: 380px; }
     }
 
     #battle-canvas {
@@ -1160,7 +1163,7 @@
     <button class="brun-tab" onclick="switchBrunTab('skins',this)">🧙 Skins</button>
   </div>
   <div class="brun-tab-content" id="brun-tab-content"></div>
-  <button class="btn-main" style="width:220px;margin-top:.8rem;" onclick="showHub()">↩ New Run</button>
+  <button class="btn-main" style="width:220px;margin-top:.8rem;" onclick="lobbyStartRun()">⚔ New Run</button>
   <button class="btn-back" style="width:220px;margin-top:.4rem;" onclick="showSaveSelect()">← Save Files</button>
 </div>
 
@@ -1184,6 +1187,10 @@
     <div class="combat-topbar">
       <div class="element-badge" id="combat-element-badge">🔥 Fire</div>
       <div class="combat-header" id="combat-round-label">⚔ Battle 1 ⚔</div>
+      <div style="display:flex;gap:.4rem;margin-left:auto;align-items:center;">
+        <button id="sandbox-skip-btn" onclick="sandboxSkipBattle()" style="display:none;background:#0a1a0a;border:1px solid #2a6a2a;color:#4aaa4a;padding:.25rem .6rem;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.08em;cursor:pointer;border-radius:4px;text-transform:uppercase;white-space:nowrap;">⚡ Skip</button>
+        <button onclick="promptAbandon()" style="background:#0f0a08;border:1px solid #3a2010;color:#6a4a30;padding:.25rem .6rem;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.08em;cursor:pointer;border-radius:4px;text-transform:uppercase;white-space:nowrap;">✕ Quit</button>
+      </div>
     </div>
     <div class="stats-bar">
       <div class="stat-item"><div class="stat-label">Lvl</div><div class="stat-value" id="combat-level">1</div></div>
@@ -1248,8 +1255,7 @@
           <span>🎒 Use Item</span><span id="inv-count-label">0 items</span>
         </button>
         <div class="inv-panel" id="inv-panel"></div>
-        <button class="btn-back" onclick="promptAbandon()">↩ Back to Main Menu</button>
-        <button id="sandbox-skip-btn" style="display:none;width:100%;background:#0a1a0a;border:1px solid #2a6a2a;color:#4aaa4a;padding:.5rem 1.5rem;font-family:'Cinzel',serif;font-size:.66rem;letter-spacing:.1em;cursor:pointer;border-radius:4px;text-transform:uppercase;margin-top:.3rem;" onclick="sandboxSkipBattle()">⚡ Skip Battle (Sandbox)</button>
+
       </div>
     </div>
 
@@ -1325,7 +1331,7 @@
   background:#0f0d0b; border:1px solid #3a2a18; border-radius:2rem;
   padding:.4rem .75rem; box-shadow:0 2px 8px rgba(0,0,0,.5);">
   <span id="vol-icon" style="font-size:1.1rem; cursor:pointer; color:#c8a060; user-select:none;" onclick="volumeToggleMute()">🔊</span>
-  <input id="vol-slider" type="range" min="0" max="100" value="80"
+  <input id="vol-slider" type="range" min="0" max="100" value="50"
     oninput="volumeSet(this.value)"
     style="width:72px; accent-color:#c8a060; cursor:pointer;">
 </div>
@@ -1366,7 +1372,7 @@ var sandboxMode    = false;
 
 // ===== music.js (stubs — synth engine removed) =====
 let _musicEnabled = true;
-let _volumeLevel  = 0.80;
+let _volumeLevel  = 0.50;
 let _mutedByBtn   = false;
 let _audioStarted = false;  // true after first gesture fires
 
@@ -3158,9 +3164,14 @@ function stopBattleLoop() {
 function initBattleCanvas() {
   const canvas = document.getElementById('battle-canvas');
   if (!canvas) return;
-  const w = (canvas.parentElement ? canvas.parentElement.offsetWidth : 0) || 480;
-  canvas.width = w;
-  canvas.height = Math.max(160, Math.round(w * 0.38));
+  const arena = canvas.parentElement;
+  const w = (arena ? arena.offsetWidth : 0) || 480;
+  const h = (arena ? arena.offsetHeight : 0) || Math.round(w * 0.38);
+  canvas.width  = w;
+  canvas.height = Math.max(160, h);
+  // Stretch canvas CSS to fill the arena
+  canvas.style.width  = '100%';
+  canvas.style.height = '100%';
 }
 
 
@@ -7621,7 +7632,8 @@ function closeModal(){
 }
 function confirmAbandon(){
   closeModal();
-  restartToSelect();
+  _lastRunPhos = saveRunStats();
+  showBetweenRuns();
 }
 
 
@@ -11690,13 +11702,13 @@ function _hubGetName() {
 function hubPlay() {
   if (!_hubGetName()) return;
   sandboxMode = false;
-  showCharacterScreen();
+  showBetweenRuns();   // always enter lobby first
 }
 
 function hubSandbox() {
   if (!_hubGetName()) return;
   sandboxMode = true;
-  showCharacterScreen();
+  showBetweenRuns();   // always enter lobby first
 }
 
 // ── BETWEEN RUNS (replaces gameover flow) ────────────────────────────────────
@@ -11706,11 +11718,22 @@ function showBetweenRuns() {
   switchBrunTab('history', document.querySelector('.brun-tab'));
 }
 
+function lobbyStartRun() {
+  // From lobby New Run button — go to character select
+  // sandboxMode is already set by hubPlay/hubSandbox
+  showCharacterScreen();
+}
+
 function renderBrunLastRun() {
   const el = document.getElementById('brun-last-run');
   if (!el) return;
   const meta = getMeta();
   const phosEarned = _lastRunPhos || 0;
+  // No run in progress yet — show lobby welcome
+  if (!playerElement) {
+    el.innerHTML = '<div class="brun-run-title" style="color:#c8a060;font-size:1rem;">⚔ Wizard's League</div><div style="color:#555;font-size:.7rem;margin-top:.3rem;">Select New Run to begin your journey</div>';
+    return;
+  }
   const zoneStr = _runZoneReached && _runZoneReached !== playerElement ? ` → ${_runZoneReached} Zone` : '';
   el.innerHTML = `
     <div class="brun-run-title">${playerEmoji} ${playerElement}${zoneStr} — Run Ended</div>
