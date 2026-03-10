@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Elemental</title>
+  <title>Wizard's League</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
@@ -1044,7 +1044,7 @@
 <canvas id="bg-canvas" style="position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;z-index:0;pointer-events:none;"></canvas>
 
 <div id="title-screen" class="screen active">
-  <h1>Elemental</h1>
+  <h1>Wizard's League</h1>
   <p class="title-sub">A Roguelite Adventure</p>
   <button class="btn-main" style="width:200px;margin-top:1.5rem;" onclick="showSaveSelect()">Play</button>
 </div>
@@ -1318,14 +1318,16 @@
 <!--  Script load order matters — each file depends on the  -->
 <!--  globals defined in all files above it.                -->
 <!-- ═══════════════════════════════════════════════════════ -->
-<button class="music-toggle-btn" onclick="musicToggle(); _tryResumeAudio();"
-  title="Mute Music" style="
+<div id="vol-widget" style="
   position:fixed; bottom:1rem; right:1rem; z-index:9999;
-  background:#0f0d0b; border:1px solid #3a2a18; border-radius:50%;
-  width:2.4rem; height:2.4rem; font-size:1.1rem; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-  color:#c8a060; transition:background .15s;
-  box-shadow:0 2px 8px rgba(0,0,0,.5);">🔊</button>
+  display:flex; align-items:center; gap:.5rem;
+  background:#0f0d0b; border:1px solid #3a2a18; border-radius:2rem;
+  padding:.4rem .75rem; box-shadow:0 2px 8px rgba(0,0,0,.5);">
+  <span id="vol-icon" style="font-size:1.1rem; cursor:pointer; color:#c8a060; user-select:none;" onclick="volumeToggleMute()">🔊</span>
+  <input id="vol-slider" type="range" min="0" max="100" value="80"
+    oninput="volumeSet(this.value)"
+    style="width:72px; accent-color:#c8a060; cursor:pointer;">
+</div>
 
 
 <script>
@@ -1363,19 +1365,52 @@ var sandboxMode    = false;
 
 // ===== music.js (stubs — synth engine removed) =====
 let _musicEnabled = true;
+let _volumeLevel  = 0.80;
+let _mutedByBtn   = false;
 
 function _tryResumeAudio() {}
+function musicPlay(key) {}
+function musicStop() {}
 
-function musicPlay(key) {}   // no-op: synth removed; MP3 keys handled by mp3audio.js
+function volumeSet(val) {
+  const v = Math.max(0, Math.min(100, Number(val))) / 100;
+  _volumeLevel  = v;
+  _mutedByBtn   = (v === 0);
+  _musicEnabled = (v > 0);
+  if (typeof _mp3El !== 'undefined' && _mp3El) _mp3El.volume = v;
+  _updateVolIcon();
+}
 
-function musicStop() {}      // no-op: synth removed
+function volumeToggleMute() {
+  if (typeof _tryResumeAudio === 'function') {}
+  if (_mutedByBtn || !_musicEnabled) {
+    _mutedByBtn   = false;
+    _musicEnabled = true;
+    const v = Math.max(0.10, _volumeLevel);
+    _volumeLevel  = v;
+    if (typeof _mp3El !== 'undefined' && _mp3El) _mp3El.volume = v;
+    const slider = document.getElementById('vol-slider');
+    if (slider) slider.value = Math.round(v * 100);
+    if (typeof _mp3El !== 'undefined' && _mp3El && _mp3El.paused && typeof _mp3Key !== 'undefined' && _mp3Key) {
+      _mp3El.play().catch(function(){});
+    }
+  } else {
+    _mutedByBtn   = true;
+    _musicEnabled = false;
+    if (typeof _mp3El !== 'undefined' && _mp3El) _mp3El.volume = 0;
+  }
+  _updateVolIcon();
+}
+
+function _updateVolIcon() {
+  const icon = document.getElementById('vol-icon');
+  if (!icon) return;
+  const muted = _mutedByBtn || !_musicEnabled || _volumeLevel === 0;
+  icon.textContent = muted ? '\uD83D\uDD07' : (_volumeLevel < 0.4 ? '\uD83D\uDD09' : '\uD83D\uDD0A');
+}
 
 function musicToggle() {
-  _musicEnabled = !_musicEnabled;
-  document.querySelectorAll('.music-toggle-btn').forEach(b => {
-    b.textContent = _musicEnabled ? '\uD83D\uDD0A' : '\uD83D\uDD07';
-    b.title = _musicEnabled ? 'Mute Music' : 'Unmute Music';
-  });
+  volumeToggleMute();
   return _musicEnabled;
 }
 
@@ -1389,12 +1424,21 @@ function musicToggle() {
 //   musicPlaySmart(key)  — routes to MP3 or synth
 //   musicStopAll()       — stops both systems
 
-const _MP3_KEYS = new Set(['menu', 'battle_Fire', 'battle_Lightning']);
+const _MP3_KEYS = new Set([
+  'menu',
+  'battle_Fire', 'battle_Lightning',
+  'battle_Plasma', 'battle_Air', 'battle_Nature', 'battle_Ice', 'battle_Water',
+]);
 
 const _MP3_PATHS = {
   menu:              'audio/menu.mp3',
   battle_Fire:       'audio/fire.mp3',
   battle_Lightning:  'audio/lightning.mp3',
+  battle_Plasma:     'audio/Wizard League Plasma Theme .mp3',
+  battle_Air:        'audio/Wizard League Air Theme .mp3',
+  battle_Nature:     'audio/Wizard League Nature Theme .mp3',
+  battle_Ice:        'audio/Wizard League Ice Theme .mp3',
+  battle_Water:      'audio/Wizard League Water Theme .mp3',
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -1422,9 +1466,10 @@ function _mp3FadeIn(el, onDone) {
   const from  = el.volume;
   function tick(now) {
     const t = Math.min((now - start) / _MP3_FADE_MS, 1);
-    el.volume = from + (_MP3_MAX_VOL - from) * t;
+    const _targetVol = _musicEnabled ? (typeof _volumeLevel !== 'undefined' ? _volumeLevel : _MP3_MAX_VOL) : 0;
+    el.volume = from + (_targetVol - from) * t;
     if (t < 1) { _mp3FadeRAF = requestAnimationFrame(tick); }
-    else        { el.volume = _MP3_MAX_VOL; _mp3FadeRAF = null; if (onDone) onDone(); }
+    else        { el.volume = _musicEnabled ? (typeof _volumeLevel !== 'undefined' ? _volumeLevel : _MP3_MAX_VOL) : 0; _mp3FadeRAF = null; if (onDone) onDone(); }
   }
   _mp3FadeRAF = requestAnimationFrame(tick);
 }
@@ -1514,13 +1559,7 @@ function musicStopAll() {
   _smartCurrentKey = null;
 }
 
-// Keep MP3 in sync with mute toggle
-const _origMusicToggle = typeof musicToggle === 'function' ? musicToggle : null;
-function musicToggle() {
-  const result = _origMusicToggle ? _origMusicToggle() : true;
-  if (_mp3El) _mp3El.muted = !_musicEnabled;
-  return result;
-}
+// musicToggle is fully defined in music.js stubs above — no override needed here.
 
 
 // ===== animations.js =====
@@ -11992,10 +12031,13 @@ function backToElementSelectFromPassive(){
   function _firstGesture(){
     if (_started) return;
     _started = true;
-    _tryResumeAudio();
+    // Sync MP3 element volume to slider on first gesture
+    const slider = document.getElementById('vol-slider');
+    if (slider) _volumeLevel = Number(slider.value) / 100;
     const active = document.querySelector('.screen.active');
     const id = active ? active.id : 'title-screen';
     if (['title-screen','save-select-screen','hub-screen','element-screen','passive-screen'].includes(id)) {
+      _smartCurrentKey = null;
       musicPlaySmart('menu');
     }
     ['click','keydown','touchstart'].forEach(ev =>
