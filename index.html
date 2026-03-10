@@ -7591,7 +7591,7 @@ function showScreen(id){
   const _zone = (typeof currentZoneElement !== 'undefined' && currentZoneElement)
     ? currentZoneElement
     : (typeof playerElement !== 'undefined' ? playerElement : null);
-  const _menuScreens = ['title-screen','save-select-screen','hub-screen','element-screen','passive-screen'];
+  const _menuScreens = ['title-screen','save-select-screen','hub-screen','element-screen','passive-screen','between-runs-screen','character-screen'];
   if(id === 'combat-screen'){
     musicPlaySmart(_zone ? 'battle_' + _zone : 'battle_Fire');
   } else if(['map-screen','campfire-screen','shop-screen','gym-screen'].includes(id)){
