@@ -1449,7 +1449,7 @@ const _MP3_PATHS = {
   battle_Air:        'audio/Wizard League Air Theme .mp3',
   battle_Nature:     'audio/Wizard League Nature Theme .mp3',
   battle_Ice:        'audio/Wizard League Ice Theme .mp3',
-  battle_Water:      'audio/Wizard League Water Theme .mp3',
+  battle_Water:      'audio/Wizard League Water Theme.mp3',
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -12046,12 +12046,9 @@ function backToElementSelectFromPassive(){
     // Sync volume level from slider
     const slider = document.getElementById('vol-slider');
     if (slider) _volumeLevel = Number(slider.value) / 100;
-    const active = document.querySelector('.screen.active');
-    const id = active ? active.id : 'title-screen';
-    if (['title-screen','save-select-screen','hub-screen','element-screen','passive-screen'].includes(id)) {
-      _smartCurrentKey = null;
-      musicPlaySmart('menu');
-    }
+    // Always start menu music on first gesture — title screen is always first
+    _smartCurrentKey = null;
+    musicPlaySmart('menu');
     ['click','keydown','touchstart'].forEach(ev =>
       document.removeEventListener(ev, _firstGesture, true)
     );
