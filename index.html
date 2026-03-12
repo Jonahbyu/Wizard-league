@@ -6,14 +6,15 @@
   <title>Wizard's League</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    html{height:100%;overflow-y:auto;}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{background:#0a0a0f;color:#fff;font-family:Georgia,serif;min-height:100vh;display:flex;align-items:center;justify-content:center;font-size:18px;}
+    body{background:#0a0a0f;color:#fff;font-family:Georgia,serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;font-size:18px;overflow-y:auto;}
     .screen{display:none;width:100%;position:relative;z-index:1;}
-    .screen.active{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2.2rem;}
+    .screen.active{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;padding:2.2rem 2.2rem 3rem;}
     /* Non-combat screens: transparent so sky shows through */
     #title-screen.active,#element-screen.active,#passive-screen.active,
-    #map-screen.active,#gym-screen.active,#campfire-screen.active,
-    #shop-screen.active,#skillpoint-screen.active,#spellchoice-screen.active,
+    #map-screen.active,#gym-screen.active,#rival-screen.active,#campfire-screen.active,
+    #shop-screen.active,#battle-reward-screen.active,#spellchoice-screen.active,
     #passivechoice-screen.active,#elementunlock-screen.active{background:transparent;}
     /* Combat + gameover: solid */
     #gameover-screen.active{background:#0a0a0f;}
@@ -95,9 +96,11 @@
     .encounter-card:hover{background:#181410;border-color:#3a3020;}
     .enc-left{display:flex;flex-direction:column;gap:3px;}
     .enc-name{font-family:'Cinzel',serif;font-size:.86rem;}
+    .enc-desc svg { overflow: visible; flex-shrink: 0; }
     .enc-desc{font-size:.64rem;color:#555;}
     .enc-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
     .enc-difficulty{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-family:'Cinzel',serif;}
+    .enc-reward-tag{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;text-align:right;}
     .enc-stats{font-size:.62rem;color:#555;}
     .diff-easy{color:#3a8a3a;} .diff-medium{color:#8a7a1a;} .diff-hard{color:#8a2a2a;}
     .special-card{border-radius:6px;padding:.85rem 1.2rem;cursor:pointer;transition:filter .2s;display:flex;justify-content:space-between;align-items:center;}
@@ -138,6 +141,293 @@
     .log-line.lose{color:#8a3a3a;font-family:'Cinzel',serif;font-weight:bold;}
 
     /* SPELLS */
+    /* ─── SPELLBOOK WIDGET ─────────────────────────────────────────────────── */
+
+    /* ── Outer book cover ── */
+    .spellbook-widget {
+      width: 100%;
+      max-width: 600px;
+      margin: .5rem auto 0;
+      position: relative;
+      /* Thick leather cover with spine shadow */
+      background: #3b1f08;
+      border: 4px solid #5c2e0a;
+      border-radius: 6px 14px 14px 6px;
+      box-shadow:
+        -8px 0 0 #2a1205,          /* spine thickness */
+        -10px 2px 8px rgba(0,0,0,.6),
+        4px 4px 18px rgba(0,0,0,.7),
+        inset 0 0 0 2px rgba(255,200,100,.07);
+    }
+
+    /* Spine strip on left edge */
+    .spellbook-widget::before {
+      content: '';
+      position: absolute;
+      left: -10px; top: 2px; bottom: 2px;
+      width: 10px;
+      background: linear-gradient(90deg, #1a0c04 0%, #3b1f08 100%);
+      border-radius: 3px 0 0 3px;
+      box-shadow: inset -2px 0 4px rgba(0,0,0,.4);
+      z-index: 0;
+    }
+
+    /* Corner studs on cover */
+    .spellbook-widget::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 5px 13px 13px 5px;
+      border: 2px solid rgba(180,110,30,.25);
+      pointer-events: none;
+    }
+
+    /* ── Top bar (tabs + controls) — cover top strip ── */
+    .sb-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, #4a2810 0%, #2e1608 100%);
+      border-bottom: 3px solid #5c2e0a;
+      padding: .35rem .6rem .3rem;
+      gap: .4rem;
+      flex-wrap: wrap;
+      border-radius: 0 10px 0 0;
+      position: relative;
+      z-index: 1;
+    }
+    .sb-book-tabs { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .sb-book-tab {
+      font-family: 'Cinzel', serif;
+      font-size: .57rem;
+      letter-spacing: .06em;
+      padding: .2rem .5rem;
+      border-radius: 3px 3px 0 0;
+      cursor: pointer;
+      border: 1px solid #5c2e0a;
+      border-bottom: none;
+      background: #1e0e05;
+      color: #7a4a20;
+      text-transform: uppercase;
+      transition: all .12s;
+    }
+    .sb-book-tab.active {
+      background: linear-gradient(180deg, #f5dfa0 0%, #e8c870 100%);
+      color: #2a1005;
+      border-color: #8a6020;
+    }
+    .sb-book-tab:hover:not(.active) { background: #2a1408; color: #b07840; }
+    .sb-topbar-right { display: flex; gap: .4rem; align-items: center; }
+    .sb-item-btn {
+      background: #1e0e05;
+      border: 1px solid #5c2e0a;
+      color: #c8902a;
+      padding: .2rem .5rem;
+      font-size: .6rem;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+      letter-spacing: .04em;
+      transition: all .12s;
+    }
+    .sb-item-btn:hover:not(:disabled) { background: #2a1408; color: #e8b050; }
+    .sb-item-btn:disabled { opacity: .3; cursor: not-allowed; }
+    .sb-endturn-btn {
+      background: linear-gradient(180deg, #4a2808 0%, #1e0e04 100%);
+      border: 1px solid #8a5020;
+      color: #e8b050;
+      padding: .22rem .65rem;
+      font-family: 'Cinzel', serif;
+      font-size: .59rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all .12s;
+      white-space: nowrap;
+    }
+    .sb-endturn-btn:hover:not(:disabled) { background: linear-gradient(180deg, #5a3410 0%, #2a1408 100%); border-color: #e8b050; }
+    .sb-endturn-btn:disabled { opacity: .28; cursor: not-allowed; }
+    .sb-endturn-btn.ready { border-color: #f0c840; color: #f8e070; box-shadow: 0 0 8px rgba(240,180,40,.25); }
+
+    /* ── Parchment page interior ── */
+    .sb-passives-row,
+    .sb-queue-bar,
+    .sb-spell-grid,
+    .inv-panel {
+      background: #f2e0b8;   /* warm parchment */
+      position: relative;
+    }
+
+    /* Crumpled paper texture via noise-like gradients */
+    .sb-passives-row::before,
+    .sb-spell-grid::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        repeating-linear-gradient(87deg, transparent 0px, transparent 18px, rgba(160,120,60,.06) 18px, rgba(160,120,60,.06) 19px),
+        repeating-linear-gradient(3deg, transparent 0px, transparent 22px, rgba(100,70,20,.04) 22px, rgba(100,70,20,.04) 23px),
+        radial-gradient(ellipse at 30% 40%, rgba(180,140,80,.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 75% 70%, rgba(120,90,30,.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .sb-passives-row > *, .sb-spell-grid > * { position: relative; z-index: 1; }
+
+    /* Page edge fold shadow on right */
+    .sb-spell-grid::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 18px;
+      background: linear-gradient(90deg, transparent, rgba(100,60,20,.12));
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ── Passives row ── */
+    .sb-passives-row {
+      display: flex;
+      gap: .5rem;
+      padding: .4rem .7rem .35rem;
+      border-bottom: 1px solid #c8a060;
+      flex-wrap: wrap;
+      min-height: 38px;
+      align-items: center;
+    }
+    .sb-passive-pip {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff8e8, #e8c870);
+      border: 2px solid #8a6020;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .82rem;
+      cursor: default;
+      position: relative;
+      box-shadow: inset 0 1px 2px rgba(255,255,200,.5), 0 1px 3px rgba(0,0,0,.3);
+      transition: border-color .12s;
+    }
+    .sb-passive-pip:hover { border-color: #c8800a; z-index: 2; }
+    .sb-passive-pip::after {
+      content: attr(data-tip);
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 5px);
+      left: 50%; transform: translateX(-50%);
+      background: #2a1005;
+      border: 1px solid #8a5020;
+      color: #f0c870;
+      font-size: .58rem;
+      font-family: 'Cinzel', serif;
+      white-space: nowrap;
+      padding: .2rem .5rem;
+      border-radius: 3px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .sb-passive-pip:hover::after { display: block; }
+    .sb-passive-empty { font-size: .6rem; color: #a07840; letter-spacing: .08em; font-style: italic; }
+
+    /* ── Queue bar ── */
+    .sb-queue-bar {
+      padding: .3rem .7rem;
+      border-bottom: 1px solid #c8a060;
+    }
+    .sb-queue-label { display: flex; align-items: center; margin-bottom: .2rem; }
+    .queue-slots { display: flex; gap: .3rem; flex-wrap: wrap; min-height: 20px; align-items: center; }
+    .queue-slot {
+      background: #e8d090;
+      border: 1px solid #8a6020;
+      border-radius: 3px;
+      color: #3a1a05;
+      font-size: .57rem;
+      padding: .16rem .45rem;
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+      letter-spacing: .04em;
+      box-shadow: inset 0 1px 0 rgba(255,255,200,.4);
+    }
+    .queue-slot:hover { background: #d4b870; border-color: #5a3010; }
+    .queue-empty { font-size: .57rem; color: #a08050; font-style: italic; }
+    .qs-x { color: #8a3a20; margin-left: .3rem; }
+
+    /* ── Spell grid — 3-col parchment grid ── */
+    .sb-spell-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 2px solid #5c2e0a;  /* bottom cover edge */
+    }
+    .sb-spell-cell {
+      background: transparent;
+      border: none;
+      border-right: 1px solid rgba(140,90,30,.25);
+      border-bottom: 1px solid rgba(140,90,30,.2);
+      padding: .6rem .35rem .45rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .12rem;
+      transition: background .1s;
+      min-height: 68px;
+      font-family: inherit;
+      position: relative;
+    }
+    .sb-spell-cell:hover:not(:disabled) {
+      background: rgba(200,150,60,.15);
+    }
+    .sb-spell-cell:disabled { opacity: .42; cursor: not-allowed; }
+    .sb-spell-cell.on-cd { background: rgba(80,50,20,.08); }
+    .sb-spell-cell.on-cd .sb-spell-icon { filter: grayscale(.65) opacity(.65); }
+    .sb-spell-icon { font-size: 1.4rem; line-height: 1; }
+    .sb-spell-name {
+      font-family: 'Cinzel', serif;
+      font-size: .53rem;
+      letter-spacing: .04em;
+      color: #3a1a05;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .sb-spell-cd {
+      font-size: .51rem;
+      letter-spacing: .05em;
+    }
+    .sb-spell-cd.ready { color: #4a6a20; }
+    .sb-spell-cd.on-cd  { color: #8a3a20; }
+    .sb-spell-queued-badge {
+      position: absolute; top: 3px; right: 4px;
+      font-size: .5rem; color: #6a4010;
+      letter-spacing: .04em; font-family: 'Cinzel', serif;
+    }
+
+    /* Inventory panel on parchment */
+    .inv-panel{
+      background: #f2e0b8;
+      border: none;
+      border-top: 1px solid #c8a060;
+      border-radius: 0 0 8px 0;
+      padding:.5rem;
+      display:none;
+      flex-direction:column;
+      gap:4px;
+    }
+    .inv-panel.open{display:flex;}
+    .inv-item-btn{
+      background:#e8d090;
+      border:1px solid #8a6020;
+      color:#3a1a05;
+      padding:.4rem .7rem;
+      font-family:Georgia,serif;
+      font-size:.72rem;
+      cursor:pointer;
+      border-radius:3px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .inv-item-btn:hover{background:#d4b870;}
+
+    /* Old compat */
     .spell-area{width:100%;max-width:980px;}
     .turn-indicator{font-size:.8rem;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;text-align:center;}
     .spell-grid{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.35rem;}
@@ -198,6 +488,10 @@
     .end-turn-btn.ready{border-color:#8a6a30;color:#e8c070;}
 
     /* CONFIRM MODAL */
+    .boo-spell-btn{width:100%;background:#0f0d0b;border:1px solid #2a2020;color:#aaa;padding:.45rem .7rem;font-family:'Cinzel',serif;font-size:.72rem;cursor:pointer;border-radius:4px;display:flex;justify-content:space-between;align-items:center;transition:background .15s,border-color .15s;}
+    .boo-spell-btn:hover{background:#1a1410;border-color:#8a3a20;}
+    .boo-remove-hint{font-size:.6rem;color:#6a3a20;letter-spacing:.06em;text-transform:uppercase;}
+    .boo-spell-btn:hover .boo-remove-hint{color:#e84a4a;}
     .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;}
     .modal-overlay.open{display:flex;}
     .modal-box{background:#0f0d0b;border:1px solid #3a2a18;border-radius:8px;padding:1.6rem 2rem;text-align:center;max-width:300px;}
@@ -212,7 +506,7 @@
 
 
     /* PROGRESSION SCREENS */
-    #skillpoint-screen, #spellchoice-screen, #passivechoice-screen{ gap:.7rem; }
+    #battle-reward-screen, #spellchoice-screen, #passivechoice-screen{ gap:.7rem; }
     .prog-title{ font-family:'Cinzel',serif; font-size:1.1rem; letter-spacing:.15em; color:#c8a060; margin-bottom:.1rem; }
     .prog-sub{ color:#555; font-size:.72rem; letter-spacing:.08em; margin-bottom:.5rem; }
     .prog-choices{ display:flex; flex-direction:column; gap:.55rem; width:100%; max-width:480px; }
@@ -265,6 +559,10 @@
     .levelup-banner .spell-learned{color:#c8a060;font-size:.78rem;margin-top:.5rem;padding:.5rem .8rem;background:#0f0a08;border:1px solid #3a2a10;border-radius:4px;}
   
     /* PASSIVE MODAL */
+    .boo-spell-btn{width:100%;background:#0f0d0b;border:1px solid #2a2020;color:#aaa;padding:.45rem .7rem;font-family:'Cinzel',serif;font-size:.72rem;cursor:pointer;border-radius:4px;display:flex;justify-content:space-between;align-items:center;transition:background .15s,border-color .15s;}
+    .boo-spell-btn:hover{background:#1a1410;border-color:#8a3a20;}
+    .boo-remove-hint{font-size:.6rem;color:#6a3a20;letter-spacing:.06em;text-transform:uppercase;}
+    .boo-spell-btn:hover .boo-remove-hint{color:#e84a4a;}
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:9999;padding:1.5rem;}
     .modal{width:100%;max-width:640px;background:#0c0c10;border:1px solid #2a2a35;border-radius:10px;padding:1.2rem 1.2rem 1rem;box-shadow:0 10px 40px rgba(0,0,0,.45);}
     .modal h3{font-family:'Cinzel',serif;letter-spacing:.12em;text-transform:uppercase;font-size:1.05rem;margin-bottom:.25rem;}
@@ -422,11 +720,13 @@
       font-size: 0.57rem;
       color: #c8a060;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 130px;
+      overflow: visible;
+      display: flex;
+      align-items: center;
+      gap: 4px;
       margin-bottom: 2px;
     }
+    .arena-hud-name svg { flex-shrink: 0; overflow: visible; }
     .arena-player-hud .arena-hud-name { color: #8aca70; }
 
     .arena-hud-hp-wrap {
@@ -603,129 +903,327 @@
        CHARACTER SELECT SCREEN
        ══════════════════════════════════════════════════ */
 
+    /* ── Wizard Builder ── */
+    .wiz-section {
+      background: #0c0a06;
+      border: 1px solid #1e1608;
+      border-radius: 7px;
+      padding: .55rem .7rem .5rem;
+    }
+    .wiz-section-label {
+      font-family: 'Cinzel', serif;
+      font-size: .52rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #5a4020;
+      margin-bottom: .45rem;
+    }
+    .wiz-opts {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .wiz-opt {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: .35rem .45rem .3rem;
+      border: 1px solid #2a1a08;
+      border-radius: 6px;
+      background: #10090504;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      min-width: 54px;
+    }
+    .wiz-opt:hover { border-color: #5a3a18; background: #161008; }
+    .wiz-opt.selected { border-color: #8a6020; background: #1a1208; box-shadow: 0 0 6px rgba(180,130,40,.15); }
+    .wiz-opt-swatch {
+      width: 28px; height: 28px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,.06);
+      position: relative;
+      overflow: hidden;
+    }
+    .wiz-opt-label {
+      font-size: .46rem;
+      color: #6a4a28;
+      text-align: center;
+      font-family: 'Cinzel', serif;
+      letter-spacing: .06em;
+      line-height: 1.3;
+    }
+    .wiz-opt.selected .wiz-opt-label { color: #c8a060; }
+
     .char-screen-title {
       font-family: 'Cinzel', serif;
-      font-size: 1.35rem;
-      letter-spacing: .15em;
-      margin-bottom: .25rem;
+      font-size: 1.5rem;
+      letter-spacing: .18em;
+      color: #e8c870;
+      text-shadow: 0 0 30px rgba(200,160,60,.3);
+      margin-top: 1.5rem;
+      margin-bottom: .2rem;
     }
 
     .char-card-grid {
       display: flex;
       flex-direction: row;
-      gap: 14px;
+      gap: 18px;
       width: 100%;
-      max-width: 820px;
+      max-width: 860px;
       justify-content: center;
       margin-bottom: 1.4rem;
       flex-wrap: wrap;
     }
 
+    /* ── Card shell ── */
     .char-card {
-      flex: 1 1 200px;
-      max-width: 240px;
-      min-width: 170px;
-      background: linear-gradient(160deg, #14100a 0%, #0c0a08 60%);
-      border: 1px solid #2a2018;
-      border-radius: 8px;
-      padding: 1rem .85rem .9rem;
+      flex: 1 1 220px;
+      max-width: 255px;
+      min-width: 190px;
+      background: linear-gradient(175deg, #16100a 0%, #0c0a06 70%);
+      border: 1px solid #2a1e10;
+      border-radius: 10px;
+      padding: 0 0 1rem;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 5px;
-      transition: border-color .15s, transform .12s, background .15s;
+      gap: 0;
+      transition: border-color .18s, transform .14s, box-shadow .18s;
       position: relative;
+      overflow: hidden;
     }
     .char-card:hover {
-      border-color: #5a4020;
-      transform: translateY(-3px);
-      background: linear-gradient(160deg, #1a1408 0%, #10100a 60%);
+      border-color: #6a4820;
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0,0,0,.6), 0 0 20px rgba(var(--card-glow-rgb),.12);
     }
     .char-card.char-selected {
       border-color: #c8a060;
-      box-shadow: 0 0 12px rgba(200,160,60,.2);
-      background: linear-gradient(160deg, #1e1808 0%, #14120a 60%);
+      box-shadow: 0 0 0 1px #c8a060, 0 8px 28px rgba(200,160,60,.25);
     }
     .char-card.char-selected::after {
-      content: '✓';
+      content: '✦ CHOSEN';
       position: absolute;
-      top: 6px; right: 9px;
-      font-size: .7rem;
+      top: 8px; right: 10px;
+      font-size: .5rem;
       color: #c8a060;
       font-family: 'Cinzel', serif;
+      letter-spacing: .12em;
     }
 
-    .char-sprite-canvas {
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      margin-bottom: 4px;
+    /* ── Portrait area ── */
+    .char-portrait {
+      width: 100%;
+      height: 290px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 9px 9px 0 0;
+      margin-bottom: .75rem;
+    }
+    /* Sky / atmosphere gradient */
+    .char-portrait-bg {
+      position: absolute; inset: 0;
+      background: var(--portrait-bg);
+    }
+    /* Ground strip */
+    .char-portrait-ground {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 36px;
+      background: var(--portrait-ground);
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+    /* Vignette */
+    .char-portrait::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 110%, transparent 40%, rgba(0,0,0,.45) 100%);
+      pointer-events: none;
+    }
+    /* The wizard figure — pure CSS */
+    .char-figure {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    /* Hat — tall pointed cone sitting above the head */
+    .char-hat {
+      width: 0; height: 0;
+      border-left: 28px solid transparent;
+      border-right: 28px solid transparent;
+      border-bottom: 72px solid var(--hat-color);
+      position: relative;
+      filter: drop-shadow(0 -3px 10px var(--hat-glow));
+      z-index: 2;
+      margin-bottom: -4px;
+    }
+    /* Hat brim — sits at the base of the cone */
+    .char-hat::after {
+      content: '';
+      position: absolute;
+      bottom: -10px; left: -36px;
+      width: 72px; height: 14px;
+      background: var(--hat-brim);
+      border-radius: 50%;
+    }
+    /* Hat shine */
+    .char-hat::before {
+      content: '';
+      position: absolute;
+      top: 10px; left: -4px;
+      width: 6px; height: 30px;
+      background: rgba(255,255,255,0.08);
+      transform: rotate(8deg);
+      border-radius: 3px;
+    }
+    /* Head */
+    .char-head {
+      width: 32px; height: 32px;
+      background: radial-gradient(circle at 38% 32%, #f5d8b0, #c8986a);
+      border-radius: 50% 50% 46% 46%;
+      margin-top: 6px;
+      position: relative;
+      z-index: 3;
+      box-shadow: 0 3px 8px rgba(0,0,0,.5);
+    }
+    /* Eyes */
+    .char-head::before {
+      content: '';
+      position: absolute;
+      top: 13px; left: 7px;
+      width: 5px; height: 5px;
+      background: #2a1005;
+      border-radius: 50%;
+      box-shadow: 10px 0 0 #2a1005;
+    }
+    /* Robe body */
+    .char-robe {
+      width: 54px; height: 70px;
+      background: linear-gradient(175deg, var(--robe-hi) 0%, var(--robe-lo) 100%);
+      border-radius: 5px 5px 18px 18px;
+      position: relative;
+      box-shadow: 3px 5px 14px rgba(0,0,0,.6);
+      margin-top: -2px;
+    }
+    /* Belt/sash line */
+    .char-robe::before {
+      content: '';
+      position: absolute;
+      top: 20px; left: 0; right: 0;
+      height: 3px;
+      background: rgba(255,255,255,.14);
+    }
+    /* Robe hem detail */
+    .char-robe::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 8px; right: 8px;
+      height: 12px;
+      background: rgba(0,0,0,.2);
+      border-radius: 0 0 12px 12px;
+    }
+    /* Staff */
+    .char-staff {
+      position: absolute;
+      right: -16px; top: -80px;
+      width: 5px; height: 150px;
+      background: linear-gradient(180deg, #a07030 0%, #5a3a10 100%);
+      border-radius: 2.5px;
+      box-shadow: 1px 0 5px rgba(0,0,0,.5);
+    }
+    /* Staff orb */
+    .char-staff::before {
+      content: '';
+      position: absolute;
+      top: -12px; left: -8px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 32%, var(--staff-glow-hi), var(--staff-glow-lo));
+      box-shadow: 0 0 14px var(--staff-glow-lo), 0 0 30px var(--staff-glow-lo);
+    }
+    /* Floating sparkle particles */
+    .char-spark {
+      position: absolute;
+      border-radius: 50%;
+      animation: sparkleDrift 3s ease-in-out infinite;
+      background: var(--spark-color);
+    }
+    @keyframes sparkleDrift {
+      0%,100% { opacity: 0; transform: translateY(0) scale(.6); }
+      50%      { opacity: .8; transform: translateY(-14px) scale(1); }
     }
 
+    /* ── Text section ── */
     .char-name {
       font-family: 'Cinzel', serif;
-      font-size: .95rem;
+      font-size: 1rem;
       letter-spacing: .1em;
       color: #e8c870;
+      padding: 0 .8rem;
     }
-
     .char-title-txt {
-      font-size: .58rem;
-      color: #5a4a2a;
-      letter-spacing: .12em;
+      font-size: .54rem;
+      color: #5a4a28;
+      letter-spacing: .14em;
       text-transform: uppercase;
       font-family: 'Cinzel', serif;
-      margin-bottom: 2px;
+      margin-bottom: 5px;
     }
-
     .char-desc-txt {
-      font-size: .65rem;
-      color: #888;
+      font-size: .64rem;
+      color: #907a58;
       text-align: center;
-      line-height: 1.45;
+      line-height: 1.5;
+      padding: 0 .8rem;
     }
-
     .char-flavor {
-      font-size: .56rem;
-      color: #4a3a20;
+      font-size: .54rem;
+      color: #3a2e18;
       font-style: italic;
       text-align: center;
       line-height: 1.4;
-      margin-top: 2px;
+      margin-top: 3px;
+      padding: 0 .9rem;
     }
-
+    .char-divider {
+      width: 60%; height: 1px;
+      background: linear-gradient(90deg, transparent, #3a2810, transparent);
+      margin: .55rem 0 .45rem;
+    }
     .char-buff-box {
-      width: 100%;
-      background: #0a0808;
-      border: 1px solid #3a2810;
+      width: calc(100% - 1.4rem);
+      background: rgba(0,0,0,.35);
+      border: 1px solid #2a1e0e;
       border-radius: 5px;
-      padding: .45rem .6rem .4rem;
-      margin-top: 6px;
+      padding: .4rem .6rem .35rem;
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
-
     .char-buff-label {
-      font-size: .5rem;
-      color: #4a3a18;
-      letter-spacing: .12em;
+      font-size: .46rem;
+      color: #4a3820;
+      letter-spacing: .14em;
       text-transform: uppercase;
       font-family: 'Cinzel', serif;
     }
-
     .char-buff-name {
       font-family: 'Cinzel', serif;
-      font-size: .72rem;
+      font-size: .7rem;
       color: #c8a060;
     }
-
     .char-buff-desc {
-      font-size: .6rem;
+      font-size: .58rem;
       color: #7a6040;
       line-height: 1.4;
     }
-
     .char-screen-btns {
       display: flex;
       flex-direction: column;
@@ -735,7 +1233,7 @@
 
     @media (max-width: 560px) {
       .char-card-grid { flex-direction: column; align-items: center; }
-      .char-card { max-width: 300px; width: 100%; }
+      .char-card { max-width: 320px; width: 100%; }
     }
 
 
@@ -1066,19 +1564,34 @@
   <div class="hub-stats-row" id="hub-stats-row"></div>
   <input type="text" class="txt-input" id="hub-name-input" placeholder="Enter your name" maxlength="20" style="margin-top:1.2rem;"/>
   <div id="hub-error" style="color:#ff4444;font-size:.75rem;min-height:1rem;margin-bottom:.2rem;"></div>
-  <button class="btn-main" style="width:220px;" onclick="hubPlay()">⚔ New Run</button>
-  <button class="btn-main" style="width:220px;background:#1a0a2a;color:#da70d6;border:1px solid #6a2a8a;margin-top:.4rem;" onclick="hubSandbox()">🔬 Sandbox</button>
+  <button class="btn-main" style="width:220px;" onclick="hubPlay()">⚔ Begin Adventure</button>
   <button class="btn-back" style="margin-top:.8rem;width:220px;" onclick="showSaveSelect()">← Save Files</button>
 </div>
 
 <!-- CHARACTER SELECT -->
 <div id="character-screen" class="screen">
-  <h2 class="char-screen-title">Choose Your Character</h2>
-  <p class="subtitle" id="char-screen-sub">Each character has a unique starting buff — randomly rolled each attempt.</p>
-  <div class="char-card-grid" id="char-card-grid"></div>
-  <div class="char-screen-btns">
-    <button class="btn-main" id="char-continue-btn" onclick="confirmCharacterSelect()" disabled>Continue →</button>
-    <button class="btn-main" style="font-size:.78rem;padding:.55rem;margin-top:.5rem;" onclick="showHub()">← Back</button>
+  <h2 class="char-screen-title">Build Your Wizard</h2>
+  <p class="subtitle" style="margin-bottom:.8rem;">Customise your look — your choices carry across every run</p>
+  <div id="wiz-builder" style="display:flex;gap:18px;width:100%;max-width:860px;flex-wrap:wrap;justify-content:center;align-items:flex-start;">
+    <!-- Preview pane -->
+    <div id="wiz-preview-pane" style="display:flex;flex-direction:column;align-items:center;gap:.5rem;min-width:160px;">
+      <div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid #2a1e0e;">
+        <canvas id="wiz-preview-canvas" width="160" height="240" style="display:block;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
+      </div>
+      <div id="wiz-prev-name" style="font-family:'Cinzel',serif;font-size:.75rem;color:#c8a060;letter-spacing:.1em;"></div>
+      <button class="btn-main" id="char-continue-btn" onclick="confirmCharacterSelect()" style="width:140px;padding:.55rem;">Continue →</button>
+      <button class="btn-main" onclick="showBetweenRuns()" style="width:140px;padding:.4rem;font-size:.72rem;background:#0a0806;color:#5a4828;border-color:#2a1e0e;">← Back</button>
+    </div>
+    <!-- Options pane -->
+    <div id="wiz-options-pane" style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:10px;">
+      <div id="wiz-section-archetype"></div>
+      <div id="wiz-section-hat"></div>
+      <div id="wiz-section-outfit"></div>
+      <div id="wiz-section-beard"></div>
+      <div id="wiz-section-staff"></div>
+      <div id="wiz-section-staffglow"></div>
+      <div id="wiz-section-eyes"></div>
+    </div>
   </div>
 </div>
 
@@ -1134,6 +1647,22 @@
   <button class="btn-back" id="gym-skip-btn" style="width:260px;" onclick="skipGym()">Skip for Now</button>
 </div>
 
+<!-- RIVAL INTRO SCREEN -->
+<div id="rival-screen" class="screen" style="text-align:center;gap:.8rem;">
+  <div style="font-family:'Cinzel',serif;font-size:.7rem;letter-spacing:.15em;color:#6a4a80;text-transform:uppercase;margin-bottom:.2rem;">Rival Encounter</div>
+  <h2 id="rival-title" style="font-family:'Cinzel',serif;font-size:1.2rem;letter-spacing:.1em;margin-bottom:.2rem;">⚔ Rival Ash</h2>
+  <div id="rival-dialogue" style="background:#0f0d1a;border:1px solid #2a1a4a;border-radius:6px;padding:.8rem 1.2rem;margin:.3rem 0 .5rem;font-size:.78rem;color:#9a7aaa;font-style:italic;max-width:360px;line-height:1.6;">"..."</div>
+  <div style="background:#0f0d1a;border:1px solid #2a1a4a;border-radius:6px;padding:.6rem 1.1rem;font-size:.74rem;color:#7a6aaa;">
+    HP: <span id="rival-hp-display" style="color:#9a7aff;font-family:'Cinzel',serif;">—</span>
+    &nbsp;·&nbsp;
+    Dmg: <span id="rival-dmg-display" style="color:#9a7aff;font-family:'Cinzel',serif;">—</span>/turn
+    &nbsp;·&nbsp;
+    Element: <span id="rival-element-display" style="color:#9a7aff;font-family:'Cinzel',serif;">—</span>
+  </div>
+  <div style="font-size:.64rem;color:#4a3a60;margin-top:-.1rem;">Reward: ✦ Passive Ability</div>
+  <button class="btn-gym" onclick="startRivalBattle()" style="margin-top:.3rem;">⚔ Fight Ash</button>
+</div>
+
 <!-- CAMPFIRE -->
 <div id="campfire-screen" class="screen">
   <h2 style="font-family:'Cinzel',serif;letter-spacing:.1em;margin-bottom:.3rem;">Campfire</h2>
@@ -1158,13 +1687,29 @@
   <div class="brun-last-run" id="brun-last-run"></div>
   <div class="brun-tabs" id="brun-tabs">
     <button class="brun-tab active" onclick="switchBrunTab('history',this)">📜 History</button>
+    <button class="brun-tab" onclick="switchBrunTab('books',this)">📖 Books</button>
     <button class="brun-tab" onclick="switchBrunTab('artifacts',this)">🏺 Artifacts</button>
     <button class="brun-tab" onclick="switchBrunTab('talents',this)">🌟 Talents</button>
-    <button class="brun-tab" onclick="switchBrunTab('skins',this)">🧙 Skins</button>
+    <button class="brun-tab" onclick="switchBrunTab('wizards',this)">🧙 Wizards</button>
   </div>
   <div class="brun-tab-content" id="brun-tab-content"></div>
   <button class="btn-main" style="width:220px;margin-top:.8rem;" onclick="lobbyStartRun()">⚔ New Run</button>
   <button class="btn-back" style="width:220px;margin-top:.4rem;" onclick="showSaveSelect()">← Save Files</button>
+</div>
+
+<!-- BOOK OVERFLOW OVERLAY -->
+<div class="modal-overlay" id="book-overflow-overlay">
+  <div class="modal-box" style="max-width:380px;">
+    <div style="font-family:'Cinzel',serif;font-size:.85rem;color:#c8a060;margin-bottom:.3rem;">📖 Spellbook Full</div>
+    <div style="font-size:.7rem;color:#888;margin-bottom:.8rem;"><span id="boo-book-name">Book</span> has no free slots.</div>
+    <div style="background:#0f0d0b;border:1px solid #2a2020;border-radius:4px;padding:.5rem .7rem;margin-bottom:.8rem;">
+      <div style="font-size:.65rem;color:#6a4a20;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem;">New Spell</div>
+      <div style="font-family:'Cinzel',serif;font-size:.82rem;color:#e8c060;" id="boo-new-spell"></div>
+      <div style="font-size:.65rem;color:#666;margin-top:.2rem;" id="boo-new-desc"></div>
+    </div>
+    <div style="font-size:.65rem;color:#6a4a20;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.4rem;">Choose a spell to remove:</div>
+    <div id="boo-spell-list" style="display:flex;flex-direction:column;gap:.4rem;"></div>
+  </div>
 </div>
 
 <!-- CONFIRM MODAL -->
@@ -1194,7 +1739,7 @@
     </div>
     <div class="stats-bar">
       <div class="stat-item"><div class="stat-label">Lvl</div><div class="stat-value" id="combat-level">1</div></div>
-      <div class="stat-item xp-mini"><div class="stat-label">XP</div><div class="xp-bar-wrap" style="width:60px;"><div class="xp-bar-fill" id="combat-xp-bar" style="width:0%"></div></div></div>
+
       <div class="stat-item"><div class="stat-label">ATK</div><div class="stat-value power" id="combat-atk">0</div></div>
       <div class="stat-item"><div class="stat-label">EFX</div><div class="stat-value sp" id="combat-ep">0</div></div>
       <div class="stat-item"><div class="stat-label">DEF</div><div class="stat-value" style="color:#4aaa8a" id="combat-def">0</div></div>
@@ -1235,25 +1780,45 @@
 
     <!-- ACTIONS tab -->
     <div class="ctab-panel active" id="ctabp-actions">
-      <div class="spell-area">
-        <div class="turn-indicator" id="turn-indicator">Planning Phase</div>
-        <div id="plasma-charge-wrap" style="display:none;width:100%;margin-bottom:.4rem;">
-          <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#9a5aaa;margin-bottom:3px;">
-            <span id="plasma-charge-txt">⚡ Charge: 3 / 20</span>
-          </div>
-          <div style="width:100%;height:7px;background:#1a0a2a;border-radius:3px;overflow:hidden;">
-            <div id="plasma-charge-bar" style="height:100%;background:#6a2a8a;border-radius:3px;transition:width .3s,background .3s;width:15%;"></div>
+
+      <!-- Plasma charge bar (shown only for Plasma) -->
+      <div id="plasma-charge-wrap" style="display:none;width:100%;padding:.4rem .6rem 0;max-width:980px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#9a5aaa;margin-bottom:3px;">
+          <span id="plasma-charge-txt">⚡ Charge: 3 / 20</span>
+        </div>
+        <div style="width:100%;height:7px;background:#1a0a2a;border-radius:3px;overflow:hidden;">
+          <div id="plasma-charge-bar" style="height:100%;background:#6a2a8a;border-radius:3px;transition:width .3s,background .3s;width:15%;"></div>
+        </div>
+      </div>
+
+      <!-- SPELLBOOK WIDGET -->
+      <div class="spellbook-widget" id="spellbook-widget">
+
+        <!-- Spine / top bar -->
+        <div class="sb-topbar">
+          <div class="sb-book-tabs" id="sb-book-tabs"><!-- book switcher injected --></div>
+          <div class="sb-topbar-right">
+            <button class="sb-item-btn" id="sb-item-btn" onclick="toggleInventory()">🎒 <span id="inv-count-label">0</span></button>
+            <button class="sb-endturn-btn" id="end-turn-btn" onclick="commitEndTurn()" disabled>⚔ End Turn</button>
           </div>
         </div>
-        <div class="queue-area">
-          <div class="queue-label">Queued Actions <span id="queue-slots-left" style="color:#6a4a20"></span></div>
+
+        <!-- Passives row -->
+        <div class="sb-passives-row" id="sb-passives-row"><!-- passive circles injected --></div>
+
+        <!-- Queue bar -->
+        <div class="sb-queue-bar">
+          <div class="sb-queue-label">
+            <span id="turn-indicator" style="font-size:.6rem;color:#6a4a20;letter-spacing:.1em;text-transform:uppercase;">Planning</span>
+            <span id="queue-slots-left" style="color:#8a6a30;font-size:.62rem;margin-left:.4rem;"></span>
+          </div>
           <div class="queue-slots" id="queue-slots"><span class="queue-empty">No actions queued</span></div>
         </div>
-        <button class="end-turn-btn" id="end-turn-btn" onclick="commitEndTurn()" disabled>⚔ End Turn — Resolve Actions</button>
-        <div class="spell-grid" id="spell-grid"></div>
-        <button class="inv-toggle" id="inv-toggle-btn" onclick="toggleInventory()" disabled>
-          <span>🎒 Use Item</span><span id="inv-count-label">0 items</span>
-        </button>
+
+        <!-- Spell grid (3 cols) -->
+        <div class="sb-spell-grid" id="spell-grid"></div>
+
+        <!-- Inventory panel -->
         <div class="inv-panel" id="inv-panel"></div>
 
       </div>
@@ -1272,17 +1837,20 @@
   </div>
 </div>
 
-<!-- SKILL POINT CHOICE SCREEN -->
-<div id="skillpoint-screen" class="screen">
-  <div class="level-badge" id="sp-level-badge">Level 2</div>
-  <div class="prog-title">✦ Level Up! ✦</div>
-  <div class="prog-sub">+2 Power gained. Spend your Skill Point.</div>
-  <div class="prog-choices" id="sp-choices"></div>
+<!-- BATTLE REWARD SCREEN -->
+<div id="battle-reward-screen" class="screen">
+  <div class="level-badge" id="br-badge">Battle 1</div>
+  <div class="prog-title" id="br-title">✦ Victory ✦</div>
+  <div class="prog-sub" id="br-sub">Choose your reward.</div>
+  <div class="prog-choices" id="br-choices"></div>
+  <div style="text-align:center;margin-top:.6rem;">
+    <button id="br-reroll-btn" onclick="rerollBattleReward()" style="display:none;background:#0f0d0b;border:1px solid #3a3020;color:#8a6a30;padding:.3rem .9rem;font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;cursor:pointer;">🎲 Reroll Choices (<span id="br-reroll-count">0</span>)</button>
+  </div>
 </div>
 
 <!-- SPELL CHOICE SCREEN -->
 <div id="spellchoice-screen" class="screen">
-  <div class="level-badge" id="sc-level-badge">Level 5</div>
+  <div class="level-badge" id="sc-level-badge">Battle 3</div>
   <div class="prog-title">✦ New Spell ✦</div>
   <div class="prog-sub">Choose one spell to add to your arsenal.</div>
   <div class="prog-choices" id="sc-choices"></div>
@@ -1290,25 +1858,18 @@
 
 <!-- PASSIVE CHOICE SCREEN -->
 <div id="passivechoice-screen" class="screen">
-  <div class="level-badge" id="pc-level-badge">Level 10</div>
+  <div class="level-badge" id="pc-level-badge">Gym Clear</div>
   <div class="prog-title">✦ New Passive ✦</div>
   <div class="prog-sub">Choose a permanent passive ability.</div>
   <div class="prog-choices" id="pc-choices"></div>
 </div>
 
-<!-- ELEMENT UNLOCK SCREEN (level 15+) -->
+<!-- ELEMENT UNLOCK SCREEN -->
 <div id="elementunlock-screen" class="screen">
-  <div class="level-badge" id="eu-level-badge">Level 15</div>
+  <div class="level-badge" id="eu-level-badge">Gym Clear</div>
   <div class="prog-title">✦ Second Element ✦</div>
   <div class="prog-sub">Unlock a second element — then choose one of its spells.</div>
   <div class="prog-choices" id="eu-element-choices"></div>
-</div>
-
-<!-- LEVEL UP BANNER -->
-<div class="levelup-banner" id="levelup-banner">
-  <h3>✦ Level Up! ✦</h3>
-  <div id="levelup-content"></div>
-  <button class="btn-main" style="margin-top:1rem;width:180px;font-size:.78rem;padding:.55rem;" onclick="closeLevelUp()">Continue</button>
 </div>
 
 
@@ -2381,99 +2942,380 @@ function getBGTone(element) {
 
 // Warrior — broad shoulders, short cropped hair, armored pauldrons (3)
 const SPRITE_CHAR_WARRIOR = [
-  '....hhhhhh..',  // short hair
-  '...hhhhhhhh.',
-  '..3ssssss3..',  // '3' = armor trim highlights on shoulders
-  '.3111111113.',  // shoulder armor
-  '331111111133',  // wide pauldrons
-  '331111111133',
-  '111111111111',
-  '112222222211',  // chest plate
-  '112222222211',
-  '112222222211',
-  '111222222111',
-  '.1111111111.',
-  '..11111111..',
-  '...111111...',
-  '..bb....bb..',  // wide stance
-  '..bb....bb..',
+  '..f.........44..........',
+  '..f.........hh..........',
+  '..f........hhhh.........',
+  '..f........hhhh.........',
+  '..f.......hhhhhh........',
+  '..f.......hhhhhh........',
+  '..f......hhhhhhhh.......',
+  '..f......hhhhhhhh.......',
+  '..f.....hhhhhhhhhh......',
+  '..f.....hhhhhhhhhh......',
+  '..f....hhhhhhhhhhhh.....',
+  '..f....hhhhhhhhhhhh.....',
+  '..f.hhhhhhhhhhhhhhhhhhh.',
+  '..f.33hhhhhhhhhhhhhh33..',
+  '..f...hhhhhhhhhhhhhhh...',
+  '..f....ssssssssss.......',
+  '..f....ss.ee.ee.ss......',
+  '..f....ssssssssss.......',
+  '..f....sswwwwwwss.......',
+  '..1...wwwwwwwwwwwwww....',
+  '..333.3333333333333.....',
+  '..3111111111111111133...',
+  '..3111112222221111133...',
+  '..3111112222221111133...',
+  '..3111b12222221b111.3...',
+  '..3111112222221111133...',
+  '..3111111111111111133...',
+  '...33111111111111133....',
+  '.....bbbbb..bbbbb.......',
+  '.....bbbbb..bbbbb.......',
 ];
 
-// Rogue — hooded (no visible hair), slimmer, cloak
+// Hexblade — dark hooded wizard, tall hat offset right, staff on right
 const SPRITE_CHAR_ROGUE = [
-  '...222222...',  // hood top (secondary = dark)
-  '..22222222..',
-  '..2hhhhhh2..',  // faint hair under hood edges
-  '..2ssssss2..',  // face in hood shadow
-  '..21111112..',
-  '.211111112..',  // slimmer torso than warrior
-  '.211111112..',
-  '.212222212..',  // cloak interior detail
-  '.212222212..',
-  '.211111112..',
-  '.211111112..',
-  '..11111112..',
-  '...111111...',
-  '...111111...',
-  '...bb..bb...',  // close stance
-  '............',
+  '........g...44..........',
+  '........f...hh..........',
+  '........f...hh..........',
+  '........f..hhhh.........',
+  '........f..hhhh.........',
+  '........f.hhhhhh........',
+  '........f.hhhhhh........',
+  '........fhhhhhhhh.......',
+  '........fhhhhhhhh.......',
+  '........hhhhhhhhhh......',
+  '........hhhhhhhhhh......',
+  '........hhhhhhhhhh......',
+  '.......hhhhhhhhhhhhh....',
+  '......hhhhhhhhhhhhhhhh..',
+  '.......hhhhhhhhhhhhhh...',
+  '........2ssssssssss.f...',
+  '........2s..ee..ee.sf...',
+  '........2ssssssssss.f...',
+  '........2swwwwwwwwwwf...',
+  '.......22wwwwwwwwwwwwf..',
+  '......222wwwwwwwwwwwwf..',
+  '.....2221111111111111f..',
+  '.....2221111111111111f..',
+  '.....22211222222211111f.',
+  '.....22211222222211111f.',
+  '.....222b1222222b11111f.',
+  '.....22211222222211111f.',
+  '.....2221111111111111f..',
+  '........bbb..bbb.....f..',
+  '........bbb..bbb.....f..',
 ];
 
-// Mage — robe, long flowing hair, slender
+// Arcanist — classic tall wizard hat with star decorations, flowing robes
 const SPRITE_CHAR_MAGE = [
-  '....hhhhh...',
-  '...hhhhhhh..',
-  '..3hhhhhhh..',  // highlight at top of hair
-  '...ssssss...',
-  '...111111...',
-  '..11111111..',
-  '.1111111111.',
-  '111111111111',
-  '111222222111',
-  '111222222111',
-  '111222222111',
-  '.1111111111.',
-  '..11111111..',
-  '...111111...',
-  '...bb...bb..',
-  '...bb...bb..',
+  '..f.........44..........',
+  '..f.........hh..........',
+  '..f.........hh..........',
+  '..f........hhhh.........',
+  '..f........hhhh.........',
+  '..f......4hhhhh4........',
+  '..f.......hhhhhh........',
+  '..f......hhhhhhhh.......',
+  '..f.....4hhhhhhh4.......',
+  '..f......hhhhhhhh.......',
+  '..f.....hhhhhhhhhh......',
+  '..f....4hhhhhhhhhh4.....',
+  '..f....hhhhhhhhhhhh.....',
+  '..f...hhhhhhhhhhhhhh....',
+  '..f...hhhhhhhhhhhhhh....',
+  '..f....ssssssssss.......',
+  '..f....ss..ee..ss.......',
+  '..f....ssssssssss.......',
+  '..f....sswwwwwwss.......',
+  '..1...wwwwwwwwwwwwwww...',
+  '..111.wwwwwwwwwwwwwww...',
+  '..11111111111111111.....',
+  '.11111111111111111111...',
+  '.1111111222222221111....',
+  '.1111111222222221111....',
+  '.111111b1222222b1111....',
+  '.1111111222222221111....',
+  '..1111111111111111111...',
+  '....bbbb....bbbb........',
+  '....bbbb....bbbb........',
 ];
 
-const SPRITE_ENEMY_MAGE = [
-  '...hhhhhh...',
-  '...hhhhhh...',
-  '....hhhh....',
-  '...sssss....',
-  '...seses....',
-  '...sssss....',
-  '..11111111..',
-  '.1111111111.',
-  '111111111111',
-  '111222222111',
-  '111222222111',
-  '.1111111111.',
-  '..11111111..',
-  '....1111....',
-  '...bb.bb....',
-  '..bb...bb...',
+// ── Enemy Wizard Sprites — 4 distinct silhouettes, 30 rows, tall pointed hats ─
+// Color key: .=transparent 1=pal[0] robe 2=pal[1] dark shadow 3=pal[2] light 4=pal[3] glow
+//             h=hat(dark)  s=skin  e=eye  b=boot  w=white beard  f=staff wood  g=staff glow
+// WIZ_A: Battle Wizard (Fire, Lightning) — tall hat, wide beard, staff left, aggressive build
+const SPRITE_WIZ_A = [
+  '..f.........44..........',
+  '..f.........hh..........',
+  '..f........hhhh.........',
+  '..f........hhhh.........',
+  '..f.......hhhhhh........',
+  '..f.......hhhhhh........',
+  '..f......hhhhhhhh.......',
+  '..f......hhhhhhhh.......',
+  '..f.....hhhhhhhhhh......',
+  '..f.....hhhhhhhhhh......',
+  '..f....hhhhhhhhhhhh.....',
+  '..f....hhhhhhhhhhhh.....',
+  '..f...hhhhhhhhhhhhhh....',
+  '..f...hhhhhhhhhhhhhh....',
+  '..f..hhhhhhhhhhhhhhhhhh.',
+  '..f...hhhhhhhhhhhhhhh...',
+  '..f....ssssssssss.......',
+  '..f....ss.ee.ee.ss......',
+  '..f....ssssssssss.......',
+  '..f....sswwwwwwss.......',
+  '..1...wwwwwwwwwwwwww....',
+  '..111.1111111111111.....',
+  '.111111111111111111.....',
+  '.1111111222222211111....',
+  '.1111111222222211111....',
+  '.111111b1222222b11111...',
+  '.1111111222222211111....',
+  '..11111111111111111.....',
+  '.....bbbbb..bbbbb.......',
+  '.....bbbbb..bbbbb.......',
 ];
+// WIZ_B: Elder Wizard (Water, Ice) — stooped, huge flowing beard, plants staff right
+const SPRITE_WIZ_B = [
+  '..........44............',
+  '..........hh............',
+  '.........hhhh...........',
+  '.........hhhh...........',
+  '........hhhhhh..........',
+  '........hhhhhh..........',
+  '.......hhhhhhhh.........',
+  '.......hhhhhhhh.........',
+  '......hhhhhhhhhh........',
+  '......hhhhhhhhhh........',
+  '.....hhhhhhhhhhhh.......',
+  '.....hhhhhhhhhhhh.......',
+  '....hhhhhhhhhhhhhhhh....',
+  '...hhhhhhhhhhhhhhhhhhh..',
+  '....hhhhhhhhhhhhhhh.....',
+  '.....sssssssssssss......',
+  '.....ss...ee..ee.ss.....',
+  '.....ssssssssssssss.....',
+  '.....sswwwwwwwwwwss.....',
+  '....wwwwwwwwwwwwwwww....',
+  '...wwwwwwwwwwwwwwwwww...',
+  '....wwwwww1111wwwwww.f..',
+  '....wwwww111111wwwww.f..',
+  '.....w.11111111111..ff..',
+  '.....w.1111122222111f...',
+  '.....w.1111b122221bf....',
+  '.....w..111122222111....',
+  '.....w...111111111......',
+  '.......bbbb..bbbb.......',
+  '.......bbbb..bbbb.......',
+];
+// WIZ_C: Grove Wizard (Earth, Nature) — stocky barrel body, MASSIVE wide brim, thick beard
+const SPRITE_WIZ_C = [
+  '..g.........33..........',
+  '..f.........hh..........',
+  '..f........hhhh.........',
+  '..f........hhhh.........',
+  '..f.......hhhhhh........',
+  '..f.......hhhhhh........',
+  '..f......hhhhhhhh.......',
+  '..f......hhhhhhhh.......',
+  '..f.....hhhhhhhhhh......',
+  '..f.....hhhhhhhhhh......',
+  '..f....hhhhhhhhhhhh.....',
+  '..f....hhhhhhhhhhhh.....',
+  '..fhhhhhhhhhhhhhhhhhhhh.',
+  '.fhhhhhhhhhhhhhhhhhhhh..',
+  '..f..hhhhhhhhhhhhhhhh...',
+  '..f....ssssssssssss.....',
+  '..f....ss.ee.ee..ss.....',
+  '..f....ssssssssssss.....',
+  '..1....sswwwwwwwwwss....',
+  '..111.wwwwwwwwwwwwwwwww.',
+  '.1111.wwwwwwwwwwwwwwwww.',
+  '.111111111111111111111..',
+  '.111111111111111111111..',
+  '.1111111222222221111111.',
+  '.1111111222222221111111.',
+  '.111111bb2222222b111111.',
+  '.1111111222222221111111.',
+  '..111111111111111111111.',
+  '....bbbbbbb.bbbbbbb.....',
+  '....bbbbbbb.bbbbbbb.....',
+];
+// WIZ_D: Void Wizard (Plasma, Air) — very slim, tall narrow hat, wispy beard, ethereal
+const SPRITE_WIZ_D = [
+  '..g..........44.........',
+  '..f..........hh.........',
+  '..f..........hh.........',
+  '..f.........hhhh........',
+  '..f.........hhhh........',
+  '..f........hhhhhh.......',
+  '..f........hhhhhh.......',
+  '..f.......hhhhhhhh......',
+  '..f.......hhhhhhhh......',
+  '..f......hhhhhhhhhh.....',
+  '..f......hhhhhhhhhh.....',
+  '..f.....hhhhhhhhhhhh....',
+  '..f....hhhhhhhhhhhhhhhh.',
+  '..f....hhhhhhhhhhhhhhhh.',
+  '..f.....hhhhhhhhhhhh....',
+  '..f......ssssssssss.....',
+  '..f.....ss..ee..ee.s....',
+  '..f.....ssssssssssss....',
+  '..f.....sswwwwwwwss.....',
+  '..f....wwwwwwwwwwwwww...',
+  '..f...wwwwwwwwwwwwwwww..',
+  '..f...11111111111111....',
+  '..f..111111111111111....',
+  '..f..1111112222211111...',
+  '..f..1111112222211111...',
+  '..f..1111b12222b11111...',
+  '..f..1111112222211111...',
+  '..f...111111111111111...',
+  '..f....bbbb..bbbb.......',
+  '..f....bbbb..bbbb.......',
+];
+// Legacy aliases
+const SPRITE_ENEMY_MAGE     = SPRITE_WIZ_A;
+const SPRITE_ENEMY_CREATURE = SPRITE_WIZ_B;
+// ── Element Hat Icons — 12-wide, 14-row, used for map combat/pack nodes ──────
+// Decorations: 4=bright accent, 3=light accent, h=hat, s=skin, e=eye, w=beard
+const ELEM_HAT_SPRITES = {
+  Fire: [
+    '....44......',
+    '....hh......',
+    '...hh4h.....',
+    '...hhhh.....',
+    '..hh4hhh....',
+    '..hhhhhh....',
+    '.hhh4hhhh...',
+    '.hhhhhhhhh..',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Water: [
+    '....44......',
+    '....hh......',
+    '...hhhh.....',
+    '..h3h3hh....',
+    '..hhhhhh....',
+    '.hh3h3hhh...',
+    '.hhhhhhhhh..',
+    'hh3h3hhhhhh.',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Ice: [
+    '....44......',
+    '....hh......',
+    '...hhhh.....',
+    '...h4hh.....',
+    '..h44hhh....',
+    '..hhhhhh....',
+    '.hh4h4hhh...',
+    '.hhhhhhhhh..',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Lightning: [
+    '....44......',
+    '....hh......',
+    '...h4hh.....',
+    '...hh4h.....',
+    '..hhh4hh....',
+    '..hh4hhh....',
+    '.hhhh4hhh...',
+    '.hhhhhhhhh..',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Earth: [
+    '....44......',
+    '....hh......',
+    '...hhhh.....',
+    '....4h......',
+    '...h4hh.....',
+    '....4h......',
+    '.hhhhhhhh...',
+    '.hhhhhhhhh..',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Nature: [
+    '....44......',
+    '....hh......',
+    '...h3hh.....',
+    '...hh3h.....',
+    '..hh3hhh....',
+    '..hhhhhh....',
+    '.hh3h3hhh...',
+    '.hhhhhhhhh..',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Plasma: [
+    '...4hh4.....',
+    '....hh......',
+    '...hhhh.....',
+    '..h4hh4h....',
+    '..hhhhhh....',
+    '.hh4hhhh4...',
+    '.hhhhhhhhh..',
+    'hh4hhhhhh4h.',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+  Air: [
+    '....44......',
+    '....hh......',
+    '...h3hh.....',
+    '....hh3h....',
+    '..hh3hhh....',
+    '..h3hhhh....',
+    '.hhhhhhhh...',
+    '.hhh3hhhhh..',
+    'hhhhhhhhhhhh',
+    '.hhhhhhhhhh.',
+    '....ss......',
+    '....se......',
+    '....ww......',
+    '....ww......',
+  ],
+};
 
-const SPRITE_ENEMY_CREATURE = [
-  '..11111111..',
-  '.1133113311.',
-  '111111111111',
-  '11.ee.ee..11',
-  '11.222222.11',
-  '.1122222211.',
-  '.1111111111.',
-  '111111111111',
-  '111222222111',
-  '111222222111',
-  '.1111111111.',
-  '..111..111..',
-  '..111..111..',
-  '.1111..1111.',
-];
+function getElemHatSprite(element) {
+  return ELEM_HAT_SPRITES[element] || ELEM_HAT_SPRITES.Fire;
+}
 
 const SPRITE_TREANT = [
   '...333333...',
@@ -2491,6 +3333,10 @@ const SPRITE_TREANT = [
 ];
 
 // ═══ DRAWING ══════════════════════════════════════════════════════════════════
+const BEARD_C  = '#E8E0D0';   // white beard
+const STAFF_C  = '#7A5A2A';   // wooden staff
+const GLOW_C   = '#DDFF88';   // staff orb glow (overridden per-element at draw time)
+
 function charToColor(c, pal) {
   switch (c) {
     case '1': return pal[0];
@@ -2501,6 +3347,9 @@ function charToColor(c, pal) {
     case 's': return SKIN_C;
     case 'e': return EYE_C;
     case 'b': return BOOT_C;
+    case 'w': return BEARD_C;   // white beard
+    case 'f': return STAFF_C;   // wooden staff
+    case 'g': return pal[3];    // staff glow — matches element highlight
     default:  return null;
   }
 }
@@ -2875,9 +3724,9 @@ function drawBattleBG(ctx, W, H) {
 // ═══ CHARACTER SPRITE SELECTOR ════════════════════════════════════════════════
 function getPlayerCharSprite(charId) {
   const id = charId !== undefined ? charId
-           : (typeof playerCharId !== 'undefined' ? playerCharId : 'mage');
-  if (id === 'warrior') return SPRITE_CHAR_WARRIOR;
-  if (id === 'rogue')   return SPRITE_CHAR_ROGUE;
+           : (typeof playerCharId !== 'undefined' ? playerCharId : 'arcanist');
+  if (id === 'battlemage' || id === 'warrior') return SPRITE_CHAR_WARRIOR;
+  if (id === 'hexblade'   || id === 'rogue')   return SPRITE_CHAR_ROGUE;
   return SPRITE_CHAR_MAGE;
 }
 
@@ -2893,16 +3742,25 @@ const S_SCALE = 3;
 
 function playerSpritePos(W, H) {
   const rows = getPlayerCharSprite();
-  const sw = 12 * P_SCALE, sh = rows.length * P_SCALE;
+  const sw = 24 * P_SCALE, sh = rows.length * P_SCALE;
   const groundBottom = Math.round(H * 0.90);
   return { x: Math.round(W * 0.06), y: groundBottom - sh, w: sw, h: sh };
+}
+
+function getEnemySprite(e) {
+  const el = (e && e.element) || '';
+  if (el === 'Fire' || el === 'Lightning') return SPRITE_WIZ_A;
+  if (el === 'Water' || el === 'Ice')      return SPRITE_WIZ_B;
+  if (el === 'Earth' || el === 'Nature')   return SPRITE_WIZ_C;
+  if (el === 'Plasma' || el === 'Air')     return SPRITE_WIZ_D;
+  return SPRITE_WIZ_A; // fallback
 }
 
 function enemySpritePos(idx, allEnemies, W, H) {
   const n = allEnemies.length;
   const e = allEnemies[idx];
-  const rows = (e && e.type === 'creature') ? SPRITE_ENEMY_CREATURE : SPRITE_ENEMY_MAGE;
-  const sw = 12 * E_SCALE, sh = rows.length * E_SCALE;
+  const rows = getEnemySprite(e);
+  const sw = 24 * E_SCALE, sh = rows.length * E_SCALE;
 
   // Spread enemies across right 55% of canvas
   const areaX = W * 0.42, areaW = W * 0.52;
@@ -3053,11 +3911,15 @@ function _drawBattleForeground(ctx, W, H) {
 }
 
 // ═══ MAIN RENDER ══════════════════════════════════════════════════════════════
+let _battleFrame = 0;
+
 function renderBattlefield() {
   const canvas = document.getElementById('battle-canvas');
   if (!canvas || !canvas.width) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
+  _battleFrame++;
+  const t = _battleFrame;
 
   ctx.clearRect(0, 0, W, H);
   drawBattleBG(ctx, W, H);
@@ -3068,20 +3930,34 @@ function renderBattlefield() {
 
   const allE = combat.enemies || [];
 
-  // ── Player ──
+  // ── Player idle animation ──
+  // Gentle bob + very subtle lean (breathe cycle ~2s at 60fps)
+  const playerBob   = Math.round(Math.sin(t * 0.055) * 2);       // ±2px vertical
+  const playerLean  = Math.round(Math.sin(t * 0.028) * 1);       // ±1px horizontal drift
+
   const pp = playerSpritePos(W, H);
-  ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.ellipse(pp.x + pp.w/2, pp.y + pp.h + 3, pp.w*0.38, 5, 0, 0, Math.PI*2); ctx.fill();
+  const px = pp.x + playerLean;
+  const py = pp.y + playerBob;
+
+  ctx.save(); ctx.globalAlpha = 0.28 - Math.abs(playerBob) * 0.02; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(px + pp.w/2, pp.y + pp.h + 3, pp.w*0.38, 5, 0, 0, Math.PI*2); ctx.fill();
   ctx.restore();
   if (typeof playerElement !== 'undefined') {
     const rows = getPlayerCharSprite();
-    drawSprite(ctx, rows, pp.x, pp.y, P_SCALE, getElemPal(playerElement));
+    drawSprite(ctx, rows, px, py, P_SCALE, getElemPal(playerElement), 24);
   }
 
   // ── Enemies ──
   allE.forEach((e, i) => {
     const ep = enemySpritePos(i, allE, W, H);
     const ePal = getElemPal(e.element || 'Neutral');
+
+    // Enemy sway — out of phase with player, slightly faster, each enemy offset
+    const phaseOff = i * 1.3;
+    const enemyBob  = e.alive ? Math.round(Math.sin(t * 0.07 + phaseOff) * 2) : 0;
+    const enemySway = e.alive ? Math.round(Math.sin(t * 0.04 + phaseOff) * 1) : 0;
+    const ex = ep.x + enemySway;
+    const ey = ep.y + enemyBob;
 
     if (e.alive) {
       ctx.save(); ctx.globalAlpha = 0.22; ctx.fillStyle = '#000';
@@ -3091,7 +3967,7 @@ function renderBattlefield() {
 
     ctx.save();
     if (!e.alive) ctx.globalAlpha = 0.15;
-    drawSprite(ctx, ep.rows, ep.x, ep.y, E_SCALE, ePal);
+    drawSprite(ctx, getEnemySprite(e), ex, ey, E_SCALE, ePal, 24);
     ctx.restore();
 
     if (e.alive) {
@@ -3180,34 +4056,42 @@ function initBattleCanvas() {
 // Shown once at the start of a run (after title, before element select).
 // Each character shows a random buff from its pool — player picks one.
 
-let playerCharId   = 'mage';   // 'warrior' | 'rogue' | 'mage'
+let playerCharId   = '';   // 'battlemage' | 'hexblade' | 'arcanist'
 let playerCharBuff = null;     // { id, name, emoji, desc, apply }
 
 // ─── Character Roster ─────────────────────────────────────────────────────────
 const CHARACTER_ROSTER = [
   {
-    id:    'warrior',
-    name:  'Warrior',
-    title: 'The Ironclad',
-    desc:  'Battle-hardened and broad-shouldered. Built to outlast anything.',
-    flavor:'Heavy armor. Slow spells. Hits like a falling mountain.',
-    // Each run, one buff is randomly picked from this pool
+    id:    'battlemage',
+    name:  'Battlemage',
+    title: 'The Ironweave',
+    desc:  'Forged in war. Channels magic through heavy armor and sheer endurance.',
+    flavor:'They say he was hit by lightning seven times. He just got angrier.',
+    color:  '#c8802a',
+    hatColor: '#8a4a10',
+    robeColor: '#5a3020',
     buffPool: ['buff_hp_bonus', 'buff_def_bonus', 'buff_block_start'],
   },
   {
-    id:    'rogue',
-    name:  'Rogue',
-    title: 'The Unseen',
-    desc:  'Slippery and opportunistic. Rewards aggression and good timing.',
-    flavor:'Hits fast, hits often. Vanishes before you can hit back.',
+    id:    'hexblade',
+    name:  'Hexblade',
+    title: 'The Shadowcast',
+    desc:  'A blade-dancer who weaves curses into every strike. Fast, precise, lethal.',
+    flavor:'She does not dodge spells. She redirects them. Into your face.',
+    color:  '#9a6aee',
+    hatColor: '#4a2080',
+    robeColor: '#1e0e3a',
     buffPool: ['buff_atk_bonus', 'buff_gold_start', 'buff_potion_start'],
   },
   {
-    id:    'mage',
-    name:  'Mage',
-    title: 'The Arcanist',
-    desc:  'A scholar of pure elemental force. Effects hit harder.',
-    flavor:'Frail body, terrifying output. Every status effect matters.',
+    id:    'arcanist',
+    name:  'Arcanist',
+    title: 'The Scholar',
+    desc:  'A pure-theory wizard who has turned study into devastating practice.',
+    flavor:'Every status effect is a theorem. Every battle, a proof.',
+    color:  '#4a9aee',
+    hatColor: '#1a3a8a',
+    robeColor: '#0e1e4a',
     buffPool: ['buff_efx_bonus', 'buff_spell_start', 'buff_xp_bonus'],
   },
 ];
@@ -3268,9 +4152,9 @@ const CHARACTER_BUFFS = {
     apply() { player._extraStartSpell = true; },
   },
   buff_xp_bonus: {
-    name: 'Fast Learner', emoji: '📖',
-    desc: 'Gain 20% more XP from all battles.',
-    apply() { player._xpBonus = (player._xpBonus || 0) + 0.20; },
+    name: 'Deep Study', emoji: '📖',
+    desc: 'Gain +5 Effect Power at the start of each new zone.',
+    apply() { player._xpBonus = (player._xpBonus || 0) + 0.20; }, // legacy flag, effect below
   },
 
   // ── TODO: add more exotic buffs here ──────────────────────────────────────
@@ -3299,108 +4183,303 @@ function applyCharacterBuff() {
 // ─── Screen rendering ─────────────────────────────────────────────────────────
 let _charRolledBuffs = {};   // charId → rolled buff (fresh each visit)
 
-function showCharacterScreen() {
-  // Re-roll buffs on every visit so coming-back gives fresh options
-  _charRolledBuffs = {};
-  CHARACTER_ROSTER.forEach(ch => {
-    _charRolledBuffs[ch.id] = rollCharacterBuff(ch.id);
-  });
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIZARD BUILDER
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  _buildCharCards();
+// All customization options
+// ═══════════════════════════════════════════════════════════════════════════════
+// WIZARD BUILDER — all customization maps to actual sprite color overrides
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const WIZ_ARCHETYPES = [
+  { id:'battlemage', name:'Battlemage', emoji:'⚔', desc:'Armored. Bonus HP and defense.', sprite:'SPRITE_CHAR_WARRIOR' },
+  { id:'hexblade',   name:'Hexblade',   emoji:'🗡', desc:'Shadow caster. Bonus gold and curses.', sprite:'SPRITE_CHAR_ROGUE' },
+  { id:'arcanist',   name:'Arcanist',   emoji:'⭐', desc:'Scholar. Bonus spell options and effect power.', sprite:'SPRITE_CHAR_MAGE' },
+];
+
+// Hat color — overrides 'h' char (which maps to pal[1] by default, but we override)
+const WIZ_HAT_COLORS = [
+  { id:'navy',    name:'Navy',    color:'#102060' },
+  { id:'violet',  name:'Violet',  color:'#3a0e80' },
+  { id:'forest',  name:'Forest',  color:'#0e3a10' },
+  { id:'scarlet', name:'Scarlet', color:'#5a0e0e' },
+  { id:'black',   name:'Black',   color:'#111116' },
+  { id:'teal',    name:'Teal',    color:'#0a2e30' },
+  { id:'gold',    name:'Gold',    color:'#3a2800' },
+  { id:'grey',    name:'Grey',    color:'#2a2a32' },
+];
+
+// Outfit — overrides pal[0] (primary robe), pal[1] auto-darkened for shadow
+const WIZ_OUTFIT_COLORS = [
+  { id:'midnight', name:'Midnight', p0:'#1a1060', p1:'#0c0840', p2:'#2a1a80', p3:'#8878cc' },
+  { id:'crimson',  name:'Crimson',  p0:'#601010', p1:'#380808', p2:'#881818', p3:'#cc5050' },
+  { id:'forest',   name:'Forest',   p0:'#0e3a10', p1:'#062008', p2:'#186018', p3:'#50aa50' },
+  { id:'gold',     name:'Golden',   p0:'#3a2c08', p1:'#201808', p2:'#604818', p3:'#d0a030' },
+  { id:'ocean',    name:'Ocean',    p0:'#0e1e60', p1:'#081040', p2:'#182888', p3:'#4080d0' },
+  { id:'dusk',     name:'Dusk',     p0:'#2a1040', p1:'#140820', p2:'#401860', p3:'#9050c0' },
+  { id:'iron',     name:'Iron',     p0:'#2a2a30', p1:'#181818', p2:'#3a3a44', p3:'#8888a0' },
+  { id:'ember',    name:'Ember',    p0:'#3a1408', p1:'#1e0a04', p2:'#601a08', p3:'#d04010' },
+];
+
+// Beard — overrides 'w' char; 'none' removes all 'w' pixels
+const WIZ_BEARD_COLORS = [
+  { id:'white',  name:'White',  color:'#e8e0d0' },
+  { id:'grey',   name:'Grey',   color:'#a0989a' },
+  { id:'black',  name:'Black',  color:'#1a1418' },
+  { id:'brown',  name:'Brown',  color:'#6a3810' },
+  { id:'auburn', name:'Auburn', color:'#8a2808' },
+  { id:'gold',   name:'Golden', color:'#c8a030' },
+];
+const WIZ_BEARD_STYLES = [
+  { id:'show', name:'Beard' },
+  { id:'none', name:'Clean' },
+];
+
+// Staff wood — overrides 'f' char
+const WIZ_STAFF_COLORS = [
+  { id:'oak',   name:'Oak',   color:'#8a5010' },
+  { id:'dark',  name:'Dark',  color:'#2a1a0a' },
+  { id:'bone',  name:'Bone',  color:'#d8c8a0' },
+  { id:'ebony', name:'Ebony', color:'#1a1010' },
+  { id:'birch', name:'Birch', color:'#c8b898' },
+  { id:'iron',  name:'Iron',  color:'#404850' },
+];
+
+// Staff glow — overrides 'g' char (pal[3] by default)
+const WIZ_STAFF_GLOWS = [
+  { id:'blue',   name:'Blue',   color:'#60aaff' },
+  { id:'green',  name:'Green',  color:'#50dd70' },
+  { id:'red',    name:'Red',    color:'#ff6040' },
+  { id:'purple', name:'Purple', color:'#cc80ff' },
+  { id:'gold',   name:'Gold',   color:'#ffd040' },
+  { id:'white',  name:'White',  color:'#e8f0ff' },
+  { id:'teal',   name:'Teal',   color:'#40ddc0' },
+  { id:'none',   name:'None',   color:null },
+];
+
+// Eye color — overrides 'e' char
+const WIZ_EYE_COLORS = [
+  { id:'red',    name:'Red',    color:'#dd3322' },
+  { id:'blue',   name:'Blue',   color:'#2255cc' },
+  { id:'green',  name:'Green',  color:'#226622' },
+  { id:'amber',  name:'Amber',  color:'#aa6600' },
+  { id:'purple', name:'Purple', color:'#7722aa' },
+  { id:'silver', name:'Silver', color:'#7788aa' },
+  { id:'void',   name:'Void',   color:'#080808' },
+  { id:'white',  name:'White',  color:'#ddeeff' },
+];
+
+const WIZ_DEFAULTS = {
+  archetype:  'battlemage',
+  hatColor:   'navy',
+  outfit:     'midnight',
+  beardStyle: 'show',
+  beardColor: 'white',
+  staffColor: 'oak',
+  staffGlow:  'blue',
+  eyeColor:   'red',
+};
+
+let _wizBuild = {...WIZ_DEFAULTS};
+
+function _applyWizBuild(patch) {
+  Object.assign(_wizBuild, patch);
+  patchActiveSlot({ wizardBuild: _wizBuild });
+  _renderWizPreview();
+  if (patch.archetype) {
+    // Refresh archetype section so selection indicator updates
+    const secEl = document.getElementById('wiz-section-archetype');
+    if (secEl) {
+      const inner = secEl.querySelector('.wiz-opts');
+      if (inner) inner.innerHTML = _buildArchetypeOpts();
+    }
+    _renderWizBoon();
+  }
+}
+
+function showCharacterScreen() {
+  const slotData = getActiveSlotData();
+  if (slotData.wizardBuild) {
+    _wizBuild = Object.assign({...WIZ_DEFAULTS}, slotData.wizardBuild);
+  } else if (slotData.savedCharId) {
+    _wizBuild = {...WIZ_DEFAULTS, archetype: slotData.savedCharId};
+  }
+  playerCharId = _wizBuild.archetype;
+  _charRolledBuffs = {};
+  CHARACTER_ROSTER.forEach(ch => { _charRolledBuffs[ch.id] = rollCharacterBuff(ch.id); });
+  _renderWizBuilder();
   showScreen('character-screen');
 }
 
-function _buildCharCards() {
-  const grid = document.getElementById('char-card-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-
-  CHARACTER_ROSTER.forEach(ch => {
-    const buff     = _charRolledBuffs[ch.id];
-    const selected = playerCharId === ch.id;
-
-    const card = document.createElement('div');
-    card.className = 'char-card' + (selected ? ' char-selected' : '');
-    card.dataset.charId = ch.id;
-    card.onclick = () => selectCharacter(ch.id);
-
-    const cid = `char-canvas-${ch.id}`;
-    card.innerHTML = `
-      <canvas id="${cid}" class="char-sprite-canvas" width="52" height="68"></canvas>
-      <div class="char-name">${ch.name}</div>
-      <div class="char-title-txt">${ch.title}</div>
-      <div class="char-desc-txt">${ch.desc}</div>
-      <div class="char-flavor">${ch.flavor}</div>
-      ${buff ? `
-        <div class="char-buff-box">
-          <div class="char-buff-label">Random Buff</div>
-          <div class="char-buff-name">${buff.emoji} ${buff.name}</div>
-          <div class="char-buff-desc">${buff.desc}</div>
-        </div>` : ''}
-    `;
-    grid.appendChild(card);
-
-    // Draw sprite after DOM is live
-    requestAnimationFrame(() => _drawCharMini(cid, ch.id));
-  });
-
-  _updateCharBtn();
+function _renderWizBuilder() {
+  _renderWizSection('archetype', 'Wizard Type',  _buildArchetypeOpts());
+  _renderWizBoon();
+  _renderWizSection('hat',       'Hat Color',    _buildColorOpts(WIZ_HAT_COLORS,    'hatColor',   c => `background:${c.color};`));
+  _renderWizSection('outfit',    'Outfit Color', _buildColorOpts(WIZ_OUTFIT_COLORS, 'outfit',     c => `background:linear-gradient(135deg,${c.p0},${c.p1});`));
+  _renderWizSection('beard',     'Beard',        _buildBeardOpts());
+  _renderWizSection('staff',     'Staff Wood',   _buildColorOpts(WIZ_STAFF_COLORS,  'staffColor', c => `background:${c.color};`));
+  _renderWizSection('staffglow', 'Orb Glow',     _buildColorOpts(WIZ_STAFF_GLOWS,   'staffGlow',  c => c.color ? `background:radial-gradient(circle,${c.color},${c.color}66);` : 'background:#0a0806;', true));
+  _renderWizSection('eyes',      'Eye Color',    _buildColorOpts(WIZ_EYE_COLORS,    'eyeColor',   c => `background:${c.color};`));
+  _renderWizPreview();
 }
 
-function _drawCharMini(canvasId, charId) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas || typeof drawSprite === 'undefined') return;
+function _renderWizSection(id, label, html) {
+  const el = document.getElementById('wiz-section-' + id);
+  if (!el) return;
+  el.innerHTML = `<div class="wiz-section"><div class="wiz-section-label">${label}</div><div class="wiz-opts">${html}</div></div>`;
+}
+
+function _wizOpt(selected, onclick, swatchStyle, label, extra) {
+  return `<div class="wiz-opt${selected?' selected':''}" onclick="${onclick}">
+    <div class="wiz-opt-swatch" style="${swatchStyle}">${extra||''}</div>
+    <div class="wiz-opt-label">${label}</div>
+  </div>`;
+}
+
+function _buildColorOpts(list, key, styleFn, noneOpt) {
+  return list.map(c => {
+    const selected = _wizBuild[key] === c.id;
+    const noneX = (c.id === 'none') ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#3a2a10;font-size:11px;">✕</div>' : '';
+    return _wizOpt(selected, `_applyWizBuild({${key}:'${c.id}'})`, styleFn(c), c.name, noneX);
+  }).join('');
+}
+
+function _buildArchetypeOpts() {
+  return WIZ_ARCHETYPES.map(a => {
+    const selected = _wizBuild.archetype === a.id;
+    const ps = CHAR_PORTRAIT_STYLES[a.id] || CHAR_PORTRAIT_STYLES.battlemage;
+    const swatch = `background:${ps.bg};display:flex;align-items:center;justify-content:center;font-size:15px;`;
+    return _wizOpt(selected, `_applyWizBuild({archetype:'${a.id}'})`, swatch, a.name, a.emoji);
+  }).join('');
+}
+
+function _buildBeardOpts() {
+  const styleOpts = WIZ_BEARD_STYLES.map(s => {
+    const selected = _wizBuild.beardStyle === s.id;
+    const swatchStyle = s.id === 'none'
+      ? 'background:#0a0806;'
+      : 'background:#e8e0d0;';
+    const extra = s.id === 'none'
+      ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#3a2a10;font-size:11px;">✕</div>'
+      : '<div style="position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:14px;height:10px;background:#e8e0d0;border-radius:3px 3px 5px 5px;"></div>';
+    return _wizOpt(selected, `_applyWizBuild({beardStyle:'${s.id}'})`, swatchStyle, s.name, extra);
+  }).join('');
+  const divider = '<div style="width:100%;height:1px;background:#1a1208;margin:4px 0;"></div>';
+  const colorOpts = WIZ_BEARD_COLORS.map(c => {
+    const selected = _wizBuild.beardColor === c.id;
+    return _wizOpt(selected, `_applyWizBuild({beardColor:'${c.id}'})`, `background:${c.color};`, c.name);
+  }).join('');
+  return styleOpts + divider + colorOpts;
+}
+
+function _renderWizBoon() {
+  const secEl = document.getElementById('wiz-section-archetype');
+  if (!secEl) return;
+  let old = secEl.querySelector('.wiz-boon-row');
+  if (old) old.remove();
+  const arch = WIZ_ARCHETYPES.find(a => a.id === _wizBuild.archetype);
+  const buff = _charRolledBuffs[_wizBuild.archetype];
+  if (!arch) return;
+  const row = document.createElement('div');
+  row.className = 'wiz-boon-row';
+  row.style.cssText = 'margin-top:.45rem;padding:.35rem .5rem;background:#0e0c06;border:1px solid #1e1808;border-radius:5px;font-size:.56rem;line-height:1.5;';
+  row.innerHTML = `<div style="color:#7a5828;font-size:.47rem;font-family:Cinzel,serif;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.15rem;">${arch.desc}</div>`
+    + (buff ? `<div style="color:#5a4020;font-size:.46rem;font-family:Cinzel,serif;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.1rem;">Starting Boon (re-rolled each run)</div><div style="color:#c8a060;">${buff.emoji} ${buff.name} — <span style="color:#7a6040;">${buff.desc}</span></div>` : '');
+  secEl.appendChild(row);
+}
+
+// ── Draw wizard preview on canvas using the real sprite system ────────────────
+function _renderWizPreview() {
+  const canvas = document.getElementById('wiz-preview-canvas');
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
 
+  const b = _wizBuild;
+  const arch      = WIZ_ARCHETYPES.find(a => a.id === b.archetype) || WIZ_ARCHETYPES[0];
+  const hatClr    = WIZ_HAT_COLORS.find(c => c.id === b.hatColor) || WIZ_HAT_COLORS[0];
+  const outClr    = WIZ_OUTFIT_COLORS.find(c => c.id === b.outfit) || WIZ_OUTFIT_COLORS[0];
+  const beardClr  = WIZ_BEARD_COLORS.find(c => c.id === b.beardColor) || WIZ_BEARD_COLORS[0];
+  const staffClr  = WIZ_STAFF_COLORS.find(c => c.id === b.staffColor) || WIZ_STAFF_COLORS[0];
+  const glowClr   = WIZ_STAFF_GLOWS.find(g => g.id === b.staffGlow) || WIZ_STAFF_GLOWS[0];
+  const eyeClr    = WIZ_EYE_COLORS.find(e => e.id === b.eyeColor) || WIZ_EYE_COLORS[0];
+
+  const ps = CHAR_PORTRAIT_STYLES[b.archetype] || CHAR_PORTRAIT_STYLES.battlemage;
+
   // Background
-  ctx.fillStyle = '#0c0a12';
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  const bgParts = ps.bg.match(/#[0-9a-fA-F]{6}/g) || ['#080604', '#0a0806'];
+  grad.addColorStop(0, bgParts[0]);
+  grad.addColorStop(1, bgParts[bgParts.length-1]);
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Ground line
-  const groundY = Math.floor(H * 0.86);
-  ctx.fillStyle = '#251c10';
-  ctx.fillRect(0, groundY, W, 2);
+  // Ground strip
+  ctx.fillStyle = '#0e0a06';
+  ctx.fillRect(0, H - 28, W, 28);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fillRect(0, H - 28, W, 1);
 
-  // Shadow
-  ctx.save();
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.ellipse(W / 2, groundY + 3, 14, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // Get sprite rows based on archetype
+  const rows = {
+    battlemage: typeof SPRITE_CHAR_WARRIOR !== 'undefined' ? SPRITE_CHAR_WARRIOR : null,
+    hexblade:   typeof SPRITE_CHAR_ROGUE   !== 'undefined' ? SPRITE_CHAR_ROGUE   : null,
+    arcanist:   typeof SPRITE_CHAR_MAGE    !== 'undefined' ? SPRITE_CHAR_MAGE    : null,
+  }[b.archetype] || SPRITE_CHAR_WARRIOR;
 
-  // Get the right sprite rows
-  const rows  = getPlayerCharSprite(charId);
-  const scale = 3;
-  const sw = 12 * scale;
-  const sh = rows.length * scale;
-  const sx = Math.floor((W - sw) / 2);
-  const sy = groundY - sh;
+  if (!rows) return;
 
-  drawSprite(ctx, rows, sx, sy, scale, EL_PAL.Neutral);
-}
+  // Build full custom color map — overrides charToColor for every character
+  const showBeard = b.beardStyle !== 'none';
+  const customColorMap = {
+    '.': null,
+    '1': outClr.p0,
+    '2': outClr.p1,
+    '3': outClr.p2,
+    '4': outClr.p3,
+    'h': hatClr.color,
+    's': SKIN_C,
+    'e': eyeClr.color,
+    'b': BOOT_C,
+    'w': showBeard ? beardClr.color : null,  // null = transparent (no beard)
+    'f': staffClr.color,
+    'g': glowClr.color,
+  };
 
-function selectCharacter(charId) {
-  playerCharId   = charId;
-  playerCharBuff = _charRolledBuffs[charId] || null;
+  // Draw sprite using custom color map
+  const scale = 4;
+  const cols = 24;
+  const sprW = cols * scale;
+  const sprH = rows.length * scale;
+  const sx = Math.round((W - sprW) / 2);
+  const sy = H - 28 - sprH;
 
-  // Update visual selected state without full re-render
-  document.querySelectorAll('.char-card').forEach(c => {
-    c.classList.toggle('char-selected', c.dataset.charId === charId);
-  });
-  _updateCharBtn();
+  for (let row = 0; row < rows.length; row++) {
+    for (let col = 0; col < cols; col++) {
+      const c = (rows[row] || '')[col] || '.';
+      const color = customColorMap[c];
+      if (!color) continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(sx + col * scale, sy + row * scale, scale, scale);
+    }
+  }
+
+  // Name label
+  const nameEl = document.getElementById('wiz-prev-name');
+  if (nameEl) nameEl.textContent = arch.name;
 }
 
 function _updateCharBtn() {
   const btn = document.getElementById('char-continue-btn');
-  if (btn) btn.disabled = !playerCharId;
+  if (btn) btn.disabled = false;
 }
 
 function confirmCharacterSelect() {
-  if (!playerCharId) return;
-  // playerName is already set by hubPlay/hubSandbox before reaching character screen
+  // Sync archetype + full build from wizard builder
+  playerCharId   = _wizBuild.archetype;
+  playerCharBuff = _charRolledBuffs[playerCharId] || null;
+  patchActiveSlot({ savedCharId: playerCharId, wizardBuild: _wizBuild });
   document.getElementById('welcome-msg').textContent = `${playerName}, choose your element`;
   showElementScreen();
 }
@@ -4191,11 +5270,15 @@ function giveStarterSpell(){
   }
   // Other elements: no starter elemental spell — earn them via level-up spell choices
 }
-function addSpellById(id){
+function addSpellById(id, skipBookCheck){
   const def=SPELL_CATALOGUE[id];
   if(!def) return null;
   const spell={...def, currentCD:0, upgradeLevel:0, dmgMult:1.0};
-  player.spellbook.push(spell);
+  if(!skipBookCheck && player.spellbooks && player.spellbooks.length){
+    addSpellToBook(spell);
+  } else {
+    player.spellbook.push(spell);
+  }
   return spell;
 }
 function addItem(id){ player.inventory.push({...ITEM_CATALOGUE[id]}); }
@@ -4803,90 +5886,106 @@ let _runPhosEarned = 0;
 // Encounters are grouped by CAMP TYPE — the player sees 3 distinct elemental
 // camps each battle and chooses which to fight. All are roughly equal difficulty.
 
+// Wizard hat SVG icon per element — rendered inline on enemy cards
+function elemHatSVG(element, size=24) {
+  const cols = {
+    Fire:'#FF4500', Water:'#1E90FF', Ice:'#A0EFFF', Lightning:'#FFD700',
+    Earth:'#8B6914', Nature:'#32CD32', Plasma:'#DA70D6', Air:'#B0E0E6', Neutral:'#888'
+  };
+  const c = cols[element] || '#888';
+  // ViewBox has extra space at bottom for brim (0 0 24 26)
+  return `<svg width="${size}" height="${Math.round(size*1.1)}" viewBox="0 0 24 26" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;overflow:visible;">
+    <polygon points="12,1 19,19 5,19" fill="${c}" opacity=".92"/>
+    <ellipse cx="12" cy="21" rx="9" ry="3" fill="${c}" opacity=".75"/>
+    <polygon points="12,1 19,19 5,19" fill="none" stroke="rgba(0,0,0,.2)" stroke-width=".8"/>
+    <ellipse cx="10" cy="10" rx="2" ry="1.5" fill="white" opacity=".2" transform="rotate(-20 10 10)"/>
+  </svg>`;
+}
+
 const ENCOUNTER_POOL = [
   // ── FIRE ──────────────────────────────────────────────────────────────────
-  { campType:'Fire', name:'Pyromancer',     emoji:'🧙',  element:'Fire',  color:'#FF4500', enemyMaxHP:95,  enemyDmg:22, xp:110, gold:42, type:'wizard'   },
-  { campType:'Fire', name:'Fire Drake',     emoji:'🐲',  element:'Fire',  color:'#FF4500', enemyMaxHP:110, enemyDmg:20, xp:115, gold:44, type:'creature' },
-  { campType:'Fire', name:'Flame Colossus', emoji:'🔥',  element:'Fire',  color:'#FF4500', enemyMaxHP:130, enemyDmg:18, xp:120, gold:48, type:'creature' },
+  { campType:'Fire', name:'Emberweave',  emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:95,  enemyDmg:22, xp:110, gold:42, type:'wizard' },
+  { campType:'Fire', name:'Ashcaller',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:110, enemyDmg:20, xp:115, gold:44, type:'wizard' },
+  { campType:'Fire', name:'Pyromancer',  emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:130, enemyDmg:18, xp:120, gold:48, type:'wizard' },
 
   // ── WATER ──────────────────────────────────────────────────────────────────
-  { campType:'Water', name:'Tide Witch',    emoji:'🧙‍♀️', element:'Water', color:'#1E90FF', enemyMaxHP:90,  enemyDmg:20, xp:108, gold:40, type:'wizard'   },
-  { campType:'Water', name:'Sea Serpent',   emoji:'🐍',  element:'Water', color:'#1E90FF', enemyMaxHP:115, enemyDmg:18, xp:112, gold:42, type:'creature' },
-  { campType:'Water', name:'Abyssal Leech', emoji:'🦑',  element:'Water', color:'#1E90FF', enemyMaxHP:100, enemyDmg:24, xp:118, gold:46, type:'creature' },
+  { campType:'Water', name:'Tidecaller',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:90,  enemyDmg:20, xp:108, gold:40, type:'wizard' },
+  { campType:'Water', name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:115, enemyDmg:18, xp:112, gold:42, type:'wizard' },
+  { campType:'Water', name:'Abyssmancer', emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:100, enemyDmg:24, xp:118, gold:46, type:'wizard' },
 
   // ── ICE ───────────────────────────────────────────────────────────────────
-  { campType:'Ice', name:'Frost Lich',        emoji:'🧙',  element:'Ice', color:'#A0EFFF', enemyMaxHP:95,  enemyDmg:22, xp:110, gold:42, type:'wizard'   },
-  { campType:'Ice', name:'Glacial Behemoth',  emoji:'🧊',  element:'Ice', color:'#A0EFFF', enemyMaxHP:125, enemyDmg:18, xp:115, gold:44, type:'creature' },
-  { campType:'Ice', name:'Frost Drake',       emoji:'🐲',  element:'Ice', color:'#A0EFFF', enemyMaxHP:105, enemyDmg:22, xp:112, gold:43, type:'creature' },
+  { campType:'Ice', name:'Frostbinder',  emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:95,  enemyDmg:22, xp:110, gold:42, type:'wizard' },
+  { campType:'Ice', name:'Glacialmancer',emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:125, enemyDmg:18, xp:115, gold:44, type:'wizard' },
+  { campType:'Ice', name:'Rimecaster',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:105, enemyDmg:22, xp:112, gold:43, type:'wizard' },
 
   // ── LIGHTNING ─────────────────────────────────────────────────────────────
-  { campType:'Lightning', name:'Storm Mage',     emoji:'🧙‍♀️', element:'Lightning', color:'#FFD700', enemyMaxHP:85,  enemyDmg:26, xp:115, gold:44, type:'wizard'   },
-  { campType:'Lightning', name:'Thunder Wyrm',   emoji:'🐉',  element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, xp:118, gold:46, type:'creature' },
-  { campType:'Lightning', name:'Static Goliath', emoji:'⚡',  element:'Lightning', color:'#FFD700', enemyMaxHP:110, enemyDmg:22, xp:112, gold:43, type:'creature' },
+  { campType:'Lightning', name:'Stormweave',   emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:85,  enemyDmg:26, xp:115, gold:44, type:'wizard' },
+  { campType:'Lightning', name:'Voltmancer',   emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, xp:118, gold:46, type:'wizard' },
+  { campType:'Lightning', name:'Thunderscribe',emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:110, enemyDmg:22, xp:112, gold:43, type:'wizard' },
 
   // ── EARTH ─────────────────────────────────────────────────────────────────
-  { campType:'Earth', name:'Stone Shaman',  emoji:'🧙‍♂️', element:'Earth', color:'#8B6914', enemyMaxHP:120, enemyDmg:18, xp:108, gold:40, type:'wizard'   },
-  { campType:'Earth', name:'Granite Titan', emoji:'🗿',  element:'Earth', color:'#8B6914', enemyMaxHP:145, enemyDmg:16, xp:112, gold:42, type:'creature' },
-  { campType:'Earth', name:'Terravore',     emoji:'🪨',  element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:22, xp:115, gold:44, type:'creature' },
+  { campType:'Earth', name:'Geomancer',   emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:120, enemyDmg:18, xp:108, gold:40, type:'wizard' },
+  { campType:'Earth', name:'Stonewarden', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:145, enemyDmg:16, xp:112, gold:42, type:'wizard' },
+  { campType:'Earth', name:'Terramancer', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:22, xp:115, gold:44, type:'wizard' },
 
   // ── NATURE ────────────────────────────────────────────────────────────────
-  { campType:'Nature', name:'Overgrowth Druid', emoji:'🧙‍♂️', element:'Nature', color:'#32CD32', enemyMaxHP:95,  enemyDmg:20, xp:110, gold:42, type:'wizard'   },
-  { campType:'Nature', name:'Thorn Hydra',      emoji:'🐍',  element:'Nature', color:'#32CD32', enemyMaxHP:120, enemyDmg:18, xp:115, gold:44, type:'creature' },
-  { campType:'Nature', name:'Ancient Treant',   emoji:'🌳',  element:'Nature', color:'#32CD32', enemyMaxHP:135, enemyDmg:16, xp:112, gold:43, type:'creature' },
+  { campType:'Nature', name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:95,  enemyDmg:20, xp:110, gold:42, type:'wizard' },
+  { campType:'Nature', name:'Thornmancer', emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:120, enemyDmg:18, xp:115, gold:44, type:'wizard' },
+  { campType:'Nature', name:'Rootbinder',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:135, enemyDmg:16, xp:112, gold:43, type:'wizard' },
 
   // ── PLASMA ────────────────────────────────────────────────────────────────
-  { campType:'Plasma', name:'Void Sorcerer', emoji:'🧙',  element:'Plasma', color:'#DA70D6', enemyMaxHP:90,  enemyDmg:26, xp:118, gold:46, type:'wizard'   },
-  { campType:'Plasma', name:'Phase Wraith',  emoji:'👁️',  element:'Plasma', color:'#DA70D6', enemyMaxHP:85,  enemyDmg:28, xp:120, gold:48, type:'creature' },
-  { campType:'Plasma', name:'Rift Stalker',  emoji:'🔮',  element:'Plasma', color:'#DA70D6', enemyMaxHP:100, enemyDmg:24, xp:115, gold:44, type:'creature' },
+  { campType:'Plasma', name:'Voidweave',   emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:90,  enemyDmg:26, xp:118, gold:46, type:'wizard' },
+  { campType:'Plasma', name:'Plasmancer',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:85,  enemyDmg:28, xp:120, gold:48, type:'wizard' },
+  { campType:'Plasma', name:'Riftscribe',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:100, enemyDmg:24, xp:115, gold:44, type:'wizard' },
 
   // ── AIR ───────────────────────────────────────────────────────────────────
-  { campType:'Air', name:'Tempest Mage',  emoji:'🧙‍♀️', element:'Air', color:'#B0E0E6', enemyMaxHP:80,  enemyDmg:28, xp:115, gold:44, type:'wizard'   },
-  { campType:'Air', name:'Storm Eagle',   emoji:'🦅',  element:'Air', color:'#B0E0E6', enemyMaxHP:90,  enemyDmg:26, xp:112, gold:43, type:'creature' },
-  { campType:'Air', name:'Cyclone Djinn', emoji:'🌀',  element:'Air', color:'#B0E0E6', enemyMaxHP:85,  enemyDmg:26, xp:118, gold:46, type:'creature' },
+  { campType:'Air', name:'Zephyrcaster', emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:80,  enemyDmg:28, xp:115, gold:44, type:'wizard' },
+  { campType:'Air', name:'Galecaller',   emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:90,  enemyDmg:26, xp:112, gold:43, type:'wizard' },
+  { campType:'Air', name:'Skymancer',    emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:85,  enemyDmg:26, xp:118, gold:46, type:'wizard' },
 ];
 
 // Pack encounters
 const PACK_POOL = [
-  { campType:'Pack', element:'Fire',      packName:'Fire Wolf Pack', isPack:true, xp:200, gold:70,
+  { campType:'Pack', element:'Fire', packName:'Ember Coven', isPack:true, xp:200, gold:70,
     members:[
-      { name:'Fire Wolf',  emoji:'🐺', element:'Fire', color:'#FF4500', enemyMaxHP:80,  enemyDmg:16, type:'creature' },
-      { name:'Fire Wolf',  emoji:'🐺', element:'Fire', color:'#FF4500', enemyMaxHP:80,  enemyDmg:16, type:'creature' },
-      { name:'Alpha Wolf', emoji:'🐺', element:'Fire', color:'#FF4500', enemyMaxHP:110, enemyDmg:20, type:'creature' },
+      { name:'Ashweave',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:80,  enemyDmg:16, type:'wizard' },
+      { name:'Ashweave',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:80,  enemyDmg:16, type:'wizard' },
+      { name:'Pyromancer', emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:110, enemyDmg:20, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Water',     packName:'Water Moth Swarm', isPack:true, xp:185, gold:65,
+  { campType:'Pack', element:'Water', packName:'Tidal Coven', isPack:true, xp:185, gold:65,
     members:[
-      { name:'Water Moth', emoji:'🦋', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'creature' },
-      { name:'Water Moth', emoji:'🦋', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'creature' },
-      { name:'Water Moth', emoji:'🦋', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'creature' },
+      { name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'wizard' },
+      { name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'wizard' },
+      { name:'Tidecaller',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:90, enemyDmg:18, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Ice',       packName:'Ice Sprite Trio', isPack:true, xp:205, gold:72,
+  { campType:'Pack', element:'Ice', packName:'Frost Coven', isPack:true, xp:205, gold:72,
     members:[
-      { name:'Ice Sprite',  emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:85,  enemyDmg:18, type:'creature' },
-      { name:'Ice Sprite',  emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:85,  enemyDmg:18, type:'creature' },
-      { name:'Frost Drake', emoji:'🐲', element:'Ice', color:'#A0EFFF', enemyMaxHP:120, enemyDmg:22, type:'creature' },
+      { name:'Frostbinder',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:85,  enemyDmg:18, type:'wizard' },
+      { name:'Frostbinder',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:85,  enemyDmg:18, type:'wizard' },
+      { name:'Glacialmancer', emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:120, enemyDmg:22, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Lightning', packName:'Lightning Wisps', isPack:true, xp:195, gold:68,
+  { campType:'Pack', element:'Lightning', packName:'Storm Coven', isPack:true, xp:195, gold:68,
     members:[
-      { name:'Lightning Wisp', emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:75,  enemyDmg:22, type:'creature' },
-      { name:'Lightning Wisp', emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:75,  enemyDmg:22, type:'creature' },
-      { name:'Storm Core',     emoji:'🌩️', element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, type:'creature' },
+      { name:'Stormweave',    emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:75,  enemyDmg:22, type:'wizard' },
+      { name:'Stormweave',    emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:75,  enemyDmg:22, type:'wizard' },
+      { name:'Thunderscribe', emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Nature',    packName:'Vine Serpent Nest', isPack:true, xp:210, gold:74,
+  { campType:'Pack', element:'Nature', packName:'Grove Coven', isPack:true, xp:210, gold:74,
     members:[
-      { name:'Vine Serpent', emoji:'🐍', element:'Nature', color:'#32CD32', enemyMaxHP:90,  enemyDmg:18, type:'creature' },
-      { name:'Vine Serpent', emoji:'🐍', element:'Nature', color:'#32CD32', enemyMaxHP:90,  enemyDmg:18, type:'creature' },
-      { name:'Hydra Root',   emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:130, enemyDmg:16, type:'creature' },
+      { name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:90,  enemyDmg:18, type:'wizard' },
+      { name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:90,  enemyDmg:18, type:'wizard' },
+      { name:'Rootbinder',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:130, enemyDmg:16, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Plasma',    packName:'Plasma Drone Squadron', isPack:true, xp:215, gold:75,
+  { campType:'Pack', element:'Plasma', packName:'Void Coven', isPack:true, xp:215, gold:75,
     members:[
-      { name:'Plasma Drone', emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'creature' },
-      { name:'Plasma Drone', emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'creature' },
-      { name:'Plasma Drone', emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'creature' },
+      { name:'Voidweave',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'wizard' },
+      { name:'Voidweave',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'wizard' },
+      { name:'Plasmancer', emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:26, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Earth',     packName:'Earth Golem Duo', isPack:true, xp:200, gold:70,
+  { campType:'Pack', element:'Earth', packName:'Stone Coven', isPack:true, xp:200, gold:70,
     members:[
-      { name:'Stone Golem', emoji:'🗿', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:16, type:'creature' },
-      { name:'Stone Golem', emoji:'🗿', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:16, type:'creature' },
+      { name:'Geomancer',   emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:16, type:'wizard' },
+      { name:'Stonewarden', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:130, enemyDmg:14, type:'wizard' },
     ]},
 ];
 
@@ -4999,6 +6098,26 @@ const GYM_ROSTER_VARIABLE_TEMPLATES = [
   },
 ];
 
+// ── RIVAL DATA ───────────────────────────────────────────────────────────────
+const RIVAL = {
+  name: 'Ash',
+  emoji: '🧢',
+  // Dialogue per zone (index 0 = first gym zone)
+  dialogue: [
+    "You're still learning? I've already mastered this element.",
+    "You think you've gotten stronger? I've been training twice as hard.",
+    "Impressive progress... but you're still chasing my shadow.",
+    "Half the gyms done and you're still behind me. Classic.",
+    "You actually surprised me that time. Don't let it go to your head.",
+    "I've beaten this gym three times already. You're just catching up.",
+    "Getting close now. But close doesn't beat me.",
+    "Final stretch and you're still here? I'll give you that much.",
+  ],
+  // Base stats scale per zone
+  baseHP:  (zoneIdx) => 200 + zoneIdx * 80,
+  baseDmg: (zoneIdx) =>  18 + zoneIdx *  7,
+};
+
 // Populated at run start by initGymRoster()
 let GYM_ROSTER = [];
 
@@ -5049,7 +6168,136 @@ const player = {
   _healBonus: 0,
   basicDmgFlat: 0,
   _bannerStar: -1,
+  // ── Spellbook system ──
+  spellbooks: [],       // array of spellbook objects
+  activeBookIdx: 0,     // which book is active
 };
+
+// ── SPELLBOOK HELPERS ─────────────────────────────────────────────────────────
+
+const BOOK_SPELL_SLOTS_BASE  = 4;
+const BOOK_PASSIVE_SLOTS_BASE = 2;
+
+function makeSpellbook(element, name) {
+  return {
+    id:           element + '_basic',
+    name:         name || (element + "'s Tome"),
+    element:      element,
+    spells:       [],
+    passives:     [],
+    spellSlots:   BOOK_SPELL_SLOTS_BASE,
+    passiveSlots: BOOK_PASSIVE_SLOTS_BASE,
+    effect:       null,  // on-switch combat effect (null = none for basic book)
+  };
+}
+
+function activeBook() {
+  if (!player.spellbooks.length) return null;
+  return player.spellbooks[player.activeBookIdx] || player.spellbooks[0];
+}
+
+// Keep player.spellbook and player.passives in sync with active book
+// Call this whenever activeBookIdx changes or books change
+function syncActiveBook() {
+  const book = activeBook();
+  if (!book) return;
+  player.spellbook = book.spells;
+  player.passives  = book.passives;
+}
+
+// Override hasPassive to always read from active book
+function hasPassive(id) {
+  const book = activeBook();
+  if (!book) return (player.passives||[]).includes(id);
+  return (book.passives||[]).includes(id);
+}
+
+function initSpellbooksForRun() {
+  const bookName = playerElement + "'s Tome";
+  const book = makeSpellbook(playerElement, bookName);
+  applyBookUpgrades(book);
+  player.spellbooks  = [book];
+  player.activeBookIdx = 0;
+  syncActiveBook();
+}
+
+function switchBook(idx) {
+  if (idx < 0 || idx >= player.spellbooks.length) return;
+  if (idx === player.activeBookIdx) return;
+  player.activeBookIdx = idx;
+  syncActiveBook();
+  const book = activeBook();
+  log('📖 Switched to ' + book.name, 'player');
+  // Trigger book effect if any
+  if (book.effect && typeof book.effect === 'function') book.effect();
+}
+
+// Add a spell to the active book (with overflow check)
+function addSpellToBook(spell, bookIdx) {
+  const idx  = (bookIdx !== undefined) ? bookIdx : player.activeBookIdx;
+  const book = player.spellbooks[idx];
+  if (!book) return;
+  if (book.spells.find(s => s.id === spell.id)) return; // already owned
+  if (book.spells.length >= book.spellSlots) {
+    // Full — trigger overflow removal UI
+    _pendingOverflowSpell = spell;
+    _pendingOverflowBookIdx = idx;
+    showBookOverflowScreen(spell, book);
+    return;
+  }
+  book.spells.push(spell);
+  if (idx === player.activeBookIdx) syncActiveBook();
+}
+
+// Add a passive to the active book (with overflow check)
+function addPassiveToBook(passiveId, bookIdx) {
+  const idx  = (bookIdx !== undefined) ? bookIdx : player.activeBookIdx;
+  const book = player.spellbooks[idx];
+  if (!book) return;
+  if (book.passives.includes(passiveId)) return;
+  if (book.passives.length >= book.passiveSlots) {
+    log('📖 ' + book.name + ' passive slots full!', 'status');
+    return;
+  }
+  book.passives.push(passiveId);
+  if (idx === player.activeBookIdx) syncActiveBook();
+}
+
+// Overflow state
+let _pendingOverflowSpell    = null;
+let _pendingOverflowBookIdx  = 0;
+
+function showBookOverflowScreen(newSpell, book) {
+  const overlay = document.getElementById('book-overflow-overlay');
+  if (!overlay) return;
+  document.getElementById('boo-book-name').textContent  = book.name;
+  document.getElementById('boo-new-spell').textContent  = newSpell.emoji + ' ' + newSpell.name;
+  document.getElementById('boo-new-desc').textContent   = newSpell.desc;
+  const list = document.getElementById('boo-spell-list');
+  list.innerHTML = '';
+  book.spells.forEach((sp, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'boo-spell-btn';
+    btn.innerHTML = '<span>' + sp.emoji + ' ' + sp.name + '</span><span class="boo-remove-hint">Remove</span>';
+    btn.onclick = () => resolveBookOverflow(i);
+    list.appendChild(btn);
+  });
+  overlay.classList.add('open');
+}
+
+function resolveBookOverflow(removeIdx) {
+  const book = player.spellbooks[_pendingOverflowBookIdx];
+  if (!book || !_pendingOverflowSpell) return;
+  book.spells.splice(removeIdx, 1);
+  book.spells.push(_pendingOverflowSpell);
+  if (_pendingOverflowBookIdx === player.activeBookIdx) syncActiveBook();
+  _pendingOverflowSpell   = null;
+  _pendingOverflowBookIdx = 0;
+  const overlay = document.getElementById('book-overflow-overlay');
+  if (overlay) overlay.classList.remove('open');
+  // Continue any pending level-up flow
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
 
 // Full set of status fields — single source of truth
 const STATUS_DEFAULTS = {
@@ -5392,7 +6640,8 @@ function actionsPerTurnFor(side){
 // ── Misc ──────────────────────────────────────────────────────────────────────
 function aliveEnemies(){ return combat.enemies.filter(e=>e.alive); }
 function firstAliveIdx(){ const i=combat.enemies.findIndex(e=>e.alive); return i>=0?i:0; }
-function xpNeeded(){ return player.level*XP_PER_LEVEL; }
+// xpNeeded removed
+
 function gymBossHP(){
   const g = currentGymDef();
   return g ? g.baseHP + gymSkips*GYM_SKIP_BONUS : 300;
@@ -7033,6 +8282,17 @@ function updateActionUI(){
 }
 
 // Player hits End Turn — build all enemy queues then resolve
+function queueSwitchBook(bookIdx) {
+  if (!combat.playerTurn || combat.over) return;
+  const book = player.spellbooks[bookIdx];
+  if (!book) return;
+  queueAction('📖 ' + book.name, () => {
+    switchBook(bookIdx);
+    renderSpellButtons();
+    updateActionUI();
+  });
+}
+
 function commitEndTurn(){
   if(!combat.playerTurn||combat.over) return;
   if(!combat.actionQueue||combat.actionQueue.length===0) return;
@@ -7310,24 +8570,27 @@ function endBattle(won){
       const id=ITEM_DROP_POOL[Math.floor(Math.random()*ITEM_DROP_POOL.length)];
       addItem(id); log(`✦ Item dropped: ${ITEM_CATALOGUE[id].emoji} ${ITEM_CATALOGUE[id].name}!`,"item");
     }
-    const xp=combat.totalXP||0;
-    const levelled=gainXP(xp);
-    if(xp>0) log(`✦ Gained ${xp} XP.`,"item");
     updateHPBars(); updateStatsUI();
+    const isRival = !!(combat._isRival);
     if(isGym){
       const beatenGym = currentGymDef();
       const gymIdx = currentGymIdx;
-      if(beatenGym) log(`🏆 Gym ${currentGymIdx+1} — ${beatenGym.name} defeated!`,'win');
+      if(beatenGym) log('🏆 Gym '+(currentGymIdx+1)+' — '+beatenGym.name+' defeated!','win');
       // Artifact unlock
       const newArt = onGymDefeated(gymIdx);
       if(newArt){
         const def = ARTIFACT_CATALOGUE[newArt.id];
         if(def){
           const starLabel = newArt.star===0?'Unlocked':newArt.star===1?'★ Upgraded':newArt.star===2?'★★ Upgraded':'★★★ MAX';
-          log(`🏺 Artifact ${starLabel}: ${def.emoji} ${def.name} — ${def.desc[newArt.star]}`, 'item');
+          log('🏺 Artifact '+starLabel+': '+def.emoji+' '+def.name+' — '+def.desc[newArt.star], 'item');
         }
       }
       advanceToNextGym(); // resets zoneBattleCount and gymSkips
+    } else if(isRival){
+      log('⚔ Rival '+RIVAL.name+' defeated! Passive reward incoming...','win');
+      battleNumber++;
+      _runRoomsCompleted++;
+      zoneBattleCount++;
     } else {
       battleNumber++;
       _runRoomsCompleted++;
@@ -7343,7 +8606,7 @@ function endBattle(won){
         if(def) log(`🏺 ${def.emoji} ${def.name} upgraded to ${'★'.repeat(artUpgrade.star)}!`, 'item');
       }
     }
-    setTimeout(()=>{ if(pendingLevelUps.length>0) processNextLevelUp(); else showMap(); }, 900);
+    setTimeout(()=>{ showBattleRewardScreen(isGym, combat._isSpellBattle||false, isRival); }, 900);
   } else {
     if(player.revives > 0){
       player.revives--;
@@ -7428,17 +8691,14 @@ function applyZoneTick(){
 // renderEnemyCards, renderSpellButtons, updateHPBars, log, showScreen, etc.
 
 function updateStatsUI(){
-  const xpPct=(player.xp/xpNeeded())*100;
   // Build lives string: filled hearts for remaining, empty for lost
   const maxDisplay = Math.max(player.revives, 3);
   const heartsStr = '❤'.repeat(player.revives) + '🖤'.repeat(Math.max(0, maxDisplay - player.revives));
   ["map","combat"].forEach(prefix=>{
     const lv=document.getElementById(prefix+"-level");   if(lv) lv.textContent=player.level;
-    const xb=document.getElementById(prefix+"-xp-bar"); if(xb) xb.style.width=xpPct+"%";
     const ap=document.getElementById(prefix+"-atk");  if(ap) ap.textContent=player.attackPower;
     const ep=document.getElementById(prefix+"-ep");   if(ep) ep.textContent=player.effectPower;
     const df=document.getElementById(prefix+"-def");  if(df) df.textContent=player.defense;
-    const sp=document.getElementById(prefix+"-sp");      if(sp) sp.textContent=player.skillPoints;
     const g =document.getElementById(prefix+"-gold");    if(g)  g.textContent=player.gold;
     const lh=document.getElementById(prefix+"-lives");  if(lh) lh.textContent=heartsStr;
   });
@@ -7477,7 +8737,7 @@ function renderEnemyCards(){
       : '';
 
     card.innerHTML = `
-      <div class="arena-hud-name">${e.emoji} ${e.name}</div>
+      <div class="arena-hud-name" style="display:flex;align-items:center;gap:4px;">${elemHatSVG(e.element||'Neutral',14)} <span>${e.name}</span></div>
       <div class="arena-hud-hp-wrap"><div class="arena-hud-hp-fill" style="width:${pct}%;background:${hpColor(pct)}"></div></div>
       <div class="arena-hud-hp-text">${e.hp}/${e.enemyMaxHP}</div>
       <div class="arena-hud-status" id="estatus-${i}"></div>
@@ -7594,7 +8854,7 @@ function showScreen(id){
   const _menuScreens = ['title-screen','save-select-screen','hub-screen','element-screen','passive-screen','between-runs-screen','character-screen'];
   if(id === 'combat-screen'){
     musicPlaySmart(_zone ? 'battle_' + _zone : 'battle_Fire');
-  } else if(['map-screen','campfire-screen','shop-screen','gym-screen'].includes(id)){
+  } else if(['map-screen','campfire-screen','shop-screen','gym-screen','rival-screen'].includes(id)){
     musicPlaySmart(_zone ? 'map_' + _zone : 'map_Fire');
   } else if(_menuScreens.includes(id)){
     musicPlaySmart('menu');
@@ -7607,10 +8867,10 @@ function restartToSelect(){
   Object.assign(player,{
     hp:BASE_MAX_HP, level:1, xp:0, attackPower:0, effectPower:0, defense:0,
     skillPoints:0, gold:0, inventory:[], spellbook:[], passives:[], startPassive:null,
-    unlockedElements:[], baseMaxHPBonus:0,
+    unlockedElements:[], baseMaxHPBonus:0, spellbooks:[], activeBookIdx:0,
     revives:0, bonusActions:0,
     basicUpgrade:0, basicDmgMult:1.0,
-    _xpBonus:0, _hasteStart:false, _blockStart:0, _extraStartSpell:false,
+    _xpBonus:0, _hasteStart:false, _blockStart:0, _extraStartSpell:false, _rerolls:0,
   });
   Object.assign(combat,{enemies:[],targetIdx:0,activeEnemyIdx:0,enemy:{},enemyHP:0,playerTurn:false,over:false,tempDmgBonus:0,actionsLeft:0,basicCD:0,playerAirToggle:false,enemyAirToggle:false,actionQueue:[],summons:[],totalXP:0,totalGold:0});
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[];
@@ -7656,254 +8916,248 @@ function basicSpellDamagePreview(){
   return dmg+'+P';
 }
 
+function doBasicAttack(ctx){
+  const dmg = Math.round((BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0)) * (player.basicDmgMult||1.0));
+  ctx.hit({ baseDamage: dmg, effects: [], isBasic: true, abilityElement: playerElement });
+}
+
 function renderSpellButtons(){
-  const grid=document.getElementById("spell-grid");
+  const grid = document.getElementById("spell-grid");
   if(!grid) return;
-  grid.innerHTML="";
-  const isMyTurn=combat.playerTurn&&!combat.over;
-  const queueFull=(combat.actionQueue||[]).length>=(combat.actionsLeft||0);
+  const isMyTurn  = combat.playerTurn && !combat.over;
+  const queueFull = (combat.actionQueue||[]).length >= (combat.actionsLeft||0);
 
-  // ── PLASMA: charge-based abilities (bypass action cap) ──
+  // ── Populate book tab bar ────────────────────────────────────────────────
+  const bookTabBar = document.getElementById('sb-book-tabs');
+  if(bookTabBar){
+    bookTabBar.innerHTML = '';
+    if(player.spellbooks && player.spellbooks.length > 1){
+      player.spellbooks.forEach((book, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'sb-book-tab' + (i === player.activeBookIdx ? ' active' : '');
+        btn.textContent = book.name;
+        btn.disabled = (i === player.activeBookIdx) || !isMyTurn || queueFull;
+        btn.onclick = () => queueSwitchBook(i);
+        bookTabBar.appendChild(btn);
+      });
+    } else if(player.spellbooks && player.spellbooks.length === 1){
+      const lbl = document.createElement('span');
+      lbl.style.cssText = 'font-family:Cinzel,serif;font-size:.6rem;color:#6a4a20;letter-spacing:.06em;';
+      lbl.textContent = player.spellbooks[0].name;
+      bookTabBar.appendChild(lbl);
+    }
+  }
+
+  // ── Populate passives row ────────────────────────────────────────────────
+  const passivesRow = document.getElementById('sb-passives-row');
+  if(passivesRow){
+    passivesRow.innerHTML = '';
+    const book = activeBook();
+    const passiveIds = book ? book.passives : (player.passives||[]);
+    if(passiveIds.length === 0){
+      const empty = document.createElement('span');
+      empty.className = 'sb-passive-empty';
+      empty.textContent = 'No passives yet';
+      passivesRow.appendChild(empty);
+    } else {
+      passiveIds.forEach(pid => {
+        // Find passive def
+        let pdef = null;
+        Object.values(PASSIVE_CHOICES||{}).forEach(arr => {
+          const found = (arr||[]).find(p => p.id === pid);
+          if(found) pdef = found;
+        });
+        const pip = document.createElement('div');
+        pip.className = 'sb-passive-pip';
+        pip.textContent = pdef ? (pdef.emoji||'✦') : '✦';
+        pip.setAttribute('data-tip', pdef ? pdef.name : pid);
+        pip.title = pdef ? pdef.name + ': ' + pdef.desc : pid;
+        passivesRow.appendChild(pip);
+      });
+    }
+  }
+
+  // ── Update end-turn btn ──────────────────────────────────────────────────
+  const endBtn = document.getElementById('end-turn-btn');
+  if(endBtn){
+    const hasActions = (combat.actionQueue||[]).length > 0;
+    endBtn.disabled = !combat.playerTurn || combat.over || !hasActions;
+    endBtn.className = 'sb-endturn-btn' + (hasActions ? ' ready' : '');
+    endBtn.textContent = hasActions ? '⚔ End Turn (' + combat.actionQueue.length + ')' : '⚔ End Turn';
+  }
+
+  // ── Update item button ────────────────────────────────────────────────────
+  const itemBtn = document.getElementById('sb-item-btn');
+  const invCount = document.getElementById('inv-count-label');
+  if(itemBtn){
+    const count = (player.inventory||[]).length;
+    itemBtn.disabled = !isMyTurn || count === 0;
+    if(invCount) invCount.textContent = count;
+  }
+
+  // ── PLASMA: full custom grid ─────────────────────────────────────────────
   if(playerElement === 'Plasma'){
-
-    // Plasma turn info bar
-    const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'font-size:.62rem;color:#8a5aaa;letter-spacing:.08em;margin-bottom:.3rem;text-align:center;';
-    infoDiv.textContent = `1 action (items/non-Plasma) + unlimited Plasma abilities (limited by Charge)`;
-    grid.appendChild(infoDiv);
-
-    // Charge availability label
+    grid.style.gridTemplateColumns = 'repeat(3,1fr)';
+    grid.innerHTML = '';
     const availCharge = Math.max(0, (status.player.plasmaCharge||0) - (combat.plasmaChargeReserved||0));
-    const chargeLabel = document.createElement('div');
-    chargeLabel.style.cssText = 'font-size:.65rem;color:#9a7aaa;text-align:center;margin:.3rem 0 .1rem;letter-spacing:.06em;';
-    chargeLabel.textContent = `⚡ ${availCharge} Charge available${combat.plasmaOvercharged?' ✦ OVERCHARGED':''}`;
-    grid.appendChild(chargeLabel);
-
-    // Per-spell stepper init (persists across renders)
     if(!combat.plasmaSpendAmounts) combat.plasmaSpendAmounts = {};
-
-    // Plasma spell buttons — each with its own inline stepper
-    player.spellbook.forEach((spell, i) => {
+    player.spellbook.forEach((spell) => {
       if(!spell.isPlasmaAbility) return;
-
       const onCD = (spell.currentCD||0) > 0;
       const isVar = spell.chargeCost === 'variable';
       const fixedCost = typeof spell.chargeCost === 'number' ? spell.chargeCost : 0;
-
-      // Init per-spell spend amount
-      if(combat.plasmaSpendAmounts[spell.id] == null) combat.plasmaSpendAmounts[spell.id] = isVar ? Math.min(6, availCharge) : fixedCost;
-      const curSpend = isVar
-        ? Math.min(Math.max(1, combat.plasmaSpendAmounts[spell.id]), availCharge)
-        : fixedCost;
-      const effectiveCost = isVar ? curSpend : fixedCost;
-      const canAfford = availCharge >= effectiveCost;
-
-      // 1-use-per-turn: check if this spell is already queued
+      if(combat.plasmaSpendAmounts[spell.id] == null) combat.plasmaSpendAmounts[spell.id] = isVar ? Math.min(6,availCharge) : fixedCost;
+      const curSpend = isVar ? Math.min(Math.max(1,combat.plasmaSpendAmounts[spell.id]),availCharge) : fixedCost;
+      const canAfford = availCharge >= curSpend;
       const alreadyQueued = (combat.actionQueue||[]).some(a => a.spellId === spell.id);
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'plasma-spell-row';
-
-      // Main spell button
-      const btn = document.createElement('button');
-      btn.className = 'spell-btn elemental plasma-ability' + (onCD?' on-cd':'') + (combat.plasmaOvercharged?' overcharged':'');
-      btn.disabled = !isMyTurn || onCD || !canAfford || alreadyQueued;
-      const costLabel = isVar ? `${effectiveCost} Charge` : fixedCost > 0 ? `${fixedCost} Charge` : 'Free';
-      const overStr = combat.plasmaOvercharged ? ' [×1.5]' : '';
-      const alreadyStr = alreadyQueued ? ' · queued' : '';
-      btn.style.flex = '1';
-      btn.innerHTML = `
-        <span class="spell-name">${spell.emoji} ${spell.name}${overStr}</span>
-        <span class="spell-meta">${onCD?`CD: ${spell.currentCD}t`:`${costLabel}${alreadyStr} · ${spell.desc}`}</span>
-      `;
-      btn.onclick = ()=>{
-        if(!isMyTurn||onCD||!canAfford||alreadyQueued) return;
-        const snapSpend = effectiveCost;
-        const snapTgt = combat.targetIdx;
-        const snapCD = adjustedCooldownFor('player', spell.baseCooldown);
-        if(snapCD > 0) spell.currentCD = snapCD;
-        queuePlasmaAction(`${spell.emoji} ${spell.name} (${costLabel})`, ()=>{
-          setActiveEnemy(snapTgt);
-          combat.plasmaCurrentSpend = snapSpend; // tells _plasmaSpend() how much this cast commits
-          const ctx = makeSpellCtx('player','enemy', player.spellbook.indexOf(spell));
-          spell.execute(ctx);
-          updateHPBars(); renderStatusTags(); updateStatsUI(); updateChargeUI();
-        }, effectiveCost, spell.id);
-        renderSpellButtons();
-      };
-
-      // Variable-cost spells get inline −/+ stepper
-      if(isVar) {
-        wrapper.style.cssText = 'display:flex;gap:.3rem;align-items:center;margin-bottom:.35rem;';
+      const cell = document.createElement('button');
+      cell.className = 'sb-spell-cell' + (onCD?' on-cd':'');
+      cell.disabled = !isMyTurn || onCD || !canAfford || alreadyQueued;
+      const costLabel = isVar ? curSpend+'⚡' : fixedCost>0 ? fixedCost+'⚡' : 'Free';
+      const overStr = combat.plasmaOvercharged ? '✦' : '';
+      cell.innerHTML =
+        '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
+        '<div class="sb-spell-name">'+spell.name+(overStr?' '+overStr:'')+'</div>' +
+        '<div class="sb-spell-cd '+(onCD?'on-cd':'ready')+'">'+
+          (onCD?'CD:'+spell.currentCD : costLabel)+
+        '</div>' +
+        (alreadyQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
+      if(isVar){
+        cell.style.cursor = 'default';
+        cell.onclick = null;
+        // Stepper overlay — small +/- inside cell
+        const stepper = document.createElement('div');
+        stepper.style.cssText='display:flex;gap:2px;justify-content:center;margin-top:2px;';
         const minus = document.createElement('button');
-        minus.className = 'ps-btn';
-        minus.textContent = '−';
-        minus.disabled = !isMyTurn || alreadyQueued;
-        minus.onclick = (e)=>{
-          e.stopPropagation();
-          const av = Math.max(0,(status.player.plasmaCharge||0)-(combat.plasmaChargeReserved||0));
-          combat.plasmaSpendAmounts[spell.id] = Math.max(1, (combat.plasmaSpendAmounts[spell.id]||1) - 1);
-          renderSpellButtons();
-        };
+        minus.textContent='-'; minus.style.cssText='background:#1a0e05;border:1px solid #3a1a0a;color:#c8a060;width:18px;height:16px;font-size:.6rem;cursor:pointer;border-radius:2px;padding:0;';
+        minus.onclick=(e)=>{e.stopPropagation();combat.plasmaSpendAmounts[spell.id]=Math.max(1,(combat.plasmaSpendAmounts[spell.id]||1)-1);renderSpellButtons();};
         const plus = document.createElement('button');
-        plus.className = 'ps-btn';
-        plus.textContent = '+';
-        plus.disabled = !isMyTurn || alreadyQueued;
-        plus.onclick = (e)=>{
+        plus.textContent='+'; plus.style.cssText='background:#1a0e05;border:1px solid #3a1a0a;color:#c8a060;width:18px;height:16px;font-size:.6rem;cursor:pointer;border-radius:2px;padding:0;';
+        plus.onclick=(e)=>{e.stopPropagation();combat.plasmaSpendAmounts[spell.id]=Math.min(availCharge,(combat.plasmaSpendAmounts[spell.id]||1)+1);renderSpellButtons();};
+        const castBtn = document.createElement('button');
+        castBtn.textContent='Cast';castBtn.style.cssText='background:#2a1a3a;border:1px solid #6a2a8a;color:#da70d6;font-size:.54rem;padding:0 4px;border-radius:2px;cursor:pointer;font-family:Cinzel,serif;';
+        castBtn.disabled = !isMyTurn||onCD||!canAfford||alreadyQueued;
+        castBtn.onclick=(e)=>{
           e.stopPropagation();
-          const av = Math.max(0,(status.player.plasmaCharge||0)-(combat.plasmaChargeReserved||0));
-          combat.plasmaSpendAmounts[spell.id] = Math.min(av, (combat.plasmaSpendAmounts[spell.id]||1) + 1);
-          renderSpellButtons();
+          if(!isMyTurn||onCD||!canAfford||alreadyQueued) return;
+          const snapSpend=combat.plasmaSpendAmounts[spell.id]||1;
+          combat.plasmaChargeReserved=(combat.plasmaChargeReserved||0)+snapSpend;
+          const snapTgt=combat.targetIdx;
+          const snapIdx=player.spellbook.indexOf(spell);
+          combat.actionQueue.push({label:spell.emoji+' '+spell.name+'('+snapSpend+'⚡)',fn:()=>{
+            setActiveEnemy(snapTgt);
+            combat.plasmaCurrentSpend=snapSpend; // wire UI spend → _plasmaSpend()
+            const ctx=makeSpellCtx('player','enemy',snapIdx);
+            ctx.plasmaChargeSpent=snapSpend;
+            spell.execute(ctx);
+            updateHPBars();renderStatusTags();updateStatsUI();
+          },targetIdx:snapTgt,isPlasma:true,spellId:spell.id});
+          renderQueue(); updateActionUI(); renderSpellButtons();
         };
-        const valSpan = document.createElement('span');
-        valSpan.className = 'ps-val';
-        valSpan.style.cssText = 'min-width:1.5rem;text-align:center;';
-        valSpan.textContent = curSpend;
-        wrapper.appendChild(minus);
-        wrapper.appendChild(valSpan);
-        wrapper.appendChild(plus);
-        wrapper.appendChild(btn);
+        stepper.appendChild(minus); stepper.appendChild(castBtn); stepper.appendChild(plus);
+        cell.appendChild(stepper);
       } else {
-        wrapper.appendChild(btn);
+        cell.onclick = ()=>{
+          if(!isMyTurn||onCD||!canAfford||alreadyQueued) return;
+          const snapTgt=combat.targetIdx; const snapIdx=player.spellbook.indexOf(spell);
+          combat.plasmaChargeReserved=(combat.plasmaChargeReserved||0)+curSpend;
+          combat.actionQueue.push({label:spell.emoji+' '+spell.name,fn:()=>{
+            setActiveEnemy(snapTgt);const ctx=makeSpellCtx('player','enemy',snapIdx);
+            ctx.plasmaChargeSpent=curSpend;spell.execute(ctx);
+            updateHPBars();renderStatusTags();updateStatsUI();
+          },targetIdx:snapTgt,isPlasma:true,spellId:spell.id});
+          renderQueue(); updateActionUI(); renderSpellButtons();
+        };
       }
-
-      grid.appendChild(wrapper);
+      grid.appendChild(cell);
     });
-
-    // Non-Plasma spells (action-gated as normal)
-    player.spellbook.forEach((spell, i) => {
-      if(spell.isPlasmaAbility) return;
-      const onCD = (spell.currentCD||0) > 0;
-      const btn = document.createElement('button');
-      btn.className = 'spell-btn elemental' + (onCD?' on-cd':'');
-      btn.disabled = !isMyTurn || queueFull || onCD;
-      btn.innerHTML = `<span class="spell-name">${spell.emoji} ${spell.name}</span><span class="spell-meta">${onCD?`CD: ${spell.currentCD}t`:spell.desc}</span>`;
-      btn.onclick = ()=>{
-        if(!isMyTurn||queueFull||onCD) return;
-        const snapTgt = combat.targetIdx;
-        const snapCD = adjustedCooldownFor('player', spell.baseCooldown)||1;
-        spell.currentCD = snapCD;
-        const spellIdx = player.spellbook.indexOf(spell);
-        queueAction(`${spell.emoji} ${spell.name}`, ()=>{
-          setActiveEnemy(snapTgt);
-          const ctx = makeSpellCtx('player','enemy', spellIdx);
-          spell.execute(ctx);
-          updateHPBars(); renderStatusTags(); updateStatsUI();
-        });
-        renderSpellButtons();
-      };
-      grid.appendChild(btn);
-    });
-
-    return; // skip the rest of renderSpellButtons
+    return;
   }
 
-  // ── Non-Plasma: Basic attack ──
-  const tgt=combat.enemies[combat.targetIdx];
-  const basicOnCD=combat.basicCD>0;
-  const basicBtn=document.createElement("button");
-  basicBtn.className="spell-btn"+(basicOnCD?" on-cd":"");
-  basicBtn.disabled=!isMyTurn||queueFull||basicOnCD;
-  basicBtn.innerHTML=`<span class="spell-name">⚔ Basic Strike</span><span class="spell-meta">${basicOnCD?`CD: ${combat.basicCD}t`:`A standard elemental attack`}</span>`;
-  basicBtn.onclick=()=>{
-    if(!isMyTurn||queueFull||combat.basicCD>0) return;
-    const snapDmg=Math.round((BASE_DMG+combat.tempDmgBonus+(player.basicDmgFlat||0))*(player.basicDmgMult||1.0));
-    const snapTgt=combat.targetIdx;
-    combat.basicCD=1;
-    queueAction(`⚔ Basic`, ()=>{
-      setActiveEnemy(snapTgt);
-      performHit('player','enemy',{baseDamage:snapDmg,effects:[],isBasic:true,abilityElement:playerElement});
-    });
-  };
-  grid.appendChild(basicBtn);
+  // ── Non-Plasma: Build 3-col grid ─────────────────────────────────────────
+  grid.innerHTML = '';
 
-  // ── Non-Plasma: Armor ──
-  const armorBtn=document.createElement("button");
-  armorBtn.className="spell-btn";
-  armorBtn.disabled=!isMyTurn||queueFull;
-  const armAmt=armorBlockAmount();
-  armorBtn.innerHTML=`<span class="spell-name">🛡 Armor</span><span class="spell-meta">+${armAmt} Block · defensive</span>`;
-  armorBtn.onclick=()=>{
+  // Basic attack cell
+  const basicOnCD = combat.basicCD > 0;
+  const basicCell = document.createElement('button');
+  basicCell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'');
+  basicCell.disabled = !isMyTurn || queueFull || basicOnCD;
+  const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0));
+  basicCell.innerHTML =
+    '<div class="sb-spell-icon">⚔</div>' +
+    '<div class="sb-spell-name">Basic</div>' +
+    '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
+      (basicOnCD?'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
+    '</div>';
+  basicCell.onclick = ()=>{
+    if(!isMyTurn||queueFull||basicOnCD) return;
+    const snapTgt=combat.targetIdx;
+    const snapCD=adjustedCooldownFor('player',1)||1;
+    combat.basicCD=snapCD;
+    queueAction('⚔ Basic',()=>{
+      setActiveEnemy(snapTgt);
+      const ctx=makeSpellCtx('player','enemy',-1);
+      doBasicAttack(ctx);
+      updateHPBars();renderStatusTags();updateStatsUI();
+    });
+    renderSpellButtons();
+  };
+  grid.appendChild(basicCell);
+
+  // Armor cell
+  const armorCell = document.createElement('button');
+  const armAmt = armorBlockAmount();
+  armorCell.className = 'sb-spell-cell';
+  armorCell.disabled = !isMyTurn || queueFull;
+  armorCell.innerHTML =
+    '<div class="sb-spell-icon">🛡</div>' +
+    '<div class="sb-spell-name">Armor</div>' +
+    '<div class="sb-spell-cd ready">+'+armAmt+' Block</div>';
+  armorCell.onclick = ()=>{
     if(!isMyTurn||queueFull) return;
-    queueAction(`🛡 Armor`, ()=>{
+    queueAction('🛡 Armor',()=>{
       status.player.block=(status.player.block||0)+armAmt;
-      log(`🛡 You brace — +${armAmt} Block (${status.player.block} total).`,'player');
+      log('🛡 You brace — +'+armAmt+' Block ('+status.player.block+' total).','player');
       renderStatusTags();
     });
   };
-  grid.appendChild(armorBtn);
-  player.spellbook.forEach((spell,i)=>{
-    const onCD=(spell.currentCD||0)>0;
-    const isSummon=spell.id==='nature_summon';
-    const btn=document.createElement("button");
-    btn.className="spell-btn elemental"+(onCD?" on-cd":"");
-    btn.disabled=!isMyTurn||queueFull||onCD;
-    const rankPct=Math.round(((spell.dmgMult||1.0))*100);
-    const tgtNote=isSummon?'· summon':combat.enemies[combat.targetIdx]?`→ ${combat.enemies[combat.targetIdx].name}`:'';
-    const rankStr=rankPct>100?` [${rankPct}%]`:'';
-    btn.innerHTML=`<span class="spell-name">${spell.emoji} ${spell.name}${rankStr}</span><span class="spell-meta">${onCD?`CD: ${spell.currentCD}t`:spell.desc}</span>`;
-    // Charge Shot requires 2 free action slots
+  grid.appendChild(armorCell);
+
+  // Spell cells
+  player.spellbook.forEach((spell) => {
+    const onCD = (spell.currentCD||0) > 0;
+    const alreadyQueued = (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
+    const cell = document.createElement('button');
+    cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'');
     const isChargeShot = spell.id === 'charge_shot';
-    const needsSlots = isChargeShot ? 2 : 1;
     const slotsAvail = combat.actionsLeft - (combat.actionQueue||[]).length;
-    btn.disabled = btn.disabled || (isChargeShot && slotsAvail < 2);
-    if(isChargeShot) btn.querySelector('.spell-meta').textContent += ' — costs 2 actions';
-    btn.onclick=()=>{
-      if(!isMyTurn||queueFull||(spell.currentCD||0)>0) return;
-      if(isChargeShot && slotsAvail < 2) return;
-      const snapSpellTgt=combat.targetIdx;
+    cell.disabled = !isMyTurn || queueFull || onCD || (isChargeShot && slotsAvail < 2);
+    const rankPct = Math.round((spell.dmgMult||1.0)*100);
+    const rankStr = rankPct>100 ? ' ['+rankPct+'%]' : '';
+    cell.innerHTML =
+      '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
+      '<div class="sb-spell-name">'+spell.name+rankStr+'</div>' +
+      '<div class="sb-spell-cd '+(onCD?'on-cd':'ready')+'">'+
+        (onCD?'CD:'+spell.currentCD : 'CD:'+spell.baseCooldown)+
+      '</div>' +
+      (alreadyQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
+    cell.onclick = ()=>{
+      if(!isMyTurn||queueFull||onCD) return;
+      const snapTgt=combat.targetIdx;
       const snapCD=adjustedCooldownFor('player',spell.baseCooldown)||1;
       spell.currentCD=snapCD;
       const spellIdx=player.spellbook.indexOf(spell);
-      // Charge Shot: fill both slots
-      if(isChargeShot){
-        queueAction(`🎯⚡ Charge Shot (charging)`, ()=>{ /* slot filler */ });
-      }
-      queueAction(`${spell.emoji} ${spell.name}`, ()=>{
-        if(!isSummon) setActiveEnemy(snapSpellTgt);
-        // Deep Current: Water spell fires twice
-        const isWater = spell.element==='Water';
-        const deepCurrent = isWater && status.player.deepCurrentActive;
-        if(deepCurrent) status.player.deepCurrentActive = false;
-        const ctx = makeSpellCtx('player','enemy', spellIdx);
+      queueAction(spell.emoji+' '+spell.name,()=>{
+        setActiveEnemy(snapTgt);
+        const ctx=makeSpellCtx('player','enemy',spellIdx);
         spell.execute(ctx);
-        if(deepCurrent && !combat.over){
-          log('💠 Deep Current: second cast!','status');
-          setActiveEnemy(snapSpellTgt);
-          const ctx2 = makeSpellCtx('player','enemy', spellIdx);
-          spell.execute(ctx2);
-        }
-        updateHPBars(); renderStatusTags(); updateStatsUI();
+        updateHPBars();renderStatusTags();updateStatsUI();
       });
       renderSpellButtons();
     };
-    grid.appendChild(btn);
+    grid.appendChild(cell);
   });
 }
-
-// ===============================
-// WIRING
-// ===============================
-// hub name input — enter key triggers play
-const _hubInput = document.getElementById('hub-name-input');
-if(_hubInput) _hubInput.addEventListener('keydown', e=>{ if(e.key==='Enter') hubPlay(); });
-
-// Click spell points to upgrade
-["map-sp","combat-sp"].forEach(id=>{
-  const el=document.getElementById(id);
-  if(el){
-    el.style.cursor="pointer";
-    el.title="Click to spend spell points";
-    el.addEventListener("click", ()=>{
-      if(player.skillPoints<=0){
-        log("No spell points to spend yet.","system");
-        return;
-      }
-      openSpellUpgrade();
-    });
-  }
-});
-
 // ===============================
 // GAME OVER SCREEN
 // ===============================
@@ -8755,41 +10009,58 @@ function showMap(){
     }
   }
 
-  // ── Special nodes (campfire + shop guaranteed once each per zone) ──
+  // ── Specials: gym + rival go in specials array (shown alongside encounters) ──
   const specials = [];
   if(gym && gymShouldAppear()) specials.push({ type:'gym', enc:{} });
 
-  // _pickZoneSpecial returns one type at a time; call twice in case both land same battle
-  const special1 = _pickZoneSpecial();
-  if(special1) specials.push({ type:special1, enc:{} });
-  const special2 = _pickZoneSpecial();
-  if(special2) specials.push({ type:special2, enc:{} });
+  // Rival at battle 4 — also a special node alongside encounters
+  if(zoneBattleCount === 4) specials.push({ type:'rival', enc:{} });
 
+  // Campfire / shop: replace ONE encounter slot (keeps total at 2 unless gym present)
+  const zoneSpecial = _pickZoneSpecial();
+  if(zoneSpecial && encounters.length > 0) {
+    // Replace the first encounter slot with the special
+    encounters[0] = { _specialType: zoneSpecial, _isSpecial: true };
+  }
+
+  // Tag second encounter as spell reward battle when applicable
+  const isSpellTurn = (battleNumber % SPELL_REWARD_EVERY === 0);
+  if (isSpellTurn && encounters.length > 0) {
+    const spellIdx = encounters.length > 1 ? 1 : 0;
+    if (!encounters[spellIdx]._isSpecial) {
+      encounters[spellIdx] = { ...encounters[spellIdx], _isSpellBattle: true,
+        enemyMaxHP: Math.round((encounters[spellIdx].enemyMaxHP || 100) * 1.35),
+        enemyDmg:   Math.round((encounters[spellIdx].enemyDmg   ||  15) * 1.2) };
+    }
+  }
   _buildAndShowCanvas(encounters, specials);
 }
 
 // ── Zone special scheduling ────────────────────────────────────────────────
-// Guarantees one campfire AND one shop per zone at staggered positions.
+// Campfire and shop each appear once per zone as a CHOICE vs a battle (battle 5+).
+// They replace one encounter slot, keeping the map to 2 choices (unless gym present).
 let _zoneShopBattle     = -1;
 let _zoneCampfireBattle = -1;
 
 function initZoneSpecial(){
-  const earliest = 3, latest = Math.max(4, GYM_ZONE_FORCE - 3);
-  const mid = Math.floor((earliest + latest) / 2);
-  // One fires in first half, one in second half — randomise which is which
-  const earlyPos = earliest + Math.floor(Math.random() * (mid - earliest + 1));
-  const latePos  = mid + 1 + Math.floor(Math.random() * (latest - mid));
+  // Both appear at battle 5 or later, separated by at least 2 battles
+  const latest = Math.max(7, GYM_ZONE_FORCE - 2);
+  const earlyPos = 5 + Math.floor(Math.random() * 2);           // 5 or 6
+  const latePos  = earlyPos + 2 + Math.floor(Math.random() * 2); // 2-3 after early
+  const clampedLate = Math.min(latePos, latest);
   if(Math.random() < 0.5){
     _zoneCampfireBattle = earlyPos;
-    _zoneShopBattle     = latePos;
+    _zoneShopBattle     = clampedLate;
   } else {
     _zoneShopBattle     = earlyPos;
-    _zoneCampfireBattle = latePos;
+    _zoneCampfireBattle = clampedLate;
   }
 }
 
+// Returns 'campfire' | 'shop' | null — signals that this battle slot should
+// offer the special as an alternative to one of the two combat encounters.
 function _pickZoneSpecial(){
-  if(zoneBattleCount < 3) return null;
+  if(zoneBattleCount < 5) return null;
   if(zoneBattleCount === _zoneCampfireBattle){
     _zoneCampfireBattle = -1;
     return 'campfire';
@@ -8817,6 +10088,9 @@ function _buildAndShowCanvas(encounters, specials){
 
 
 function makeCombatCard(enc){
+  // Special encounter slots (campfire / shop replacing a battle)
+  if(enc._isSpecial) return makeSpecialCard(enc._specialType);
+
   const card=document.createElement("div"); card.className="encounter-card";
   const gym=currentGymDef();
   const zone=(gym&&inGymZone()) ? ZONE_EFFECTS[gym.element] : null;
@@ -8833,11 +10107,21 @@ function makeCombatCard(enc){
     const meta=CAMP_META['Pack'];
     const totalHP=enc.members.reduce((s,m)=>s+m.enemyMaxHP,0);
     const maxDmg=enc.members.reduce((s,m)=>Math.max(s,m.enemyDmg),0);
-    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${meta.icon} ${enc.packName}</div><div class="enc-desc" style="color:${meta.color};opacity:.7;">${enc.members.length} enemies · HP:${totalHP} · Dmg:${maxDmg}</div>${zoneLine}</div><div class="enc-right"><div class="enc-difficulty" style="color:${meta.color};font-family:'Cinzel',serif;font-size:.62rem;">PACK</div><div class="enc-stats">XP:${enc.xp} · Gold:${enc.gold}</div></div>`;
+    const packReward = enc._isSpellBattle ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>' : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
+    const packHat = elemHatSVG(enc.element||'Neutral', 20);
+    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${packHat} ${enc.packName}</div><div class="enc-desc" style="color:${meta.color};opacity:.7;">${enc.members.length} wizards · HP:${totalHP} · Dmg:${maxDmg}</div>${zoneLine}</div><div class="enc-right">${packReward}<div class="enc-stats">Gold:${enc.gold}</div></div>`;
     card.onclick=()=>loadBattle(enc);
   } else {
     const meta=CAMP_META[enc.campType]||{color:enc.color||'#888',icon:'⚔',label:enc.campType};
-    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${meta.icon} ${meta.label}</div><div class="enc-desc" style="color:#777;">${enc.emoji} ${enc.name} · HP:${enc.enemyMaxHP} · Dmg:${enc.enemyDmg}/turn</div>${zoneLine}</div><div class="enc-right"><div class="enc-difficulty" style="color:${meta.color};font-family:'Cinzel',serif;font-size:.62rem;">⚔ FIGHT</div><div class="enc-stats">XP:${enc.xp} · Gold:${enc.gold}</div></div>`;
+    // Determine what reward this battle will give based on when it's fought
+    const nextBattle = battleNumber + (enc._isSpellBattle ? 0 : 0);
+    const isSpellBattle = enc._isSpellBattle || false;
+    const rewardTag  = isSpellBattle
+      ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>'
+      : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
+    const enemyNote  = isSpellBattle ? `<span style="color:#6a4a80;font-size:.58rem;"> · ⚠ Elite</span>` : '';
+    const hatIcon = elemHatSVG(enc.element||'Neutral', 20);
+    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${meta.icon} ${meta.label}</div><div class="enc-desc" style="color:#777;display:flex;align-items:center;gap:5px;">${hatIcon}<span style="color:${meta.color};font-family:'Cinzel',serif;font-size:.72rem;">${enc.name}</span><span style="color:#555;"> · HP:${enc.enemyMaxHP} · Dmg:${enc.enemyDmg}/turn${enemyNote}</span></div>${zoneLine}</div><div class="enc-right">${rewardTag}<div class="enc-stats">Gold:${enc.gold}</div></div>`;
     card.onclick=()=>loadBattle(enc);
   }
   return card;
@@ -8861,6 +10145,11 @@ function makeSpecialCard(type){
     card.classList.add("card-campfire");
     card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:#d4822a">🔥 Campfire</div><div class="enc-desc" style="color:#7a5a2a">Recover 50% HP</div></div><div class="enc-right" style="color:#7a5a2a">REST</div>`;
     card.onclick=()=>enterCampfire();
+  } else if(type==="rival"){
+    const rHP=rivalHP(), rDmg=rivalDmg();
+    card.style.borderColor='#3a1a6a';
+    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:#9a6aee">🧢 Rival ${RIVAL.name}</div><div class="enc-desc" style="color:#6a4a90">${playerElement} · HP:${rHP} · Dmg:${rDmg}/turn</div><div style="font-size:.57rem;color:#4a3a60;margin-top:2px;">Reward: ✦ Passive Ability</div></div><div class="enc-right" style="color:#9a6aee;font-family:'Cinzel',serif;font-size:.62rem;">RIVAL</div>`;
+    card.onclick=()=>showRivalIntro();
   } else {
     card.classList.add("card-shop");
     card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:#2aaa7a">🏪 Shop</div><div class="enc-desc" style="color:#2a6a4a">Spend gold on items</div></div><div class="enc-right" style="color:#2a6a4a">SHOP</div>`;
@@ -8870,6 +10159,39 @@ function makeSpecialCard(type){
 }
 
 // ── GYM ──────────────────────────────────────────────────────────────────────
+// ── RIVAL ─────────────────────────────────────────────────────────────────────
+
+function rivalHP()  { return RIVAL.baseHP(currentGymIdx);  }
+function rivalDmg() { return RIVAL.baseDmg(currentGymIdx); }
+
+function showRivalIntro() {
+  const hp  = rivalHP();
+  const dmg = rivalDmg();
+  const dialogue = RIVAL.dialogue[Math.min(currentGymIdx, RIVAL.dialogue.length - 1)];
+  document.getElementById('rival-title').textContent    = RIVAL.emoji + ' Rival ' + RIVAL.name;
+  document.getElementById('rival-dialogue').textContent = '"' + dialogue + '"';
+  document.getElementById('rival-hp-display').textContent  = hp;
+  document.getElementById('rival-dmg-display').textContent = dmg;
+  document.getElementById('rival-element-display').textContent = playerElement;
+  showScreen('rival-screen');
+}
+
+function startRivalBattle() {
+  const hp  = rivalHP();
+  const dmg = rivalDmg();
+  const rivEnc = {
+    name: RIVAL.name, emoji: RIVAL.emoji,
+    element: playerElement,
+    color: '#9a6aee',
+    difficulty: 'rival', diffClass: 'diff-hard',
+    enemyMaxHP: hp, enemyDmg: dmg,
+    xp: 0, gold: Math.round(30 + currentGymIdx * 15),
+    type: 'wizard',
+    isRival: true,
+  };
+  loadBattle(rivEnc);
+}
+
 function showGymIntro(forced){
   const gym=currentGymDef(); if(!gym) return;
   const bHP=gymBossHP();
@@ -8957,7 +10279,7 @@ function enterShop(){
   pickRandom(forSale,2).forEach(p=>{
     const pCost=1000;
     addRow(p.emoji,p.title,`[${p.element}] ${p.desc}`,pCost,player.gold>=pCost,
-      ()=>{player.gold-=pCost;player.passives.push(p.id);enterShop();});
+      ()=>{player.gold-=pCost;addPassiveToBook(p.id);enterShop();});
   });
   updateStatsUI();
   showScreen("shop-screen");
@@ -9045,10 +10367,10 @@ function loadBattle(enc){
       enemyDmg:   Math.round(m.enemyDmg   * dmgScale),
       xp:Math.floor(enc.xp/enc.members.length),
       gold:Math.floor(enc.gold/enc.members.length),isGym:false}));
-    combat.totalXP=enc.xp; combat.totalGold=enc.gold;
+    combat.totalXP=enc.xp; combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
   } else {
     combat.enemies=[makeEnemyObj(enc)];
-    combat.totalXP=enc.xp; combat.totalGold=enc.gold;
+    combat.totalXP=enc.xp; combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
   }
   combat.targetIdx=0; setActiveEnemy(0);
 
@@ -9080,7 +10402,7 @@ function loadBattle(enc){
   } else if(enc.isPack){
     log(`⚔ ${enc.packName} attacks! (${enc.members.length} enemies)`,"system");
   } else {
-    log(enc.type==="creature"?`A wild ${enc.name} appears!`:`Battle ${battleNumber} — ${enc.name} appears!`,"system");
+    log(`${enc.name} appears!`,"system");
   }
   if(combat.activeZoneElement){
     const zd=ZONE_EFFECTS[combat.activeZoneElement];
@@ -9251,9 +10573,16 @@ function buildMapNodes(encounters, specials, canvasW, canvasH) {
   encounters.forEach((enc, i) => {
     const nx = Math.round(W * combatXFracs[i]);
     const ny = Math.round(gY(nx));
+    // _isSpecial: campfire or shop replacing this slot
+    if(enc._isSpecial) {
+      const spColor = enc._specialType === 'campfire' ? '#d4822a' : '#2aaa7a';
+      const spLabel = enc._specialType === 'campfire' ? 'Campfire' : 'Shop';
+      nodes.push({ x: nx, y: ny, type: enc._specialType, enc, color: spColor, sprites: [], label: spLabel });
+      return;
+    }
     const members = enc.isPack ? enc.members : [enc];
     const sprites = members.map(m => ({
-      rows: m.type === 'creature' ? SPRITE_ENEMY_CREATURE : SPRITE_ENEMY_MAGE,
+      rows: getEnemySprite(m),
       pal:  getElemPal(m.element || 'Neutral'),
     }));
     nodes.push({
@@ -9285,15 +10614,13 @@ function buildMapNodes(encounters, specials, canvasW, canvasH) {
   });
 
   midSpecials.forEach(sp => {
-    if (sp.type === 'campfire') {
-      nodes.push({ x: cfX, y: cfY, type: 'campfire', enc: sp.enc,
-        color: '#d4822a', sprites: [], label: 'Campfire' });
-    } else {
-      // Shop: directly below campfire, above player — straight path
-      nodes.push({ x: Math.round(W * 0.50), y: Math.round(cfY + (H*0.87 - cfY) * 0.55),
-        type: 'shop', enc: sp.enc, color: '#2aaa7a', sprites: [], label: 'Shop',
-        pathBias: 'straight' });
+    if (sp.type === 'rival') {
+      // Rival: left side of map, midground level
+      nodes.push({ x: Math.round(W * 0.25), y: Math.round(horizY + (H - horizY) * 0.30),
+        type: 'rival', enc: sp.enc, color: '#9a6aee', sprites: [], label: 'Rival',
+        pathBias: 'left' });
     }
+    // campfire and shop no longer appear as midSpecials — they come through encounters
   });
 
   return nodes;
@@ -9351,7 +10678,7 @@ function _drawNode(ctx, node, hovered, tick) {
 
   // Content: enemy sprites or icon
   if (type === 'combat' || type === 'pack') {
-    _drawNodeSprites(ctx, x, y, sprites, hovered);
+    _drawNodeSprites(ctx, x, y, sprites, hovered, node);
   } else {
     _drawNodeIcon(ctx, x, y, node, hovered, tick);
   }
@@ -9429,6 +10756,7 @@ function _startMapLoop() {
 function _dispatchNode(node) {
   if (node.type === 'campfire') { enterCampfire(); return; }
   if (node.type === 'shop')     { enterShop();     return; }
+  if (node.type === 'rival')    { showRivalIntro(); return; }
   if (node.type === 'gym')      {
     if (node.enc && node.enc._forced) showGymIntro(true);
     else showGymIntro(false);
@@ -11156,35 +12484,46 @@ function _cfPlasma(ctx,cx,cy,hovered,tick)    { _cfDrawZone(ctx,cx,cy,hovered,ti
 function _cfAir(ctx,cx,cy,hovered,tick)       { _cfDrawZone(ctx,cx,cy,hovered,tick,'Air'); }
 
 
-function _drawNodeSprites(ctx, cx, cy, sprites, hovered) {
+function _drawNodeSprites(ctx, cx, cy, sprites, hovered, node) {
   if (!sprites || sprites.length === 0) return;
-  const scale = 2;
-  const cols = 12, spriteW = cols * scale;
+  // Map nodes always draw as wizard hats — small, clear icons
+  const scale = 3;
+  const hatCols = 12;
+  const hatW = hatCols * scale;
 
-  if (sprites.length === 1) {
-    const { rows, pal } = sprites[0];
-    const spriteH = rows.length * scale;
-    const sx = Math.round(cx - spriteW / 2);
-    const sy = Math.round(cy - spriteH / 2);
+  const isPack = node && node.type === 'pack';
+  const count = isPack ? 3 : 1;
+
+  // Pick element from node or first sprite
+  const elem = (node && node.enc)
+    ? (node.enc.element || node.enc.members?.[0]?.element || 'Fire')
+    : 'Fire';
+  const hatRows = getElemHatSprite(elem);
+  const hatH = hatRows.length * scale;
+  const pal = sprites[0]?.pal || getElemPal(elem);
+
+  if (count === 1) {
+    const sx = Math.round(cx - hatW / 2);
+    const sy = Math.round(cy - hatH / 2);
     ctx.save();
-    ctx.globalAlpha = hovered ? 1.0 : 0.85;
-    drawSprite(ctx, rows, sx, sy, scale, pal);
+    ctx.globalAlpha = hovered ? 1.0 : 0.88;
+    drawSprite(ctx, hatRows, sx, sy, scale, pal, hatCols);
     ctx.restore();
   } else {
-    // Multiple sprites: cluster them
-    const count = Math.min(sprites.length, 3);
-    const offsets = count === 2
-      ? [[-spriteW * 0.55, 0], [spriteW * 0.55, 0]]
-      : [[-spriteW * 0.7, 2], [0, -4], [spriteW * 0.7, 2]];
-    for (let i = 0; i < count; i++) {
-      const { rows, pal } = sprites[i];
-      const spriteH = rows.length * scale;
-      const [ox, oy] = offsets[i] || [0, 0];
-      const sx = Math.round(cx + ox - spriteW / 2);
-      const sy = Math.round(cy + oy - spriteH / 2);
+    // Pack: 3 hats — left smaller, center largest, right smaller
+    const sizes  = [2.4, 3, 2.4];
+    const xOffs  = [-hatW * 0.8, 0, hatW * 0.8];
+    const yOffs  = [4, 0, 4];
+    const alphas = hovered ? [0.9, 1.0, 0.9] : [0.7, 0.88, 0.7];
+    for (let i = 0; i < 3; i++) {
+      const s = sizes[i];
+      const hw = Math.round(hatCols * s);
+      const hh = Math.round(hatRows.length * s);
+      const sx = Math.round(cx + xOffs[i] - hw / 2);
+      const sy = Math.round(cy + yOffs[i] - hh / 2);
       ctx.save();
-      ctx.globalAlpha = hovered ? 0.95 : 0.75;
-      drawSprite(ctx, rows, sx, sy, scale, pal);
+      ctx.globalAlpha = alphas[i];
+      drawSprite(ctx, hatRows, sx, sy, s, pal, hatCols);
       ctx.restore();
     }
   }
@@ -11193,7 +12532,7 @@ function _drawNodeSprites(ctx, cx, cy, sprites, hovered) {
 function _drawNodeIcon(ctx, cx, cy, node, hovered, tick) {
   const { type, color } = node;
   const scale = 2;
-  const cols = 12;
+  const cols = 24;
 
   let baseRows, pal;
 
@@ -11288,7 +12627,7 @@ function _drawMapPlayer(ctx, px, py, tick) {
   const pal   = typeof getElemPal === 'function' && typeof playerElement !== 'undefined'
                 ? getElemPal(playerElement) : EL_PAL.Neutral;
 
-  const spriteW = 12 * scale;
+  const spriteW = 24 * scale;
   const spriteH = rows.length * scale;
 
   // Bob up/down while moving
@@ -11306,7 +12645,7 @@ function _drawMapPlayer(ctx, px, py, tick) {
   // Sprite
   ctx.save();
   ctx.globalAlpha = 1.0;
-  drawSprite(ctx, rows, Math.round(px - spriteW / 2), Math.round(py - spriteH / 2 + bobY), scale, pal);
+  drawSprite(ctx, rows, Math.round(px - spriteW / 2), Math.round(py - spriteH / 2 + bobY), scale, pal, 24);
   ctx.restore();
 
   // "YOU" label
@@ -11330,86 +12669,193 @@ function _drawMapPlayer(ctx, px, py, tick) {
 // Starters are isStarter:true and never appear in pools.
 
 // ── XP / Level up ────────────────────────────────────────────────────────────
-function gainXP(amount){
-  // Character buff: Fast Learner XP bonus
-  const bonusAmt = Math.round(amount * (1 + (player._xpBonus || 0)));
-  player.xp += bonusAmt;
-  let levelled = false;
-  while(player.xp >= xpNeeded()){
-    player.xp -= xpNeeded();
-    player.level++;
-    // +1 to each stat per level
-    player.attackPower += 1;
-    player.effectPower  += 1;
-    player.defense      += 1;
-    levelled = true;
-    const lv = player.level;
+// ===============================
+// BATTLE REWARD SYSTEM
+// ===============================
 
-    // Skill point every level
-    pendingLevelUps.push({type:'skillpoint', level:lv});
+// How many battles until next spell reward
+const SPELL_REWARD_EVERY = 3;
 
-    // Level 2: first primary spell pick
-    if(lv === 2) pendingLevelUps.push({type:'spellchoice', tier:'primary', level:lv});
+// Pool of stat/run rewards
+function buildStatRewardPool() {
+  const pool = [
+    { label:'+5 Attack Power',  emoji:'⚔',  tag:'Stat',
+      desc:'Permanently gain +5 Attack Power.',
+      apply(){ player.attackPower += 5; } },
+    { label:'+5 Effect Power',  emoji:'✦',  tag:'Stat',
+      desc:'Permanently gain +5 Effect Power.',
+      apply(){ player.effectPower += 5; } },
+    { label:'+5 Defense',       emoji:'🛡',  tag:'Stat',
+      desc:'Permanently gain +5 Defense.',
+      apply(){ player.defense += 5; } },
+    { label:'+15 Max HP',       emoji:'❤',  tag:'Stat',
+      desc:'Permanently increase max HP by 15.',
+      apply(){ player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+15; player.hp=Math.min(maxHPFor('player'),player.hp+15); } },
+    { label:'+50 Gold',         emoji:'✦',  tag:'Gold',
+      desc:'Gain 50 gold for the shop.',
+      apply(){ player.gold += 50; } },
+    { label:'Heal 40%',         emoji:'💚',  tag:'Heal',
+      desc:'Restore 40% of your max HP.',
+      apply(){ applyHeal('player', Math.floor(maxHPFor('player')*0.40), '✦ Reward Heal'); } },
+  ];
 
-    // Every 5th level that is NOT a multiple of 15: secondary spell pick
-    // Multiples of 15 are reserved for element unlock (first) or legendary (after)
-    if(lv % 5 === 0 && lv % 15 !== 0){
-      pendingLevelUps.push({type:'spellchoice', tier:'secondary', level:lv});
-    }
-
-    // Every 15 levels: element unlock (first time) OR legendary spell pick
-    if(lv % 15 === 0){
-      pendingLevelUps.push({type:'spellchoice', tier:'legendary', level:lv});
-    }
-
-    // Every 10th level that is NOT a multiple of 15: passive pick
-    // Avoids triple-stacking (secondary+legendary+passive) at levels like 30
-    if(lv % 10 === 0 && lv % 15 !== 0){
-      pendingLevelUps.push({type:'passivechoice', level:lv});
-    }
+  // Run rewards — rarer, appear occasionally
+  const roll = Math.random();
+  if (roll < 0.18) {
+    pool.push({ label:'Extra Action',   emoji:'⚡', tag:'Run Reward',
+      desc:'Permanently gain +1 action per turn in combat.',
+      apply(){ player.bonusActions = (player.bonusActions||0) + 1; log('⚡ Extra action per turn gained!','win'); } });
   }
-  return levelled;
+  if (roll >= 0.15 && roll < 0.30) {
+    pool.push({ label:'Extra Life',     emoji:'❤', tag:'Run Reward',
+      desc:'Gain one extra life — survive a killing blow.',
+      apply(){ player.revives = (player.revives||0) + 1; log('❤ Extra life gained!','win'); } });
+  }
+  if (roll >= 0.25 && roll < 0.40) {
+    pool.push({ label:'Extra Spell Slot', emoji:'📖', tag:'Run Reward',
+      desc:'Your active spellbook gains +1 spell slot this run.',
+      apply(){ const b=activeBook(); if(b){ b.spellSlots++; log('📖 Spell slot added to '+b.name+'!','win'); } } });
+  }
+  if (roll >= 0.35 && roll < 0.50) {
+    pool.push({ label:'Reroll Token',   emoji:'🎲', tag:'Run Reward',
+      desc:'Gain 1 reroll — re-draw your choices after any future battle.',
+      apply(){ player._rerolls = (player._rerolls||0) + 1; log('🎲 Reroll token gained!','win'); } });
+  }
+
+  return pool;
 }
 
-// ===============================
-// PROGRESSION FLOW
-// ===============================
-function processNextLevelUp(){
-  if(pendingLevelUps.length===0){ showMap(); return; }
-  const ev=pendingLevelUps.shift();
-  if(ev.type==='skillpoint') showSkillPointScreen(ev.level);
-  else if(ev.type==='spellchoice'){
-    // Legendary tier: if first element unlock not done yet, do that instead
-    if(ev.tier==='legendary' && !player.unlockedElements.length){
-      showElementUnlockScreen(ev.level);
-    } else {
-      showSpellChoiceScreen(ev.level, ev.tier||'secondary');
-    }
+let _currentRewardPool = [];
+let _currentRewardIsGym = false;
+
+function grantRandomLegendary() {
+  const elements = [playerElement, ...(player.unlockedElements||[])];
+  const owned = new Set((player.spellbook||[]).map(s => s.id));
+
+  // Build legendary spell pool
+  const spellPool = [];
+  elements.forEach(el => {
+    Object.values(SPELL_CATALOGUE).forEach(s => {
+      if (s.element !== el) return;
+      if (owned.has(s.id)) return;
+      if ((s.tier || 'secondary') === 'legendary') spellPool.push({type:'spell', def:s});
+    });
+  });
+
+  // Build legendary passive pool
+  const passivePool = [];
+  const currentPassives = activeBook() ? activeBook().passives : (player.passives||[]);
+  elements.forEach(el => {
+    (PASSIVE_CHOICES[el]||[]).forEach(p => {
+      if (!p.legendary) return;
+      if (currentPassives.includes(p.id)) return;
+      passivePool.push({type:'passive', def:p});
+    });
+  });
+
+  const combined = [...spellPool, ...passivePool];
+  if (!combined.length) {
+    log('✦ Gym reward: nothing new to grant (all legendaries owned).', 'win');
+    return;
   }
-  else if(ev.type==='passivechoice') showPassiveChoiceScreen(ev.level);
-  else processNextLevelUp();
+
+  const pick = combined[Math.floor(Math.random() * combined.length)];
+  if (pick.type === 'spell') {
+    addSpellById(pick.def.id);
+    log('✦ Legendary spell unlocked: ' + pick.def.emoji + ' ' + pick.def.name + '!', 'win');
+  } else {
+    addPassiveToBook(pick.def.id);
+    log('✦ Legendary passive unlocked: ' + pick.def.emoji + ' ' + pick.def.title + '!', 'win');
+  }
 }
 
-// Kept for compat — endBattle calls processNextLevelUp now
-function showLevelUp(){ processNextLevelUp(); }
-function closeLevelUp(){ processNextLevelUp(); }
+function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
+  _currentRewardIsGym = isGym;
+  // Battle 1 always gives a primary spell (starter spell pick)
+  const forceSpell = (battleNumber === 1);
+  const type = isGym    ? 'legendary'
+             : isRival  ? 'passive'
+             : (isSpellBattle || forceSpell) ? 'spell'
+             : 'stat';
+  const badge = document.getElementById('br-badge');
+  const title = document.getElementById('br-title');
+  const sub   = document.getElementById('br-sub');
+
+  if (badge) badge.textContent = isGym ? 'Gym Clear' : isRival ? 'Rival Defeated' : 'Battle ' + battleNumber;
+
+  if (type === 'legendary') {
+    // First gym: always element unlock if no second element yet
+    if (!player.unlockedElements.length) {
+      showElementUnlockScreen('gym');
+      return;
+    }
+    // Grant one random legendary (spell OR passive) — no choice
+    grantRandomLegendary();
+    showMap();
+    return;
+  }
+
+  if (type === 'passive') {
+    // Rival defeat → passive choice
+    showPassiveChoiceScreen('rival');
+    return;
+  }
+
+  if (type === 'spell') {
+    if (title) title.textContent = '✦ Spell Reward ✦';
+    if (sub)   sub.textContent   = 'Choose a spell to add to your spellbook.';
+    // Determine tier: secondary default, legendary every 3rd spell (every 9th battle)
+    const spellCount = player.spellbook ? player.spellbook.length : 0;
+    // Battle 1 / first spell → primary. All other spell battles → secondary.
+    // Legendary only comes from gym clears.
+    const tier = (battleNumber === 1 || spellCount === 0) ? 'primary' : 'secondary';
+    showSpellChoiceScreen(battleNumber, tier);
+    return;
+  }
+
+  // Stat reward
+  if (title) title.textContent = '✦ Victory ✦';
+  if (sub)   sub.textContent   = 'Choose a reward.';
+  _renderStatRewardChoices();
+  showScreen('battle-reward-screen');
+}
+
+function _renderStatRewardChoices() {
+  const cont = document.getElementById('br-choices');
+  if (!cont) return;
+  cont.innerHTML = '';
+  _currentRewardPool = buildStatRewardPool();
+  const chosen = pickRandom(_currentRewardPool, 3);
+  chosen.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'prog-choice-btn';
+    btn.innerHTML = `<div class="pc-tag">${opt.tag}</div><div class="pc-name">${opt.emoji} ${opt.label}</div><div class="pc-desc">${opt.desc}</div>`;
+    btn.onclick = () => { opt.apply(); updateStatsUI(); showMap(); };
+    cont.appendChild(btn);
+  });
+  // Reroll button
+  const rerollBtn = document.getElementById('br-reroll-btn');
+  const rerollCount = document.getElementById('br-reroll-count');
+  if (rerollBtn) {
+    rerollBtn.style.display = (player._rerolls||0) > 0 ? 'inline-block' : 'none';
+    if (rerollCount) rerollCount.textContent = player._rerolls||0;
+  }
+}
+
+function rerollBattleReward() {
+  if ((player._rerolls||0) <= 0) return;
+  player._rerolls--;
+  _renderStatRewardChoices();
+}
+
+// ── SPELL CHOICE (now standalone, called from reward flow) ──
+// processNextLevelUp kept as shim for element unlock / passive flow
+function processNextLevelUp(){ showMap(); }
+function showLevelUp(){ showMap(); }
+function closeLevelUp(){ showMap(); }
 
 // ── SKILL POINT ──
-function showSkillPointScreen(level){
-  document.getElementById("sp-level-badge").textContent=`Level ${level}`;
-  const c=document.getElementById("sp-choices"); c.innerHTML="";
-  const pool=buildSkillPointPool();
-  // Pick 3 random distinct
-  const chosen=pickRandom(pool,2);
-  chosen.forEach(opt=>{
-    const btn=document.createElement("button");
-    btn.className="prog-choice-btn";
-    btn.innerHTML=`<div class="pc-tag">Skill Point</div><div class="pc-name">${opt.label}</div><div class="pc-desc">${opt.desc}</div>`;
-    btn.onclick=()=>{ opt.apply(); processNextLevelUp(); };
-    c.appendChild(btn);
-  });
-  showScreen("skillpoint-screen");
-}
+// showSkillPointScreen removed — replaced by battle reward system
 
 function buildSkillPointPool(){
   const opts=[
@@ -11442,7 +12888,7 @@ function buildSkillPointPool(){
 // ── SPELL CHOICE ──
 function showSpellChoiceScreen(level, tier='secondary'){
   const tierLabel = tier==='primary'?'Primary Spell' : tier==='legendary'?'✦ Legendary Spell' : 'Spell';
-  document.getElementById("sc-level-badge").textContent=`Level ${level}`;
+  document.getElementById("sc-level-badge").textContent = typeof level === 'number' ? 'Battle '+level : String(level);
   document.querySelector('#spellchoice-screen .prog-title').textContent =
     tier==='legendary' ? '✦ Legendary Spell ✦' : '✦ New Spell ✦';
   document.querySelector('#spellchoice-screen .prog-sub').textContent =
@@ -11531,7 +12977,7 @@ function showPassiveChoiceScreen(level){
     const btn=document.createElement("button");
     btn.className="prog-choice-btn passive-btn";
     btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name">${p.emoji} ${p.title}</div><div class="pc-desc">${p.desc}</div>`;
-    btn.onclick=()=>{ player.passives.push(p.id); processNextLevelUp(); };
+    btn.onclick=()=>{ addPassiveToBook(p.id); processNextLevelUp(); };
     c.appendChild(btn);
   });
   showScreen("passivechoice-screen");
@@ -11625,9 +13071,13 @@ function showSaveSelect() {
           <div class="save-slot-name">${data.playerName}</div>
           <div class="save-slot-stats">Runs: ${runs} · Best Lv.${best} · Gyms: ${gyms}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:.6rem;">
+        <div style="display:flex;align-items:center;gap:.5rem;">
           <div class="save-slot-right has-data">SLOT ${i+1}</div>
           <div class="save-slot-delete" onclick="event.stopPropagation();confirmDeleteSlot(${i})" title="Delete save">✕</div>
+        </div>
+        <div style="margin-top:.5rem;border-top:1px solid #1a1208;padding-top:.45rem;display:flex;gap:.4rem;">
+          <button onclick="event.stopPropagation();selectSaveSlot(${i})" style="flex:1;background:#0e0c06;border:1px solid #2a1e0e;color:#c8a060;font-family:Cinzel,serif;font-size:.52rem;letter-spacing:.08em;padding:.3rem .4rem;border-radius:4px;cursor:pointer;">⚔ Play</button>
+          <button onclick="event.stopPropagation();selectSaveSlotSandbox(${i})" style="flex:1;background:#0a0614;border:1px solid #3a1a5a;color:#c080ff;font-family:Cinzel,serif;font-size:.52rem;letter-spacing:.08em;padding:.3rem .4rem;border-radius:4px;cursor:pointer;">🔬 Sandbox</button>
         </div>`;
     } else {
       card.innerHTML = `
@@ -11657,30 +13107,56 @@ function selectSaveSlot(slot) {
   activeSaveSlot = slot;
   if (!window._metaBySlot) window._metaBySlot = {};
   window._metaBySlot[slot] = null; // force reload on next getMeta()
-  showHub();
+  const data = loadSlot(slot);
+  if (data && data.playerName) {
+    // Existing save — go straight to lobby
+    playerName = data.playerName;
+    sandboxMode = false;
+    showBetweenRuns();
+  } else {
+    // New slot — need name entry
+    showHub();
+  }
+}
+
+function selectSaveSlotSandbox(slot) {
+  activeSaveSlot = slot;
+  if (!window._metaBySlot) window._metaBySlot = {};
+  window._metaBySlot[slot] = null;
+  const data = loadSlot(slot);
+  if (data && data.playerName) {
+    playerName = data.playerName;
+    sandboxMode = true;
+    showBetweenRuns();
+  } else {
+    showHub(); // new slot — still need name first
+  }
 }
 
 // ── HUB SCREEN ───────────────────────────────────────────────────────────────
 function showHub() {
   const slotData = getActiveSlotData();
   const meta     = getMeta();
+  const hasSave  = !!(slotData.playerName);
 
   document.getElementById('hub-slot-label').textContent = `Save File ${activeSaveSlot + 1}`;
-  document.getElementById('hub-title').textContent = slotData.playerName
+  document.getElementById('hub-title').textContent = hasSave
     ? `Welcome back, ${slotData.playerName}`
     : 'New Adventure';
 
-  // Pre-fill name
+  // Show name input only for new saves
   const nameInput = document.getElementById('hub-name-input');
+  const nameError = document.getElementById('hub-error');
   nameInput.value = slotData.playerName || '';
-  document.getElementById('hub-error').textContent = '';
+  nameInput.style.display = hasSave ? 'none' : '';
+  nameError.style.display  = hasSave ? 'none' : '';
 
   // Stats
   const statsRow = document.getElementById('hub-stats-row');
   if (meta.totalRuns > 0) {
     statsRow.innerHTML = `Runs: <span>${meta.totalRuns}</span> &nbsp;·&nbsp; Best Level: <span>${meta.bestLevel||0}</span> &nbsp;·&nbsp; Gyms: <span>${meta.gymsBeaten||0}</span>`;
   } else {
-    statsRow.innerHTML = `<span style="color:#3a2a10;">No runs yet</span>`;
+    statsRow.innerHTML = hasSave ? `<span style="color:#3a2a10;">No runs yet — go fight!</span>` : `<span style="color:#3a2a10;">No runs yet</span>`;
   }
 
   showScreen('hub-screen');
@@ -11700,19 +13176,17 @@ function _hubGetName() {
 }
 
 function hubPlay() {
+  // Only called for new saves needing name entry
   if (!_hubGetName()) return;
   sandboxMode = false;
-  showBetweenRuns();   // always enter lobby first
-}
-
-function hubSandbox() {
-  if (!_hubGetName()) return;
-  sandboxMode = true;
-  showBetweenRuns();   // always enter lobby first
+  showBetweenRuns();
 }
 
 // ── BETWEEN RUNS (replaces gameover flow) ────────────────────────────────────
 function showBetweenRuns() {
+  // Hide canvas unless we have a completed run to show
+  const canvas = document.getElementById('gameover-canvas');
+  if (canvas) canvas.style.display = playerElement ? 'block' : 'none';
   showScreen('between-runs-screen');
   renderBrunLastRun();
   switchBrunTab('history', document.querySelector('.brun-tab'));
@@ -11805,12 +13279,153 @@ function switchBrunTab(tab, btnEl) {
 
   } else if (tab === 'talents') {
     renderTalentTab(content, meta);
-  } else if (tab === 'skins') {
-    content.innerHTML = `<div style="text-align:center;padding:2rem 1rem;">
-      <div style="font-family:'Cinzel',serif;font-size:1rem;color:#c8a060;margin-bottom:.5rem;">🧙 Wizard Skins</div>
-      <div style="color:#555;font-size:.72rem;line-height:1.6;">Coming soon — unlock unique wizard appearances<br>as you complete runs and earn Phos.</div>
-    </div>`;
+  } else if (tab === 'books') {
+    renderBookUpgradesTab(content, meta);
+  } else if (tab === 'wizards') {
+    _renderWizardUnlockTab(content, meta);
+  } else if (tab === 'skins_old_unused') {
   }
+}
+
+// ── WIZARD UNLOCK TAB ─────────────────────────────────────────────────────────
+// Unlock conditions: Battlemage always available. 
+// Hexblade: complete 3 runs. Arcanist: complete 6 runs or beat 2 gyms.
+function _getWizardUnlockStatus(meta) {
+  const runs    = meta.totalRuns  || 0;
+  const gyms    = meta.gymsBeaten || 0;
+  return {
+    battlemage: { unlocked: true,         condition: 'Default wizard — always available' },
+    hexblade:   { unlocked: runs >= 3,    condition: `Complete 3 runs (${runs}/3)` },
+    arcanist:   { unlocked: runs >= 6 || gyms >= 2, condition: `Complete 6 runs or defeat 2 Gym Leaders (${runs} runs, ${gyms} gyms)` },
+  };
+}
+
+function _renderWizardUnlockTab(content, meta) {
+  const status = _getWizardUnlockStatus(meta);
+  const slotData = getActiveSlotData();
+  const savedChar = slotData.savedCharId || playerCharId || '';
+
+  const cards = CHARACTER_ROSTER.map(ch => {
+    const s = status[ch.id];
+    const locked = !s.unlocked;
+    const active = savedChar === ch.id;
+    const ps = CHAR_PORTRAIT_STYLES[ch.id] || CHAR_PORTRAIT_STYLES.arcanist;
+
+    return `<div style="
+      background:${locked ? '#0a0805' : (active ? 'linear-gradient(175deg,#1a1205,#0e0c06)' : 'linear-gradient(175deg,#14100a,#0c0a06)')};
+      border:1px solid ${active ? '#8a6a20' : (locked ? '#1a1208' : '#2a1e0e')};
+      border-radius:8px;padding:.8rem;width:200px;flex-shrink:0;
+      box-shadow:${active ? '0 0 12px rgba(200,160,40,.15)' : 'none'};
+      opacity:${locked ? '0.5' : '1'};
+      display:flex;flex-direction:column;align-items:center;gap:.4rem;
+      ">
+      <div style="font-family:'Cinzel',serif;font-size:.85rem;color:${active?'#e8c060':(locked?'#3a2a10':'#c8a060')};letter-spacing:.08em;">
+        ${locked ? '🔒 ' : ''}${ch.name}
+      </div>
+      <div style="font-size:.56rem;color:#4a3820;letter-spacing:.12em;text-transform:uppercase;font-family:'Cinzel',serif;">
+        ${ch.title}
+      </div>
+      <div style="font-size:.58rem;color:${locked?'#3a2a10':'#705840'};text-align:center;line-height:1.5;padding:0 .3rem;">
+        ${locked ? s.condition : ch.desc}
+      </div>
+      ${active ? '<div style="font-size:.5rem;color:#8a6a20;letter-spacing:.12em;font-family:Cinzel,serif;text-transform:uppercase;">✦ Selected ✦</div>' : ''}
+      ${!locked && !active ? `<button onclick="_lobbySelectWizard('${ch.id}')" style="
+        margin-top:.2rem;background:#1a1205;border:1px solid #3a2810;color:#c8a060;
+        font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .7rem;border-radius:3px;
+        cursor:pointer;letter-spacing:.08em;
+        ">Select</button>` : ''}
+      ${active ? `<button onclick="_lobbySelectWizard('')" style="
+        margin-top:.2rem;background:#0e0c06;border:1px solid #2a1e08;color:#5a4820;
+        font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .7rem;border-radius:3px;
+        cursor:pointer;letter-spacing:.08em;
+        ">Deselect</button>` : ''}
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="padding:.6rem .2rem .4rem;">
+      <div style="font-size:.62rem;color:#4a3820;text-align:center;margin-bottom:.8rem;line-height:1.5;">
+        Your chosen wizard carries over into every run. Unlock new wizards by completing runs.
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        ${cards}
+      </div>
+    </div>`;
+}
+
+function _lobbySelectWizard(charId) {
+  playerCharId = charId;
+  patchActiveSlot({ savedCharId: charId });
+  // Re-render tab
+  const content = document.getElementById('brun-tab-content');
+  const meta = getMeta();
+  if (content) _renderWizardUnlockTab(content, meta);
+}
+
+
+function renderBookUpgradesTab(content, meta) {
+  const phos = meta.phos || 0;
+  const bookUpgrades = meta.bookUpgrades || {};
+
+  // Upgrade definitions: { key, label, desc, cost, maxLevel, stat }
+  const BOOK_UPGRADES = [
+    { key:'spell_slots',   label:'Extra Spell Slot',   desc:'Adds +1 spell slot to your starting book.',   cost: lvl => (lvl+1)*8,  maxLevel:4, stat:'spellSlots'   },
+    { key:'passive_slots', label:'Extra Passive Slot',  desc:'Adds +1 passive slot to your starting book.', cost: lvl => (lvl+1)*10, maxLevel:3, stat:'passiveSlots' },
+  ];
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;">
+    <div style="font-family:'Cinzel',serif;font-size:.78rem;color:#c8a060;">📖 Spellbook Upgrades</div>
+    <div style="font-size:.72rem;color:#a080ff;">${phos} ✦ Phos</div>
+  </div>
+  <div style="font-size:.62rem;color:#4a4a60;margin-bottom:.8rem;line-height:1.5;">Permanent upgrades to your starting spellbook. Applied at the start of every run.</div>`;
+
+  BOOK_UPGRADES.forEach(upg => {
+    const lvl     = bookUpgrades[upg.key] || 0;
+    const maxed   = lvl >= upg.maxLevel;
+    const cost    = maxed ? 0 : upg.cost(lvl);
+    const canAfford = phos >= cost;
+    html += `<div style="background:#0f0d0b;border:1px solid #2a2020;border-radius:6px;padding:.7rem .9rem;margin-bottom:.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem;">
+        <div style="font-family:'Cinzel',serif;font-size:.75rem;color:#c8a060;">${upg.label}</div>
+        <div style="font-size:.65rem;color:#6a5a30;">${lvl} / ${upg.maxLevel}</div>
+      </div>
+      <div style="font-size:.63rem;color:#666;margin-bottom:.5rem;">${upg.desc}</div>
+      ${maxed
+        ? '<div style="font-size:.62rem;color:#4a8a4a;letter-spacing:.08em;">✓ MAXED</div>'
+        : `<button onclick="purchaseBookUpgrade('${upg.key}')" ${canAfford?'':'disabled'}
+             style="width:100%;background:${canAfford?'#1a1a0a':'#0a0a0a'};border:1px solid ${canAfford?'#6a5a20':'#2a2020'};
+             color:${canAfford?'#c8a060':'#3a3020'};padding:.3rem;font-family:'Cinzel',serif;font-size:.62rem;
+             letter-spacing:.08em;cursor:${canAfford?'pointer':'not-allowed'};border-radius:4px;text-transform:uppercase;">
+             Upgrade — ${cost} ✦
+           </button>`}
+    </div>`;
+  });
+
+  content.innerHTML = html;
+}
+
+function purchaseBookUpgrade(key) {
+  const meta = getMeta();
+  const COSTS = { spell_slots: lvl => (lvl+1)*8, passive_slots: lvl => (lvl+1)*10 };
+  const MAX   = { spell_slots: 4, passive_slots: 3 };
+  if (!meta.bookUpgrades) meta.bookUpgrades = {};
+  const lvl  = meta.bookUpgrades[key] || 0;
+  if (lvl >= MAX[key]) return;
+  const cost = COSTS[key](lvl);
+  if ((meta.phos||0) < cost) return;
+  meta.phos -= cost;
+  meta.bookUpgrades[key] = lvl + 1;
+  saveMeta();
+  // Re-render
+  switchBrunTab('books', document.querySelector('.brun-tab[onclick*="books"]'));
+}
+
+// Apply book upgrades at run start (called in initSpellbooksForRun)
+function applyBookUpgrades(book) {
+  const meta = getMeta();
+  const upg  = meta.bookUpgrades || {};
+  book.spellSlots   = BOOK_SPELL_SLOTS_BASE   + (upg.spell_slots   || 0);
+  book.passiveSlots = BOOK_PASSIVE_SLOTS_BASE + (upg.passive_slots || 0);
 }
 
 function renderTalentTab(content, meta) {
@@ -12011,10 +13626,10 @@ function beginRun(){
     attackPower:0, effectPower:0, defense:0,
     skillPoints:0, gold:0, inventory:[], spellbook:[],
     passives:[], startPassive:null,
-    unlockedElements:[], baseMaxHPBonus:0,
+    unlockedElements:[], baseMaxHPBonus:0, spellbooks:[], activeBookIdx:0,
     revives:0, bonusActions:0,
     basicUpgrade:0, basicDmgMult:1.0,
-    _xpBonus:0, _hasteStart:false, _blockStart:0, _extraStartSpell:false,
+    _xpBonus:0, _hasteStart:false, _blockStart:0, _extraStartSpell:false, _rerolls:0,
     _rhythmStar:-1, _quickHandsStar:-1, _gritHealOnRevive:0, _healBonus:0,
     basicDmgFlat:0, _bannerStar:-1,
     _talentReviveBonus:0, _goldBonus:0,
@@ -12042,6 +13657,7 @@ function beginRun(){
   applyCharacterBuff();
   applyArtifactBonuses();
   applyTalentBonuses(); // permanent talent tree upgrades
+  initSpellbooksForRun();  // create starting spellbook before spells/passives are added
   giveStarterSpell();
   document.getElementById('welcome-msg').textContent = `${playerName}, choose your element`;
 
@@ -12053,8 +13669,13 @@ function beginRun(){
 }
 
 function confirmStartPassive(passiveId){
-  player.passives    = [passiveId];
   player.startPassive = passiveId;
+  // Put start passive into active book
+  if (player.spellbooks && player.spellbooks.length) {
+    addPassiveToBook(passiveId);
+  } else {
+    player.passives = [passiveId];
+  }
   if (passiveId === 'air_focus') player.attackPower += 20;
 
   if (player._extraStartSpell) {
