@@ -493,6 +493,8 @@ function loadBattle(enc){
   if(skipBtn) skipBtn.style.display = isSandbox ? 'block' : 'none';
   const enemyBtn = document.getElementById('sandbox-enemy-btn');
   if(enemyBtn) enemyBtn.style.display = isSandbox ? 'block' : 'none';
+  const spellBtn = document.getElementById('sandbox-spell-btn');
+  if(spellBtn) spellBtn.style.display = isSandbox ? 'block' : 'none';
   // Sandbox zone switcher for combat
   const combatZoneBar = document.getElementById('sandbox-zone-combat-bar');
   if(combatZoneBar){
