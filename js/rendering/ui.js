@@ -130,6 +130,12 @@ function renderStatusTags(){
       if(s.plasmaShieldReduction>0) pr.appendChild(tag(`🛡${s.plasmaShieldReduction}%`,'tag-block'));
       if(combat.plasmaOvercharged) pr.appendChild(tag('✦ OC','tag-phase'));
     }
+    // Air: Momentum
+    if(playerElement==='Air'){
+      if((s.momentumStacks||0)>0)   pr.appendChild(tag(`💨${s.momentumStacks}M`,'tag-phase'));
+      if(s.windWallActive)           pr.appendChild(tag('🛡️WW','tag-block'));
+      if(s.tornadoAoENext)           pr.appendChild(tag('🌪️AoE','tag-phase'));
+    }
   }
   renderEnemyCards();
 }
@@ -240,7 +246,8 @@ function renderSpellButtons(){
   const grid = document.getElementById("spell-grid");
   if(!grid) return;
   const isMyTurn  = combat.playerTurn && !combat.over;
-  const queueFull = (combat.actionQueue||[]).length >= (combat.actionsLeft||0);
+  const nonFreeQueued = (combat.actionQueue||[]).filter(a=>!a.isFree).length;
+  const queueFull = nonFreeQueued >= (combat.actionsLeft||0);
 
   // ── Populate book tab bar ────────────────────────────────────────────────
   const bookTabBar = document.getElementById('sb-book-tabs');
@@ -440,28 +447,36 @@ function renderSpellButtons(){
 
   // Spell cells
   player.spellbook.forEach((spell) => {
-    const onCD = (spell.currentCD||0) > 0;
-    const alreadyQueued = (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
+    const onCD = !spell.multiUse && (spell.currentCD||0) > 0;
+    const isFree = !!spell.isFreeAction;
+    const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
     const cell = document.createElement('button');
-    cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'');
+    cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'') + (isFree?' free-action':'');
     const isChargeShot = spell.id === 'charge_shot';
-    const slotsAvail = combat.actionsLeft - (combat.actionQueue||[]).length;
-    cell.disabled = !isMyTurn || queueFull || onCD || (isChargeShot && slotsAvail < 2);
+    const slotsAvail = combat.actionsLeft - nonFreeQueued;
+    const canQueue = isFree ? !onCD && !alreadyQueued : !queueFull && !onCD;
+    cell.disabled = !isMyTurn || !canQueue || (isChargeShot && slotsAvail < 2);
     const rankPct = Math.round((spell.dmgMult||1.0)*100);
     const rankStr = rankPct>100 ? ' ['+rankPct+'%]' : '';
+    const cdLabel = spell.multiUse ? 'Free' : (onCD ? 'CD:'+spell.currentCD : 'CD:'+spell.baseCooldown);
+    const freeLabel = isFree ? ' ✦Free' : '';
     cell.innerHTML =
       '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
-      '<div class="sb-spell-name">'+spell.name+rankStr+'</div>' +
-      '<div class="sb-spell-cd '+(onCD?'on-cd':'ready')+'">'+
-        (onCD?'CD:'+spell.currentCD : 'CD:'+spell.baseCooldown)+
-      '</div>' +
+      '<div class="sb-spell-name">'+spell.name+rankStr+freeLabel+'</div>' +
+      '<div class="sb-spell-cd '+(onCD?'on-cd':'ready')+'">'+cdLabel+'</div>' +
       (alreadyQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
     cell.onclick = ()=>{
-      if(!isMyTurn||queueFull||onCD) return;
+      if(!isMyTurn || !canQueue) return;
       const snapTgt=combat.targetIdx;
-      const snapCD=adjustedCooldownFor('player',spell.baseCooldown)||1;
-      spell.currentCD=snapCD;
+      // For multiUse spells, don't set a cooldown
+      if(!spell.multiUse){
+        const snapCD=adjustedCooldownFor('player',spell.baseCooldown)||1;
+        spell.currentCD=snapCD;
+      }
       const spellIdx=player.spellbook.indexOf(spell);
+      // Storm Rush: immediate onQueue effect (grants +3 actions)
+      const opts = {isFree};
+      if(spell.onQueue) opts.onQueue = ()=>spell.onQueue();
       queueAction(spell.emoji+' '+spell.name,()=>{
         setActiveEnemy(snapTgt);
         const ctx=makeSpellCtx('player','enemy',spellIdx);
@@ -475,7 +490,7 @@ function renderSpellButtons(){
           spell.execute(ctx2);
         }
         updateHPBars();renderStatusTags();updateStatsUI();
-      });
+      }, opts);
       renderSpellButtons();
     };
     grid.appendChild(cell);

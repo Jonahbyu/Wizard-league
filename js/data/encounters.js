@@ -207,9 +207,9 @@ const GYM_ROSTER_VARIABLE_TEMPLATES = [
   {
     element:'Air', name:'Leader Zephyr', emoji:'🌀', color:'#B0E0E6',
     baseHP:1600, baseDmg:70, phase2Dmg:105, chargeInterval:2,
-    passive:'air_tailwind', phase2Passive:'air_focus',
+    passive:'air_rapid_tempo', phase2Passive:'air_rapid_tempo',
     entryEffect:null,
-    signature:'Extra actions every other turn. Phase 2 gains +20 permanent Power.',
+    signature:'Extra actions every other turn. Phase 2 surges with even more tempo.',
     zoneDesc:'Air zone: enemies have 20% chance to stun you on each hit.',
     xp:1800, gold:900,
   },

@@ -137,6 +137,22 @@ function performHit(attackerSide, defenderSide, pkg){
       const dodgeChance = dodgeChanceFor(defenderSide);
       if(dodgeChance > 0 && Math.random() < dodgeChance){
         log(`💨 ${defenderSide==='player'?'You':combat.enemy.name} dodge!`, 'status');
+        // Air: Momentum decay on dodge
+        if(defenderSide==='player' && playerElement==='Air'){
+          if(status.player.momentumNoDecayNext){
+            status.player.momentumNoDecayNext = false;
+            log('🌬️ Become Wind — no Momentum decay this dodge!', 'status');
+          } else {
+            const decayPct = hasPassive('air_slipstream') ? 0.10 : 0.25;
+            const cur = status.player.momentumStacks||0;
+            const lost = Math.max(0, Math.floor(cur * decayPct));
+            if(lost > 0){
+              status.player.momentumStacks = cur - lost;
+              log(`💨 Dodge! Momentum −${lost} (×${status.player.momentumStacks})`, 'status');
+            }
+          }
+          renderStatusTags();
+        }
         continue;
       }
     }
@@ -215,8 +231,25 @@ function performHit(attackerSide, defenderSide, pkg){
       }
     }
 
+    // ── Wind Wall: delay incoming damage ──
+    if(defenderSide==='player' && status.player.windWallActive && dmg > 0 && !pkg._isWindWall){
+      status.player.windWallActive = false;
+      status.player.windWallPending = (status.player.windWallPending||0) + dmg;
+      log(`🌬️ Wind Wall! ${dmg} damage delayed to next turn.`, 'status');
+      renderStatusTags();
+      dmg = 0;
+    }
+
     applyDirectDamage(attackerSide, defenderSide, dmg,
       pkg.isEnemyAttack ? `${combat.enemy.emoji} Attack` : 'Hit');
+
+    // ── Air: Momentum gain per damage instance ──
+    if(attackerSide==='player' && playerElement==='Air' && dmg > 0 && !pkg._isTornadoSelf){
+      let momGain = 1;
+      if(hasPassive('air_gale_force')) momGain++;
+      status.player.momentumStacks = (status.player.momentumStacks||0) + momGain;
+      log(`💨 Momentum +${momGain} (×${status.player.momentumStacks})`, 'status');
+    }
 
     // Record for Plasma echo
     if(dmg > 0 && !pkg._isEcho && !pkg.noRecord){
@@ -376,6 +409,18 @@ function performHit(attackerSide, defenderSide, pkg){
         status.player.frozen = false;
         status.player.frostStacks = 0;
         log(`🧊 Your freeze breaks!`, 'status');
+      }
+    }
+
+    // ── Eye of the Storm: repeat strike chance per Momentum stack ──
+    if(attackerSide==='player' && playerElement==='Air' && dmg > 0 &&
+       hasPassive('air_eye_of_the_storm') && !pkg._isTornadoSelf){
+      const repeatChance = Math.min(0.95, (status.player.momentumStacks||0) * 0.03);
+      const depth = pkg._eotDepth || 0;
+      if(depth < 10 && repeatChance > 0 && Math.random() < repeatChance){
+        log(`👁️ Eye of the Storm repeats! (${Math.round(repeatChance*100)}% chance)`, 'status');
+        performHit(attackerSide, defenderSide, {...pkg, _eotDepth: depth+1, noRecord:true});
+        if(combat.over) return;
       }
     }
   }

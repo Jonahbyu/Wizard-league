@@ -9,7 +9,7 @@ const STARTER_SPELL = {
   Earth:     'seismic_wave',
   Nature:    'vine_strike',
   Plasma:    'plasma_lance',
-  Air:       'twin_gust',
+  Air:       'quintuple_hit',
 };
 
 const SPELL_CATALOGUE = {
@@ -668,18 +668,99 @@ const SPELL_CATALOGUE = {
     }},
 
   // ════════════════════════════════ AIR ════════════════════════════════════════
-  twin_gust:{ id:'twin_gust', tier:'primary', name:'Twin Gust', emoji:'🌀', element:'Air',
-    desc:'Two quick wind slashes', baseCooldown:0, isStarter:true,
-    execute(s){ s.hit({baseDamage:14, effects:[], hits:2, abilityElement:'Air'}); s.log('🌀 Twin Gust!','player'); }},
-  gale_force:{ id:'gale_force', tier:'primary', name:'Gale Force', emoji:'💨', element:'Air',
-    desc:'Powerful focused wind blast', baseCooldown:1,
-    execute(s){ s.hit({baseDamage:40, effects:[], abilityElement:'Air'}); s.log('💨 Gale Force!','player'); }},
-  cyclone:{ id:'cyclone', tier:'secondary', name:'Cyclone', emoji:'🌪️', element:'Air',
-    desc:'Spinning cyclone strikes three times', baseCooldown:2,
-    execute(s){ s.hit({baseDamage:15, effects:[], hits:3, abilityElement:'Air'}); s.log('🌪️ Cyclone!','player'); }},
-  sky_slam:{ id:'sky_slam', tier:'secondary', name:'Sky Slam', emoji:'🌩️', element:'Air',
-    desc:'Aerial slam stuns all enemies', baseCooldown:3,
-    execute(s){ aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:15, effects:[{type:'stun',turns:1}], abilityElement:'Air', isAOE:true}); }); s.log('🌩️ Sky Slam!','player'); }},
+  // Helper: applies s.hit with optional Tornado AoE expansion
+  // ── Primary ──────────────────────────────────────────────────────────────────
+  quintuple_hit:{ id:'quintuple_hit', tier:'primary', name:'Quintuple Hit', emoji:'💨', element:'Air',
+    desc:'Strike 5 times for 3 damage each. Each hit generates Momentum.', baseCooldown:0, isStarter:true,
+    execute(s){
+      if(status.player.tornadoAoENext){ status.player.tornadoAoENext=false; log('🌪️ Tornado boost — AoE!','status');
+        aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:3, effects:[], hits:5, abilityElement:'Air'}); });
+        if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      } else { s.hit({baseDamage:3, effects:[], hits:5, abilityElement:'Air'}); }
+      s.log('💨 Quintuple Hit!','player');
+    }},
+  become_wind:{ id:'become_wind', tier:'primary', name:'Become Wind', emoji:'🌬️', element:'Air',
+    desc:'Gain 10 Momentum. Your next successful dodge does not cause Momentum decay.', baseCooldown:2,
+    execute(s){
+      status.player.momentumStacks = (status.player.momentumStacks||0) + 10;
+      status.player.momentumNoDecayNext = true;
+      s.log(`🌬️ Become Wind! +10 Momentum (×${status.player.momentumStacks}). Next dodge: no decay.`,'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+  wind_wall:{ id:'wind_wall', tier:'primary', name:'Wind Wall', emoji:'🛡️', element:'Air',
+    desc:'Delay one instance of incoming damage until the next turn.', baseCooldown:2,
+    execute(s){
+      status.player.windWallActive = true;
+      s.log('🛡️ Wind Wall! Next incoming hit delayed to next turn.','player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+  tornado:{ id:'tornado', tier:'primary', name:'Tornado', emoji:'🌪️', element:'Air',
+    desc:'Deal 10 damage to all enemies. Your next offensive Air ability becomes AoE.', baseCooldown:3,
+    execute(s){
+      const alive = aliveEnemies();
+      alive.forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:10, effects:[], abilityElement:'Air', _isTornadoSelf:true}); });
+      if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      if(!combat.over){ status.player.tornadoAoENext = true; }
+      s.log('🌪️ Tornado! All enemies hit. Next Air attack is AoE.','player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+  // ── Secondary ─────────────────────────────────────────────────────────────────
+  twin_strike:{ id:'twin_strike', tier:'secondary', name:'Twin Strike', emoji:'⚔️', element:'Air',
+    desc:'Strike twice for 1 damage each. Scales with Power. Does not consume an action.', baseCooldown:1,
+    isFreeAction:true,
+    execute(s){
+      if(status.player.tornadoAoENext){ status.player.tornadoAoENext=false; log('🌪️ Tornado boost — AoE!','status');
+        aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:1, effects:[], hits:2, abilityElement:'Air'}); });
+        if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      } else { s.hit({baseDamage:1, effects:[], hits:2, abilityElement:'Air'}); }
+      s.log('⚔️ Twin Strike!','player');
+    }},
+  windy_takedown:{ id:'windy_takedown', tier:'secondary', name:'Windy Takedown', emoji:'💥', element:'Air',
+    desc:'Deal 25 damage. No cooldown — use multiple times per turn.', baseCooldown:0, multiUse:true,
+    execute(s){
+      if(status.player.tornadoAoENext){ status.player.tornadoAoENext=false; log('🌪️ Tornado boost — AoE!','status');
+        aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:25, effects:[], abilityElement:'Air'}); });
+        if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      } else { s.hit({baseDamage:25, effects:[], abilityElement:'Air'}); }
+      s.log('💥 Windy Takedown!','player');
+    }},
+  sleeper_gust:{ id:'sleeper_gust', tier:'secondary', name:'Sleeper Gust', emoji:'😴', element:'Air',
+    desc:'Hit twice for 1 damage each. Gain +1 action next turn per hit.', baseCooldown:2,
+    execute(s){
+      if(status.player.tornadoAoENext){ status.player.tornadoAoENext=false; log('🌪️ Tornado boost — AoE!','status');
+        aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:1, effects:[], hits:2, abilityElement:'Air'}); });
+        if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      } else { s.hit({baseDamage:1, effects:[], hits:2, abilityElement:'Air'}); }
+      if(!combat.over){
+        status.player.nextTurnBonusActions = (status.player.nextTurnBonusActions||0) + 2;
+        s.log(`😴 Sleeper Gust! +2 actions next turn (${status.player.nextTurnBonusActions} pending).`,'player');
+      }
+    }},
+  break_momentum:{ id:'break_momentum', tier:'secondary', name:'Break Momentum', emoji:'💫', element:'Air',
+    desc:'Consume all Momentum. Deal 5 damage per Momentum stack.', baseCooldown:3,
+    execute(s){
+      const stacks = status.player.momentumStacks||0;
+      if(stacks===0){ s.log('💫 No Momentum to consume!','status'); return; }
+      const dmg = stacks * 5;
+      status.player.momentumStacks = 0;
+      applyDirectDamage('player','enemy', dmg, `💫 Break Momentum (${stacks}×5)`);
+      s.log(`💫 Break Momentum! ${stacks} stacks → ${dmg} damage!`,'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+  // ── Legendary ─────────────────────────────────────────────────────────────────
+  storm_rush:{ id:'storm_rush', tier:'legendary', name:'Storm Rush', emoji:'⚡', element:'Air',
+    desc:'Gain 3 extra actions this turn. Gain 5 Momentum. Reduce all cooldowns by 1.', baseCooldown:4, legendary:true,
+    onQueue(){
+      combat.actionsLeft = (combat.actionsLeft||0) + 3;
+      log('⚡ Storm Rush! +3 actions available this turn.','status');
+      if(typeof updateActionUI==='function') updateActionUI();
+    },
+    execute(s){
+      status.player.momentumStacks = (status.player.momentumStacks||0) + 5;
+      player.spellbook.forEach(sp=>{ if((sp.currentCD||0)>0) sp.currentCD = Math.max(0,sp.currentCD-1); });
+      s.log(`⚡ Storm Rush! +5 Momentum (×${status.player.momentumStacks}). All CDs −1.`,'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
 
   // ════════════════════════════════ NEUTRAL ════════════════════════════════════
   power_strike:{ id:'power_strike', tier:'secondary', name:'Power Strike', emoji:'⚔️', element:'Neutral',

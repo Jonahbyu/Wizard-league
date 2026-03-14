@@ -1106,7 +1106,7 @@ function confirmStartPassive(passiveId){
   } else {
     player.passives = [passiveId];
   }
-  if (passiveId === 'air_focus') player.attackPower += 20;
+  if (passiveId === 'air_tailwind') player.attackPower += 15;
 
   if (player._extraStartSpell) {
     const owned      = new Set(player.spellbook.map(s => s.id));

@@ -192,9 +192,27 @@ function startRound(){
     return;
   }
 
+  // ── Air: Wind Wall delayed damage fires at round start ──
+  if(playerElement==='Air' && (status.player.windWallPending||0) > 0 && !combat.over){
+    const wpDmg = status.player.windWallPending;
+    status.player.windWallPending = 0;
+    const anyEnemy = combat.enemies.find(e=>e.alive);
+    if(anyEnemy) setActiveEnemy(combat.enemies.indexOf(anyEnemy));
+    applyEffectDamage('enemy','player', wpDmg, '🌬️ Wind Wall — delayed damage arrives');
+    if(combat.over) return;
+    setActiveEnemy(combat.targetIdx);
+  }
+
   combat.turnInBattle++;
   combat.actionQueue=[];
   combat.actionsLeft=actionsPerTurnFor('player') + artifactExtraActions();
+  // ── Air: Sleeper Gust bonus actions ──
+  if(playerElement==='Air' && (status.player.nextTurnBonusActions||0) > 0){
+    const bonus = status.player.nextTurnBonusActions;
+    combat.actionsLeft += bonus;
+    log(`💨 +${bonus} bonus action${bonus>1?'s':''} from Sleeper Gust!`, 'status');
+    status.player.nextTurnBonusActions = 0;
+  }
   combat.plasmaChargeReserved = 0; // reset reserved charge each new round
 
   // ── Plasma: round-start charge management ──
@@ -239,11 +257,17 @@ function startRound(){
 // ===============================
 // QUEUE-BASED SIMULTANEOUS SYSTEM
 // ===============================
-function queueAction(label, fn){
+function queueAction(label, fn, opts){
   if(!combat.playerTurn||combat.over) return;
-  if(combat.actionQueue.length>=combat.actionsLeft) return;
+  const isFree = opts && opts.isFree;
+  if(!isFree){
+    const nonFreeCount = (combat.actionQueue||[]).filter(a=>!a.isFree).length;
+    if(nonFreeCount >= combat.actionsLeft) return;
+  }
+  // Immediate effect at queue time (e.g. Storm Rush +3 actions)
+  if(opts && opts.onQueue) opts.onQueue();
   const snapTarget = combat.targetIdx;
-  combat.actionQueue.push({label, fn, targetIdx:snapTarget, isPlasma:false});
+  combat.actionQueue.push({label, fn, targetIdx:snapTarget, isPlasma:false, isFree:!!isFree});
   renderQueue();
   updateActionUI();
   renderSpellButtons();
@@ -297,8 +321,9 @@ function renderQueue(){
     const hasActions=combat.actionQueue&&combat.actionQueue.length>0;
     endBtn.disabled=!combat.playerTurn||combat.over||!hasActions;
     endBtn.className=hasActions?'end-turn-btn ready':'end-turn-btn';
+    const totalQ = combat.actionQueue.length;
     endBtn.textContent=hasActions
-      ?`⚔ End Turn — Resolve ${combat.actionQueue.length} Action${combat.actionQueue.length>1?'s':''}`
+      ?`⚔ End Turn — Resolve ${totalQ} Action${totalQ>1?'s':''}`
       :'⚔ End Turn';
   }
 }
@@ -308,7 +333,7 @@ function updateActionUI(){
   const slotsTxt=document.getElementById("queue-slots-left");
   if(!el) return;
   if(combat.playerTurn){
-    const queued=combat.actionQueue?combat.actionQueue.length:0;
+    const queued=(combat.actionQueue||[]).filter(a=>!a.isFree).length;
     const total=combat.actionsLeft||0;
     const alive=aliveEnemies();
     const tgt=combat.enemies[combat.targetIdx];

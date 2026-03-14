@@ -57,8 +57,12 @@ const PASSIVE_CHOICES = {
       desc:'LEGENDARY: When you gain Charge, reflect 20% of the triggering hit + ⌊Power÷5⌋ damage back at the attacker.' },
   ],
   Air: [
-    { id:'air_tailwind', title:'Tailwind', emoji:'🌀', desc:'Gain +1 action every other turn (alternates: 3 then 2).' },
-    { id:'air_focus',    title:'Focus',    emoji:'🎯', desc:'Permanently gain +20 Power at run start.' },
+    { id:'air_tailwind',    title:'Tailwind',    emoji:'🌬️', desc:'Permanently gain +15 Power at run start.' },
+    { id:'air_rapid_tempo', title:'Rapid Tempo', emoji:'⚡',  desc:'Gain +1 extra action every other turn (alternates: 3 then 2).' },
+    { id:'air_gale_force',  title:'Gale Force',  emoji:'💨',  desc:'Whenever you gain Momentum, gain +1 additional Momentum. (2 per hit instead of 1).' },
+    { id:'air_slipstream',  title:'Slipstream',  emoji:'🌀',  desc:'Momentum lost when dodging is reduced to 10% instead of 25%.' },
+    { id:'air_eye_of_the_storm', legendary:true, title:'Eye of the Storm', emoji:'👁️',
+      desc:'LEGENDARY: Each Momentum stack grants 3% chance per strike to repeat. Repeats can chain.' },
   ],
 };
 

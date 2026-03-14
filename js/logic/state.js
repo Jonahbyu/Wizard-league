@@ -185,6 +185,10 @@ const STATUS_DEFAULTS = {
   borrowedCharge:0,
   stallCharge:0, stallActive:false,
   singularityActive:false,
+  // Air / Momentum system
+  momentumStacks:0, momentumNoDecayNext:false,
+  windWallActive:false, windWallPending:0,
+  tornadoAoENext:false, nextTurnBonusActions:0,
 };
 
 const combat = {

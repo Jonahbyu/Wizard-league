@@ -63,9 +63,6 @@ function attackPowerFor(side, targetSide){
   // Frost on self: -1 AP/stack
   pow -= (s.frostStacks||0);
 
-  // Air: -10% AP
-  if(elementOfSide(side)==='Air') pow = Math.max(0, Math.floor(pow*0.9));
-
   // Root bonus vs rooted targets
   if(targetSide){
     const ts = (targetSide==='player') ? status.player : (combat.enemies[combat.activeEnemyIdx]||{status:{}}).status;
@@ -91,6 +88,11 @@ function attackPowerFor(side, targetSide){
   // Plasma Energy Feedback: +1 AP per current Charge
   if(side==='player' && hasPassive('plasma_energy_feedback')){
     pow += (status.player.plasmaCharge||0);
+  }
+
+  // Air Momentum: +1 AP per Momentum stack
+  if(side==='player' && playerElement==='Air'){
+    pow += (status.player.momentumStacks||0);
   }
 
   return Math.max(0, pow);
@@ -161,9 +163,6 @@ function powerFor(side, targetSide){
   // Frost on self: -1 power/stack
   pow -= (s.frostStacks||0);
 
-  // Air: 10% less power
-  if(elementOfSide(side)==='Air') pow = Math.max(0, Math.floor(pow*0.9));
-
   // Root bonus vs rooted targets (Thorned Strikes or base)
   if(targetSide){
     const ts = status[targetSide];
@@ -214,9 +213,11 @@ function isEarthFissure(attackerSide, pkg){
 
 // ── Dodge / Phase ─────────────────────────────────────────────────────────────
 function dodgeChanceFor(side){
-  // Plasma no longer uses dodge — it uses Charge/Shield mechanics
-  // phaseTurns still valid (from Ice Freeze or other future mechanics)
   if(status[side].phaseTurns > 0) return 1;
+  // Air: Momentum grants +2% dodge per stack (cap 80%)
+  if(side==='player' && playerElement==='Air'){
+    return Math.min(0.80, (status.player.momentumStacks||0) * 0.02);
+  }
   return 0;
 }
 
@@ -241,11 +242,11 @@ function actionsPerTurnFor(side){
   let actions = BASE_ACTIONS_PER_TURN;
   // Shop-purchased bonus actions (player only, cooldown-limited)
   if(side==='player') actions += (player.bonusActions || 0);
-  // Tailwind passive: alternate +1 action every other turn
+  // Rapid Tempo passive: alternate +1 action every other turn
   if(elementOfSide(side)==='Air'){
-    const hasTailwind = (side==='player' && hasPassive('air_tailwind')) ||
-                        (side==='enemy'  && enemyHasPassive('air_tailwind'));
-    if(hasTailwind){
+    const hasRapidTempo = (side==='player' && hasPassive('air_rapid_tempo')) ||
+                          (side==='enemy'  && enemyHasPassive('air_rapid_tempo'));
+    if(hasRapidTempo){
       if(side==='player'){
         combat.playerAirToggle = !combat.playerAirToggle;
         if(combat.playerAirToggle) actions++;
@@ -415,6 +416,10 @@ function resetStatusForBattle(){
     // Plasma
     plasmaCharge:3, plasmaChargeHalf:0, plasmaShieldReduction:0,
     borrowedCharge:0, stallCharge:0, stallActive:false, singularityActive:false,
+    // Air / Momentum
+    momentumStacks:0, momentumNoDecayNext:false,
+    windWallActive:false, windWallPending:0,
+    tornadoAoENext:false, nextTurnBonusActions:0,
   });
   if(hasPassive('lightning_overload')) status.player.lightningMult = 2.0;
 }
