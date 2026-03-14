@@ -401,22 +401,24 @@ function renderSpellButtons(){
 
   // Basic attack cell
   const basicOnCD = combat.basicCD > 0;
+  const basicQueued = (combat.actionQueue||[]).some(a => a.label === '⚔ Basic');
   const basicCell = document.createElement('button');
   basicCell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'');
-  basicCell.disabled = !isMyTurn || queueFull || basicOnCD;
+  basicCell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued;
   const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0));
   basicCell.innerHTML =
     '<div class="sb-spell-icon">⚔</div>' +
     '<div class="sb-spell-name">Basic</div>' +
     '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
       (basicOnCD?'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
-    '</div>';
+    '</div>' +
+    (basicQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
   basicCell.onclick = ()=>{
-    if(!isMyTurn||queueFull||basicOnCD) return;
+    if(!isMyTurn||queueFull||basicOnCD||basicQueued) return;
     const snapTgt=combat.targetIdx;
     const snapCD=adjustedCooldownFor('player',1)||1;
-    combat.basicCD=snapCD;
     queueAction('⚔ Basic',()=>{
+      combat.basicCD=snapCD;  // CD set when action actually executes
       setActiveEnemy(snapTgt);
       const ctx=makeSpellCtx('player','enemy',-1);
       doBasicAttack(ctx);
@@ -468,26 +470,24 @@ function renderSpellButtons(){
     cell.onclick = ()=>{
       if(!isMyTurn || !canQueue) return;
       const snapTgt=combat.targetIdx;
-      // For multiUse spells, don't set a cooldown
-      if(!spell.multiUse){
-        const snapCD=adjustedCooldownFor('player',spell.baseCooldown)||1;
-        spell.currentCD=snapCD;
-      }
+      const spellRef=spell;
       const spellIdx=player.spellbook.indexOf(spell);
-      // Storm Rush: immediate onQueue effect (grants +3 actions)
+      const snapCD=(!spell.multiUse) ? (adjustedCooldownFor('player',spell.baseCooldown)||1) : 0;
       const opts = {isFree};
       if(spell.onQueue) opts.onQueue = ()=>spell.onQueue();
       queueAction(spell.emoji+' '+spell.name,()=>{
+        // Set CD only when the action actually executes (not at queue time)
+        if(!spellRef.multiUse) spellRef.currentCD = snapCD;
         setActiveEnemy(snapTgt);
         const ctx=makeSpellCtx('player','enemy',spellIdx);
-        spell.execute(ctx);
+        spellRef.execute(ctx);
         // Deep Current: fire Water spell a second time
-        if(!combat.over && spell.element==='Water' && status.player.deepCurrentActive){
+        if(!combat.over && spellRef.element==='Water' && status.player.deepCurrentActive){
           status.player.deepCurrentActive = false;
-          log('💠 Deep Current: '+spell.name+' fires again!','player');
+          log('💠 Deep Current: '+spellRef.name+' fires again!','player');
           setActiveEnemy(snapTgt);
           const ctx2=makeSpellCtx('player','enemy',spellIdx);
-          spell.execute(ctx2);
+          spellRef.execute(ctx2);
         }
         updateHPBars();renderStatusTags();updateStatsUI();
       }, opts);
