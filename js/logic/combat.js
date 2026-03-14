@@ -464,6 +464,15 @@ function resolveFlat(flatActions, idx){
 function buildEnemyQueueFor(idx, count){
   const e=combat.enemies[idx];
   const q=[];
+
+  // Target dummy: never attacks, just stands still
+  if(e.isTargetDummy){
+    for(let j=0;j<count;j++){
+      q.push({label:'Stand Still', fn:()=>{ log('🎯 '+e.name+' stands still.','enemy'); }});
+    }
+    return q;
+  }
+
   const cdPenalty=enemyCooldownPenaltyFor(idx);
   let cd=e.basicCD;
   for(let j=0;j<count;j++){

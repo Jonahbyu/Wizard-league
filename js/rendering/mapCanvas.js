@@ -394,7 +394,9 @@ function leaveShop(){
 function makeEnemyObj(enc){
   const el=primaryElement(enc.element||'');
   let passive;
-  if(enc.gymPassive){
+  if(enc.isTargetDummy){
+    passive=null;
+  } else if(enc.gymPassive){
     passive=enc.gymPassive;
   } else if(inGymZone()&&!enc.isGym){
     const zGym=currentGymDef();
@@ -412,13 +414,13 @@ function makeEnemyObj(enc){
   }
   const scaledPower=BASE_POWER+Math.floor(currentGymIdx*4)+(enc.isGym?8:0);
 
-  // Scale HP and dmg by zone depth (non-gym enemies only; gym bosses have fixed stats)
-  const zoneScaled = enc.isGym ? {} : scaleEnemyForZone(enc, currentGymIdx);
+  // Scale HP and dmg by zone depth (non-gym enemies only; gym bosses and dummies have fixed stats)
+  const zoneScaled = (enc.isGym || enc.isTargetDummy) ? {} : scaleEnemyForZone(enc, currentGymIdx);
   const finalMaxHP  = zoneScaled.enemyMaxHP || enc.enemyMaxHP;
   const finalDmg    = zoneScaled.enemyDmg   || enc.enemyDmg;
 
   // Build ability list based on element + zone depth
-  const abilities = enc.isGym ? [] : buildEnemyAbilities(el, currentGymIdx, enc.difficulty||'easy');
+  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, enc.difficulty||'easy');
 
   return {
     ...enc,

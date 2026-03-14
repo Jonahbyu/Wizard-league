@@ -5,12 +5,44 @@
 
 const ACTIVE_ANIMS = [];
 
-// ─── Particle factory ─────────────────────────────────────────────────────────
+// ─── Screen-level flash overlay ───────────────────────────────────────────────
+let _flashR = 0, _flashG = 0, _flashB = 0, _flashAlpha = 0;
+function _triggerFlash(r, g, b, a) {
+  _flashR = r; _flashG = g; _flashB = b;
+  _flashAlpha = Math.max(_flashAlpha, a); // never diminish an existing flash
+}
+
+// ─── Bloom / glow: layered semi-transparent circles ───────────────────────────
+function _glow(ctx, x, y, r, color, alpha) {
+  if (alpha <= 0 || r <= 0) return;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = Math.max(0, alpha * 0.10);
+  ctx.beginPath(); ctx.arc(x, y, r * 3.8, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = Math.max(0, alpha * 0.20);
+  ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = Math.max(0, alpha * 0.55);
+  ctx.beginPath(); ctx.arc(x, y, r,       0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// ─── Shockwave / expanding ring ───────────────────────────────────────────────
+function _ring(ctx, x, y, r, color, alpha, lw) {
+  if (alpha <= 0 || r <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, alpha);
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = lw || 2;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+// ─── Particle factory (for arc / rise types) ──────────────────────────────────
 function _makeParticles(count, spread) {
   const ps = [];
   for (let i = 0; i < count; i++) {
     ps.push({
-      offset: (i / count) * -0.18,
+      offset: (i / count) * -0.20,
       yOff:   ((i * 137 + 31) % (spread * 2 + 1)) - spread,
       size:   2 + (i % 3),
       alpha:  0.55 + (i % 4) * 0.12,
@@ -19,30 +51,38 @@ function _makeParticles(count, spread) {
   return ps;
 }
 
+// ─── Arc path position helper ─────────────────────────────────────────────────
+function _arcPt(from, to, p) {
+  p = Math.max(0, Math.min(1, p));
+  const x  = from.x + (to.x - from.x) * p;
+  const y0 = from.y + (to.y - from.y) * p;
+  const arc = -(Math.abs(to.x - from.x) * 0.22 + 10);
+  return { x, y: y0 + arc * Math.sin(p * Math.PI) };
+}
+
 // ─── Per-element / per-type animation definitions ─────────────────────────────
-// type: 'arc' | 'bolt' | 'ring' | 'rise' | 'shield'
 const ANIM_DEFS = {
-  Fire:      { type:'arc',    dur:22, count:9,  spread:14, c1:'#FF6622', c2:'#FF2200', burst:'#FFAA44' },
-  Water:     { type:'arc',    dur:22, count:7,  spread:8,  c1:'#44AAFF', c2:'#0055CC', burst:'#88DDFF' },
-  Ice:       { type:'arc',    dur:20, count:7,  spread:6,  c1:'#CCEFFF', c2:'#33AACC', burst:'#FFFFFF' },
-  Lightning: { type:'bolt',   dur:14, count:5,  spread:0,  c1:'#FFEE22', c2:'#FFAA00', burst:'#FFFFFF' },
-  Earth:     { type:'arc',    dur:26, count:6,  spread:16, c1:'#CC9933', c2:'#886622', burst:'#EEDD88' },
-  Nature:    { type:'arc',    dur:22, count:8,  spread:18, c1:'#44EE55', c2:'#118833', burst:'#AAFFAA' },
-  Plasma:    { type:'ring',   dur:20, count:7,  spread:8,  c1:'#EE44FF', c2:'#8800BB', burst:'#FF88FF' },
-  Air:       { type:'arc',    dur:18, count:7,  spread:20, c1:'#AAEEFF', c2:'#3399BB', burst:'#EEFFFF' },
-  Neutral:   { type:'arc',    dur:18, count:5,  spread:8,  c1:'#CCCCCC', c2:'#888888', burst:'#FFFFFF' },
-  heal:      { type:'rise',   dur:28, count:7,  spread:12, c1:'#44DD66', c2:'#118833', burst:'#AAFFAA' },
-  block:     { type:'shield', dur:22, count:0,  spread:0,  c1:'#DDAA22', c2:'#AA7700', burst:'#FFEE88' },
-  armor:     { type:'shield', dur:18, count:0,  spread:0,  c1:'#888888', c2:'#555555', burst:'#CCCCCC' },
+  Fire:      { type:'fireball',   dur:30, c1:'#FF6622', c2:'#FF2200', burst:'#FFCC44', glow:'#FF5500' },
+  Water:     { type:'water_wave', dur:32, c1:'#44AAFF', c2:'#0066DD', burst:'#AADEFF', glow:'#2288EE' },
+  Ice:       { type:'ice_shards', dur:30, c1:'#CCEFFF', c2:'#33AACC', burst:'#FFFFFF', glow:'#88CCEE' },
+  Lightning: { type:'lightning',  dur:18, c1:'#FFEE22', c2:'#FFAA00', burst:'#FFFFFF', glow:'#FFFF66' },
+  Earth:     { type:'earth_slam', dur:36, c1:'#CC9933', c2:'#664400', burst:'#EEDD88', glow:'#AA7700' },
+  Nature:    { type:'vine_lash',  dur:32, c1:'#44EE55', c2:'#118833', burst:'#AAFFAA', glow:'#33BB44' },
+  Plasma:    { type:'plasma_orb', dur:30, c1:'#EE44FF', c2:'#8800BB', burst:'#FF88FF', glow:'#CC00EE' },
+  Air:       { type:'wind_slash', dur:24, c1:'#AAEEFF', c2:'#55AACC', burst:'#EEFFFF', glow:'#77CCEE' },
+  Neutral:   { type:'arc',        dur:22, count:8,  spread:12, c1:'#CCCCCC', c2:'#888888', burst:'#FFFFFF' },
+  heal:      { type:'rise',       dur:34, count:12, spread:16, c1:'#44DD66', c2:'#118833', burst:'#AAFFAA' },
+  block:     { type:'shield',     dur:26, c1:'#DDAA22', c2:'#AA7700', burst:'#FFEE88' },
+  armor:     { type:'shield',     dur:22, c1:'#888888', c2:'#555555', burst:'#CCCCCC' },
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 function triggerSpellAnim(abilityElement, attackerSide, targetEnemyIdx) {
   const def = ANIM_DEFS[abilityElement] || ANIM_DEFS.Neutral;
+  const needsParticles = def.type === 'arc' || def.type === 'rise';
   ACTIVE_ANIMS.push({
     ...def,
-    particles: (def.type === 'arc' || def.type === 'ring')
-      ? _makeParticles(def.count, def.spread) : [],
+    particles: needsParticles ? _makeParticles(def.count || 7, def.spread || 8) : [],
     attackerSide,
     targetEnemyIdx: targetEnemyIdx != null ? targetEnemyIdx : (combat.activeEnemyIdx || 0),
     t: 0,
@@ -59,7 +99,6 @@ function triggerHealAnim() {
 }
 
 function triggerBlockAnim(variant) {
-  // variant: 'block' | 'armor'
   const def = ANIM_DEFS[variant] || ANIM_DEFS.block;
   ACTIVE_ANIMS.push({
     ...def,
@@ -84,156 +123,710 @@ function _spriteCenter(side, enemyIdx, W, H) {
   return { x: W * 0.72, y: H * 0.38 };
 }
 
-// ─── Drawers ──────────────────────────────────────────────────────────────────
-function _drawArc(ctx, a, W, H) {
+// ─── FIRE: Glowing fireball with ember trail + explosion ──────────────────────
+function _drawFireball(ctx, a, W, H) {
   const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
   const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
-  const to = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
   const prog = a.t / a.dur;
+  const HIT  = 0.76;
 
-  a.particles.forEach(p => {
-    const pt = Math.min(1, Math.max(0, prog + p.offset));
-    if (pt <= 0 || pt >= 1) return;
-    const x  = from.x + (to.x - from.x) * pt;
-    const dy = from.y + (to.y - from.y) * pt;
-    const arc = -(Math.abs(to.x - from.x) * 0.22 + 8);
-    const y  = dy + arc * Math.sin(pt * Math.PI) + p.yOff * (1 - pt);
-    ctx.save();
-    ctx.globalAlpha = Math.sin(pt * Math.PI) * p.alpha;
-    ctx.fillStyle = pt < 0.55 ? a.c1 : a.c2;
-    const sz = Math.max(1, Math.round(p.size * (1 - pt * 0.4)));
-    ctx.fillRect(Math.round(x) - (sz >> 1), Math.round(y) - (sz >> 1), sz, sz);
-    ctx.restore();
-  });
+  if (prog < HIT) {
+    const p   = prog / HIT;
+    const pos = _arcPt(from, to, p);
+    const env = Math.sin(p * Math.PI);
 
-  // Impact burst
-  if (prog > 0.72) {
-    const bp = (prog - 0.72) / 0.28;
+    // Ember trail (faded past positions)
+    for (let i = 10; i >= 1; i--) {
+      const tp   = Math.max(0, p - i * 0.038);
+      const tPos = _arcPt(from, to, tp);
+      const ta   = (1 - i / 11) * 0.55 * env;
+      const sz   = Math.max(0.5, (10 - i) * 0.55);
+      ctx.save();
+      ctx.globalAlpha = ta;
+      ctx.fillStyle   = i <= 3 ? '#FFEE44' : i <= 6 ? a.c1 : a.c2;
+      ctx.beginPath(); ctx.arc(tPos.x, tPos.y, sz, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Pulsing glow orb
+    const pulse = 1 + 0.18 * Math.sin(a.t * 0.55);
+    _glow(ctx, pos.x, pos.y, 11 * pulse, a.glow, env * 0.90);
+
+    // Bright core
     ctx.save();
-    ctx.globalAlpha = (1 - bp) * 0.65;
-    ctx.fillStyle = a.burst;
-    const r = bp * 14;
-    ctx.beginPath();
-    ctx.arc(to.x, to.y, r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = env;
+    ctx.fillStyle   = '#FFEEAA';
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, 4.5, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+  }
+
+  if (prog >= HIT) {
+    const bp  = (prog - HIT) / (1 - HIT);
+    const bp2 = 1 - bp;
+
+    // Screen flash — orange-red
+    if (bp < 0.18) _triggerFlash(255, 110, 20, bp2 * 0.20);
+
+    // Central glow burst
+    _glow(ctx, to.x, to.y, 22 * (1 - bp * 0.35), a.burst, bp2 * 0.95);
+
+    // Expanding shockwave rings
+    _ring(ctx, to.x, to.y, bp * 38, a.c1,   bp2 * 0.85, 3.0);
+    _ring(ctx, to.x, to.y, bp * 24, a.burst, bp2 * 0.55, 1.5);
+
+    // Ember sparks flying outward with gravity
+    for (let i = 0; i < 18; i++) {
+      const angle = (i / 18) * Math.PI * 2 + 0.4;
+      const speed = 22 + (i % 5) * 8;
+      const grav  = bp * bp * 14;
+      const ex = to.x + Math.cos(angle) * speed * bp;
+      const ey = to.y + Math.sin(angle) * speed * bp + grav;
+      const sz = Math.max(1, 3.5 - bp * 3);
+      ctx.save();
+      ctx.globalAlpha = bp2 * 0.90;
+      ctx.fillStyle   = i % 3 === 0 ? '#FFEE00' : i % 3 === 1 ? a.c1 : a.c2;
+      ctx.fillRect(Math.round(ex) - 1, Math.round(ey) - 1, sz + 1, sz + 1);
+      ctx.restore();
+    }
   }
 }
 
-function _drawBolt(ctx, a, W, H) {
+// ─── LIGHTNING: Instant branching bolt + electric sparks ──────────────────────
+function _drawLightning(ctx, a, W, H) {
   const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
   const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
-  const to = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
   const prog = a.t / a.dur;
-  const alpha = 1 - Math.pow(prog, 1.4);
+  const fade = prog < 0.20 ? 1 : Math.max(0, 1 - (prog - 0.20) / 0.80);
 
-  // Main bolt — zigzag
-  const segs = 6;
-  const drawLine = (strokeColor, lw, alpha2) => {
+  // Screen flash on very first frame
+  if (a.t <= 1) _triggerFlash(255, 255, 180, 0.30);
+
+  // Helper: draw a jittered zigzag segment
+  const zigzag = (x1, y1, x2, y2, segs, amp, lw, col, al) => {
+    if ((al * fade) <= 0) return;
     ctx.save();
-    ctx.globalAlpha = alpha * alpha2;
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
+    ctx.globalAlpha = Math.max(0, al * fade);
+    ctx.strokeStyle = col;
+    ctx.lineWidth   = lw;
+    ctx.beginPath(); ctx.moveTo(x1, y1);
     for (let i = 1; i <= segs; i++) {
-      const t = i / segs;
-      const x = from.x + (to.x - from.x) * t;
-      const y = from.y + (to.y - from.y) * t;
-      const jitter = i < segs ? (((i * 173 + 7) % 18) - 9) : 0;
-      ctx.lineTo(Math.round(x + jitter), Math.round(y - jitter * 0.6));
+      const t  = i / segs;
+      const bx = x1 + (x2 - x1) * t;
+      const by = y1 + (y2 - y1) * t;
+      const j  = i < segs ? (((i * 173 + 7 + a.t * 3) % (amp * 2 + 1)) - amp) : 0;
+      ctx.lineTo(Math.round(bx + j), Math.round(by - j * 0.5));
     }
     ctx.stroke();
     ctx.restore();
   };
-  drawLine(a.c1, 2, 1);
-  drawLine('#FFFFFF', 1, 0.5);
 
-  // Impact flash
-  if (prog > 0.5) {
-    const fp = (prog - 0.5) / 0.5;
+  // Outer glow (wide, faint)
+  zigzag(from.x, from.y, to.x, to.y, 8, 14, 8, 'rgba(255,230,50,0.18)', 1);
+  // Mid bolt
+  zigzag(from.x, from.y, to.x, to.y, 8, 12, 3, a.c1, 0.95);
+  // Inner white core
+  zigzag(from.x, from.y, to.x, to.y, 8, 10, 1.5, '#FFFFFF', 1.0);
+
+  // Branch 1 — splits off at ~35% toward target
+  const b1x = from.x + (to.x - from.x) * 0.35;
+  const b1y = from.y + (to.y - from.y) * 0.35;
+  const b1ex = b1x + (to.y - from.y) * 0.30 + 24;
+  const b1ey = b1y - (to.x - from.x) * 0.12 + 18;
+  zigzag(b1x, b1y, b1ex, b1ey, 4, 8, 1.8, a.c1, 0.65);
+  zigzag(b1x, b1y, b1ex, b1ey, 4, 6, 0.9, '#FFFFFF', 0.75);
+
+  // Branch 2 — splits off at ~62%
+  const b2x = from.x + (to.x - from.x) * 0.62;
+  const b2y = from.y + (to.y - from.y) * 0.62;
+  const b2ex = b2x - (to.y - from.y) * 0.22 - 18;
+  const b2ey = b2y + (to.x - from.x) * 0.08 + 14;
+  zigzag(b2x, b2y, b2ex, b2ey, 4, 9, 1.4, a.c1, 0.50);
+
+  // Impact glow + radiating sparks
+  const impFade = prog < 0.45 ? 1 : Math.max(0, 1 - (prog - 0.45) / 0.55);
+  _glow(ctx, to.x, to.y, 15, a.glow, impFade * 0.90);
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2 + a.t * 0.45;
+    const dist  = (9 + (i % 3) * 6) * (0.8 + prog * 0.6);
     ctx.save();
-    ctx.globalAlpha = (1 - fp) * 0.7;
-    ctx.fillStyle = a.burst;
+    ctx.globalAlpha = Math.max(0, impFade * 0.75);
+    ctx.strokeStyle = '#FFFF66';
+    ctx.lineWidth   = 1;
     ctx.beginPath();
-    ctx.arc(to.x, to.y, fp * 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
-function _drawRing(ctx, a, W, H) {
-  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
-  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
-  const to = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
-  const prog = a.t / a.dur;
-
-  // Orbiting particles travel the path
-  a.particles.forEach(p => {
-    const pt = Math.min(1, Math.max(0, prog + p.offset));
-    if (pt <= 0 || pt >= 1) return;
-    const x = from.x + (to.x - from.x) * pt;
-    const arc = -(Math.abs(to.x - from.x) * 0.2 + 6);
-    const y = from.y + (to.y - from.y) * pt + arc * Math.sin(pt * Math.PI) + p.yOff * 0.5;
-    ctx.save();
-    ctx.globalAlpha = Math.sin(pt * Math.PI) * p.alpha;
-    ctx.fillStyle = a.c1;
-    ctx.beginPath();
-    ctx.arc(x, y, p.size * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
-
-  // Expanding ring at impact
-  if (prog > 0.58) {
-    const rp = (prog - 0.58) / 0.42;
-    ctx.save();
-    ctx.globalAlpha = (1 - rp) * 0.85;
-    ctx.strokeStyle = a.burst;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(to.x, to.y, rp * 20, 0, Math.PI * 2);
+    ctx.moveTo(to.x, to.y);
+    ctx.lineTo(Math.round(to.x + Math.cos(angle) * dist), Math.round(to.y + Math.sin(angle) * dist));
     ctx.stroke();
     ctx.restore();
   }
 }
 
-function _drawRise(ctx, a, W, H) {
-  const center = _spriteCenter('player', 0, W, H);
+// ─── ICE: Staggered crystal shards + shatter burst ───────────────────────────
+function _drawIceShards(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const prog = a.t / a.dur;
+  const SHARDS = 5;
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+
+  for (let si = 0; si < SHARDS; si++) {
+    const delay = si * 0.055;
+    const sp    = Math.max(0, (prog - delay) / (1 - delay));
+    if (sp <= 0) continue;
+
+    const HIT  = 0.78;
+    const yOff = ((si * 137 + 31) % 13) - 6;
+    const fromOff = { x: from.x, y: from.y + yOff };
+    const toOff   = { x: to.x,   y: to.y   + yOff * 0.3 };
+
+    if (sp < HIT) {
+      const p   = sp / HIT;
+      const pos = _arcPt(fromOff, toOff, p);
+      const env = Math.sin(p * Math.PI);
+
+      // Elongated crystal shard (rotated rect)
+      ctx.save();
+      ctx.globalAlpha = env * 0.88;
+      ctx.translate(Math.round(pos.x), Math.round(pos.y));
+      ctx.rotate(angle);
+      ctx.fillStyle = a.c2;
+      ctx.fillRect(-6, -2, 12, 4);
+      ctx.fillStyle = a.c1;
+      ctx.fillRect(-6, -2, 10, 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(-5, -2, 6, 1); // glint
+      ctx.restore();
+
+      // Ice-dust trail
+      if (p > 0.15) {
+        const tPos = _arcPt(fromOff, toOff, Math.max(0, p - 0.13));
+        ctx.save();
+        ctx.globalAlpha = (1 - p) * 0.45;
+        ctx.fillStyle = a.burst;
+        ctx.fillRect(Math.round(tPos.x) - 1, Math.round(tPos.y) - 1, 3, 2);
+        ctx.restore();
+      }
+    } else {
+      // Shatter
+      const bp  = (sp - HIT) / (1 - HIT);
+      const bp2 = 1 - bp;
+      if (bp2 <= 0) continue;
+
+      for (let i = 0; i < 8; i++) {
+        const sAngle = (i / 8) * Math.PI * 2 + si * 0.9;
+        const dist   = (10 + i * 4.5) * bp;
+        const grav   = bp * bp * 8;
+        ctx.save();
+        ctx.globalAlpha = bp2 * 0.85;
+        ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.burst;
+        ctx.fillRect(
+          Math.round(to.x + Math.cos(sAngle) * dist) - 1,
+          Math.round(to.y + Math.sin(sAngle) * dist + grav) - 1,
+          2, 3
+        );
+        ctx.restore();
+      }
+      _ring(ctx, to.x, to.y, bp * 20 + si * 2, a.c2, bp2 * 0.55, 1.5);
+    }
+  }
+
+  // Frost sparkle lingers at impact
+  if (prog > 0.68) {
+    const fp = (prog - 0.68) / 0.32;
+    _glow(ctx, to.x, to.y, 13 * (1 - fp * 0.4), a.burst, (1 - fp) * 0.75);
+  }
+}
+
+// ─── WATER: Sinusoidal wave stream + bubble splash ────────────────────────────
+function _drawWaterWave(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const prog = a.t / a.dur;
+  const HIT  = 0.74;
+
+  // Sinusoidal stream of water drops
+  const DROPS = 14;
+  for (let i = 0; i < DROPS; i++) {
+    const delay = (i / DROPS) * -0.22;
+    const dp    = Math.min(1, Math.max(0, prog + delay));
+    if (dp <= 0 || dp >= 1) continue;
+    const wave  = Math.sin(dp * Math.PI * 3 + i * 0.9) * 9;
+    const base  = _arcPt(from, to, dp);
+    const env   = Math.sin(dp * Math.PI);
+    const sz    = 2.5 + (i % 4) * 0.4;
+    ctx.save();
+    ctx.globalAlpha = env * (0.5 + (i % 3) * 0.14);
+    ctx.fillStyle   = dp < 0.55 ? a.c1 : a.c2;
+    ctx.beginPath(); ctx.arc(base.x, base.y + wave, sz, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  if (prog >= HIT) {
+    const bp  = (prog - HIT) / (1 - HIT);
+    const bp2 = 1 - bp;
+
+    _glow(ctx, to.x, to.y, 18, a.glow, bp2 * 0.85);
+    _ring(ctx, to.x, to.y, bp * 28, a.c1,   bp2 * 0.85, 2.5);
+    _ring(ctx, to.x, to.y, bp * 16, a.burst, bp2 * 0.50, 1.0);
+
+    // Upward bubbles
+    for (let i = 0; i < 9; i++) {
+      const age = bp - i * 0.07;
+      if (age <= 0) continue;
+      const bx  = to.x + ((i * 37 + 7) % 22) - 11;
+      const by  = to.y - age * 28 - i * 2;
+      const br  = 2 + (i % 3);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, (1 - age * 2.2)) * 0.72;
+      ctx.strokeStyle = a.burst;
+      ctx.lineWidth   = 1;
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Upward droplet spray
+    for (let i = 0; i < 12; i++) {
+      const dAngle = (-Math.PI * 0.75 + (i / 12) * Math.PI * 1.5);
+      const dist   = (14 + i * 2.5) * bp;
+      const grav   = bp * bp * 15;
+      ctx.save();
+      ctx.globalAlpha = bp2 * 0.80;
+      ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.burst;
+      ctx.fillRect(
+        Math.round(to.x + Math.cos(dAngle) * dist) - 1,
+        Math.round(to.y + Math.sin(dAngle) * dist + grav) - 1,
+        2, 2
+      );
+      ctx.restore();
+    }
+  }
+}
+
+// ─── EARTH: Tumbling rocks with dust + shockwave ──────────────────────────────
+function _drawEarthSlam(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const prog = a.t / a.dur;
+  const HIT  = 0.70;
+
+  const ROCKS = 3;
+  for (let ri = 0; ri < ROCKS; ri++) {
+    const delay = ri * 0.075;
+    const rp    = Math.max(0, (prog - delay) / (1 - delay));
+    if (rp <= 0) continue;
+
+    const yOff    = ((ri * 97 + 13) % 9) - 4;
+    const fromOff = { x: from.x, y: from.y + yOff };
+    const toOff   = { x: to.x,   y: to.y };
+
+    if (rp < HIT) {
+      const p   = rp / HIT;
+      const pos = _arcPt(fromOff, toOff, p);
+      const env = Math.sin(p * Math.PI);
+      const spin = p * 5 + ri * 1.2;
+
+      // Dust cloud trail
+      for (let ti = 1; ti <= 4; ti++) {
+        const tp   = Math.max(0, p - ti * 0.05);
+        const tPos = _arcPt(fromOff, toOff, tp);
+        ctx.save();
+        ctx.globalAlpha = (1 - ti / 5) * 0.28 * env;
+        ctx.fillStyle   = '#AA8844';
+        ctx.beginPath(); ctx.arc(tPos.x, tPos.y, 4 + ti * 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // Rock chunk (rotated rect with highlight)
+      const rw = 7 + ri * 3, rh = 5 + ri * 2;
+      ctx.save();
+      ctx.globalAlpha = env * 0.92;
+      ctx.translate(Math.round(pos.x), Math.round(pos.y));
+      ctx.rotate(spin);
+      ctx.fillStyle = a.c2;
+      ctx.fillRect(-rw / 2, -rh / 2, rw, rh);
+      ctx.fillStyle = a.c1;
+      ctx.fillRect(-rw / 2, -rh / 2, rw, 2);
+      ctx.restore();
+    } else {
+      const bp  = (rp - HIT) / (1 - HIT);
+      const bp2 = 1 - bp;
+      if (bp2 <= 0) continue;
+
+      // Debris scatter with gravity
+      for (let i = 0; i < 9; i++) {
+        const dAngle = (i / 9) * Math.PI * 2 + ri * 1.3;
+        const dist   = (10 + i * 4.5) * bp;
+        const grav   = bp * bp * 18;
+        ctx.save();
+        ctx.globalAlpha = bp2 * 0.88;
+        ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.c2;
+        ctx.fillRect(
+          Math.round(to.x + Math.cos(dAngle) * dist + yOff * 0.4) - 1,
+          Math.round(to.y + Math.sin(dAngle) * dist + grav) - 1,
+          3, 2
+        );
+        ctx.restore();
+      }
+
+      // Dust cloud at impact
+      _glow(ctx, to.x, to.y, 16 * bp2, '#BB9944', bp2 * 0.55);
+
+      // Shockwave ring on first rock impact only
+      if (ri === 0) {
+        _ring(ctx, to.x, to.y, bp * 32, a.burst, bp2 * 0.80, 2.5);
+        _ring(ctx, to.x, to.y, bp * 20, a.c1,   bp2 * 0.40, 1.2);
+      }
+    }
+  }
+}
+
+// ─── NATURE: Growing vine tendrils + thorn burst ─────────────────────────────
+function _drawVineLash(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const prog = a.t / a.dur;
+  const HIT  = 0.70;
+
+  // Vine grows from attacker toward target
+  if (prog < HIT + 0.10) {
+    const drawFrac = Math.min(1, prog / HIT);
+    const SEGS     = 18;
+
+    // Shadow vine (dark, offset)
+    ctx.save();
+    ctx.strokeStyle = a.c2;
+    ctx.lineWidth   = 3;
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    for (let i = 0; i <= Math.round(SEGS * drawFrac); i++) {
+      const p  = i / SEGS;
+      const pt = _arcPt(from, to, p);
+      const wig = Math.sin(p * Math.PI * 3.5 + a.t * 0.18) * 6 * Math.sin(p * Math.PI);
+      i === 0 ? ctx.moveTo(pt.x, pt.y + wig) : ctx.lineTo(pt.x, pt.y + wig);
+    }
+    ctx.stroke();
+
+    // Highlight vine (brighter, thinner)
+    ctx.strokeStyle = a.c1;
+    ctx.lineWidth   = 1.5;
+    ctx.globalAlpha = 0.60;
+    ctx.stroke();
+    ctx.restore();
+
+    // Leaf clusters along vine
+    for (let i = 0; i < 7; i++) {
+      const lp = (i / 7) * drawFrac;
+      if (lp <= 0) continue;
+      const lPos = _arcPt(from, to, lp);
+      const wig  = Math.sin(lp * Math.PI * 3.5 + a.t * 0.18) * 6 * Math.sin(lp * Math.PI);
+      ctx.save();
+      ctx.globalAlpha = 0.78;
+      ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.c2;
+      ctx.fillRect(Math.round(lPos.x) - 2, Math.round(lPos.y + wig) - 2, 5, 3);
+      ctx.restore();
+    }
+  }
+
+  // Impact: thorn burst + leaf scatter
+  if (prog > HIT) {
+    const bp  = (prog - HIT) / (1 - HIT);
+    const bp2 = 1 - bp;
+
+    _glow(ctx, to.x, to.y, 15, a.glow, bp2 * 0.85);
+
+    // Thorn spikes radiating outward
+    for (let i = 0; i < 12; i++) {
+      const sAngle = (i / 12) * Math.PI * 2 + 0.4;
+      const len    = (15 + (i % 3) * 7) * bp;
+      ctx.save();
+      ctx.globalAlpha = bp2 * 0.88;
+      ctx.strokeStyle = i % 2 === 0 ? a.c1 : a.c2;
+      ctx.lineWidth   = Math.max(0.5, 2.2 - bp * 1.5);
+      ctx.beginPath();
+      ctx.moveTo(to.x, to.y);
+      ctx.lineTo(Math.round(to.x + Math.cos(sAngle) * len), Math.round(to.y + Math.sin(sAngle) * len));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Leaf scatter with gravity
+    for (let i = 0; i < 10; i++) {
+      const lAngle = (i / 10) * Math.PI * 2 + 1.1;
+      const dist   = (14 + i * 4) * bp;
+      const grav   = bp * bp * 10;
+      ctx.save();
+      ctx.globalAlpha = bp2 * 0.82;
+      ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.c2;
+      ctx.fillRect(
+        Math.round(to.x + Math.cos(lAngle) * dist) - 1,
+        Math.round(to.y + Math.sin(lAngle) * dist + grav) - 1,
+        4, 3
+      );
+      ctx.restore();
+    }
+  }
+}
+
+// ─── PLASMA: Pulsing orb with orbiting satellites + ring explosion ─────────────
+function _drawPlasmaOrb(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const prog = a.t / a.dur;
+  const HIT  = 0.74;
+
+  if (prog < HIT) {
+    const p     = prog / HIT;
+    const pos   = _arcPt(from, to, p);
+    const env   = Math.sin(p * Math.PI);
+    const pulse = 1 + 0.22 * Math.sin(a.t * 0.55);
+
+    // Energy trail
+    for (let i = 6; i >= 1; i--) {
+      const tp   = Math.max(0, p - i * 0.038);
+      const tPos = _arcPt(from, to, tp);
+      ctx.save();
+      ctx.globalAlpha = (1 - i / 7) * 0.42 * env;
+      ctx.fillStyle   = a.c2;
+      ctx.beginPath(); ctx.arc(tPos.x, tPos.y, 4 - i * 0.45, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // Pulsing glow
+    _glow(ctx, pos.x, pos.y, 13 * pulse, a.glow, env * 0.92);
+
+    // Core orb
+    ctx.save();
+    ctx.globalAlpha = env;
+    ctx.fillStyle   = a.burst;
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.arc(pos.x - 2, pos.y - 2, 2, 0, Math.PI * 2); ctx.fill(); // specular
+    ctx.restore();
+
+    // 3 orbiting satellite sparks
+    for (let i = 0; i < 3; i++) {
+      const oAngle = a.t * 0.28 + (i / 3) * Math.PI * 2;
+      const oR     = 14 * pulse;
+      const sx = pos.x + Math.cos(oAngle) * oR;
+      const sy = pos.y + Math.sin(oAngle) * oR * 0.55;
+      ctx.save();
+      ctx.globalAlpha = env * 0.78;
+      ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.c2;
+      ctx.beginPath(); ctx.arc(sx, sy, 2.8, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  if (prog >= HIT) {
+    const bp  = (prog - HIT) / (1 - HIT);
+    const bp2 = 1 - bp;
+
+    // Screen flash — purple
+    if (bp < 0.18) _triggerFlash(200, 40, 255, bp2 * 0.18);
+
+    _glow(ctx, to.x, to.y, 24 * (1 - bp * 0.35), a.burst, bp2 * 0.95);
+
+    // Three expanding rings
+    _ring(ctx, to.x, to.y, bp * 40, a.c1,    bp2 * 0.85, 3.0);
+    _ring(ctx, to.x, to.y, bp * 26, a.burst,  bp2 * 0.62, 2.0);
+    _ring(ctx, to.x, to.y, bp * 14, '#FFFFFF', bp2 * 0.32, 1.0);
+
+    // Energy sparks scatter
+    for (let i = 0; i < 16; i++) {
+      const sAngle = (i / 16) * Math.PI * 2 + 0.6;
+      const dist   = (20 + i * 4) * bp;
+      const sz     = 2 + (i % 2);
+      ctx.save();
+      ctx.globalAlpha = bp2 * 0.88;
+      ctx.fillStyle   = i % 2 === 0 ? a.c1 : a.c2;
+      ctx.fillRect(
+        Math.round(to.x + Math.cos(sAngle) * dist) - 1,
+        Math.round(to.y + Math.sin(sAngle) * dist) - 1,
+        sz, sz
+      );
+      ctx.restore();
+    }
+  }
+}
+
+// ─── AIR: Wind slash streaks + swirl burst ────────────────────────────────────
+function _drawWindSlash(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
+  const prog = a.t / a.dur;
+  const HIT  = 0.66;
+  const travelAngle = Math.atan2(to.y - from.y, to.x - from.x);
+  const perpAngle   = travelAngle + Math.PI / 2;
+
+  const SLASHES = 5;
+  for (let si = 0; si < SLASHES; si++) {
+    const delay = si * 0.055;
+    const sp    = Math.max(0, Math.min(1, (prog - delay) / (1 - delay)));
+    if (sp <= 0) continue;
+
+    if (sp < HIT) {
+      const p          = sp / HIT;
+      const pos        = _arcPt(from, to, p);
+      const env        = Math.sin(p * Math.PI);
+      const slashOff   = (si - 2) * 7;   // vertical spread
+      const slashLen   = 12 + si * 2.5;
+
+      // Slash line (oriented along travel direction)
+      const sx1 = pos.x + Math.cos(perpAngle) * slashOff - Math.cos(travelAngle) * slashLen * 0.5;
+      const sy1 = pos.y + Math.sin(perpAngle) * slashOff - Math.sin(travelAngle) * slashLen * 0.5;
+      const sx2 = pos.x + Math.cos(perpAngle) * slashOff + Math.cos(travelAngle) * slashLen * 0.5;
+      const sy2 = pos.y + Math.sin(perpAngle) * slashOff + Math.sin(travelAngle) * slashLen * 0.5;
+
+      ctx.save();
+      ctx.globalAlpha = env * (0.55 + si * 0.07);
+      ctx.strokeStyle = si % 2 === 0 ? a.c1 : a.burst;
+      ctx.lineWidth   = Math.max(0.8, 2.2 - si * 0.2);
+      ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.stroke();
+      ctx.restore();
+
+      // Afterimage trail (faint copy slightly behind)
+      if (p > 0.18) {
+        const tPos = _arcPt(from, to, p - 0.12);
+        const atx1 = tPos.x + Math.cos(perpAngle) * slashOff - Math.cos(travelAngle) * slashLen * 0.4;
+        const aty1 = tPos.y + Math.sin(perpAngle) * slashOff - Math.sin(travelAngle) * slashLen * 0.4;
+        const atx2 = tPos.x + Math.cos(perpAngle) * slashOff + Math.cos(travelAngle) * slashLen * 0.4;
+        const aty2 = tPos.y + Math.sin(perpAngle) * slashOff + Math.sin(travelAngle) * slashLen * 0.4;
+        ctx.save();
+        ctx.globalAlpha = env * 0.22;
+        ctx.strokeStyle = a.c1;
+        ctx.lineWidth   = 1;
+        ctx.beginPath(); ctx.moveTo(atx1, aty1); ctx.lineTo(atx2, aty2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  // Impact: expanding spiral wind burst
+  if (prog >= HIT) {
+    const bp  = (prog - HIT) / (1 - HIT);
+    const bp2 = 1 - bp;
+
+    _glow(ctx, to.x, to.y, 15, a.glow, bp2 * 0.82);
+    _ring(ctx, to.x, to.y, bp * 30, a.c1,   bp2 * 0.85, 2.0);
+    _ring(ctx, to.x, to.y, bp * 18, a.burst, bp2 * 0.50, 1.0);
+
+    // Spiral wind streaks
+    for (let i = 0; i < 14; i++) {
+      const sAngle = (i / 14) * Math.PI * 2 + bp * Math.PI * 2.5;
+      const r1     = (6 + i * 0.8) * bp;
+      const r2     = r1 + 10;
+      ctx.save();
+      ctx.globalAlpha = bp2 * 0.65;
+      ctx.strokeStyle = i % 2 === 0 ? a.c1 : a.burst;
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(to.x + Math.cos(sAngle) * r1, to.y + Math.sin(sAngle) * r1 * 0.55);
+      ctx.lineTo(to.x + Math.cos(sAngle + 0.55) * r2, to.y + Math.sin(sAngle + 0.55) * r2 * 0.55);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+// ─── ARC (Neutral) — particles fly arc path + glow impact ────────────────────
+function _drawArc(ctx, a, W, H) {
+  const from = _spriteCenter(a.attackerSide, a.targetEnemyIdx, W, H);
+  const toSide = a.attackerSide === 'player' ? 'enemy' : 'player';
+  const to   = _spriteCenter(toSide, a.targetEnemyIdx, W, H);
   const prog = a.t / a.dur;
 
+  a.particles.forEach(p => {
+    const pt = Math.min(1, Math.max(0, prog + p.offset));
+    if (pt <= 0 || pt >= 1) return;
+    const pos = _arcPt(from, to, pt);
+    const env = Math.sin(pt * Math.PI);
+    ctx.save();
+    ctx.globalAlpha = env * p.alpha;
+    ctx.fillStyle   = pt < 0.55 ? a.c1 : a.c2;
+    const sz = Math.max(1, Math.round(p.size * (1 - pt * 0.35)));
+    ctx.fillRect(Math.round(pos.x) - (sz >> 1), Math.round(pos.y) - (sz >> 1), sz, sz);
+    ctx.restore();
+  });
+
+  if (prog > 0.70) {
+    const bp = (prog - 0.70) / 0.30;
+    _glow(ctx, to.x, to.y, 12, a.burst, (1 - bp) * 0.75);
+    _ring(ctx, to.x, to.y, bp * 18, a.c1, (1 - bp) * 0.70, 1.5);
+  }
+}
+
+// ─── RISE (Heal) — particles float upward with glow ──────────────────────────
+function _drawRise(ctx, a, W, H) {
+  const center = _spriteCenter('player', 0, W, H);
+  const prog   = a.t / a.dur;
+
+  // Screen flash — soft green
+  if (a.t === 1) _triggerFlash(50, 220, 80, 0.15);
+
+  // Rising particles
   a.particles.forEach((p, i) => {
     const delay = (i / a.particles.length) * 0.28;
-    const pt = Math.max(0, (prog - delay) / (1 - delay));
+    const pt    = Math.max(0, (prog - delay) / (1 - delay));
     if (pt <= 0 || pt >= 1) return;
     const x = center.x + p.yOff;
-    const y = center.y - pt * 32 - 4;
+    const y = center.y - pt * 38 - 4;
     ctx.save();
     ctx.globalAlpha = Math.sin(pt * Math.PI) * p.alpha;
-    ctx.fillStyle = pt < 0.5 ? a.c1 : a.c2;
+    ctx.fillStyle   = pt < 0.5 ? a.c1 : a.c2;
     ctx.fillRect(Math.round(x), Math.round(y), p.size, p.size);
     ctx.restore();
   });
+
+  // Central glow
+  if (prog < 0.55) {
+    _glow(ctx, center.x, center.y, 16, a.burst, (1 - prog / 0.55) * 0.55);
+  }
 }
 
+// ─── SHIELD (Block / Armor) — pulsing glow border with corner sparks ──────────
 function _drawShield(ctx, a, W, H) {
-  const p = typeof playerSpritePos === 'function'
+  const pp   = typeof playerSpritePos === 'function'
     ? playerSpritePos(W, H)
     : { x: W * 0.06, y: H * 0.5, w: 48, h: 64 };
   const prog = a.t / a.dur;
-  const grow = Math.min(1, prog * 3);
-  const fade = prog < 0.35 ? prog / 0.35 : 1 - (prog - 0.35) / 0.65;
-  const pad  = 5 * grow;
+  const grow = Math.min(1, prog * 3.5);
+  const fade = prog < 0.30 ? prog / 0.30 : 1 - (prog - 0.30) / 0.70;
+  const pad  = 6 * grow;
 
+  // Glow fill
   ctx.save();
-  ctx.globalAlpha = fade * 0.55;
-  ctx.fillStyle = a.burst;
-  ctx.fillRect(p.x - pad, p.y - pad, p.w + pad * 2, p.h + pad * 2);
-  ctx.globalAlpha = fade * 0.9;
+  ctx.globalAlpha = fade * 0.45;
+  ctx.fillStyle   = a.burst;
+  ctx.fillRect(pp.x - pad, pp.y - pad, pp.w + pad * 2, pp.h + pad * 2);
+
+  // Bright border
+  ctx.globalAlpha = fade * 0.90;
   ctx.strokeStyle = a.c1;
-  ctx.lineWidth = Math.round(2 * grow) + 1;
-  ctx.strokeRect(p.x - pad, p.y - pad, p.w + pad * 2, p.h + pad * 2);
+  ctx.lineWidth   = Math.max(1, Math.round(2.5 * grow));
+  ctx.strokeRect(pp.x - pad, pp.y - pad, pp.w + pad * 2, pp.h + pad * 2);
   ctx.restore();
+
+  // Corner spark dots
+  const corners = [
+    [pp.x - pad, pp.y - pad],
+    [pp.x + pp.w + pad, pp.y - pad],
+    [pp.x - pad, pp.y + pp.h + pad],
+    [pp.x + pp.w + pad, pp.y + pp.h + pad],
+  ];
+  corners.forEach(([cx, cy]) => {
+    ctx.save();
+    ctx.globalAlpha = fade * (0.6 + 0.4 * Math.sin(a.t * 0.4));
+    ctx.fillStyle   = a.burst;
+    ctx.fillRect(Math.round(cx) - 2, Math.round(cy) - 2, 4, 4);
+    ctx.restore();
+  });
 }
 
 // ─── Main tick — called every rAF frame from renderBattlefield ────────────────
@@ -241,16 +834,34 @@ function tickAnims(ctx, W, H) {
   for (let i = ACTIVE_ANIMS.length - 1; i >= 0; i--) {
     const a = ACTIVE_ANIMS[i];
     switch (a.type) {
-      case 'arc':    _drawArc(ctx, a, W, H);    break;
-      case 'bolt':   _drawBolt(ctx, a, W, H);   break;
-      case 'ring':   _drawRing(ctx, a, W, H);   break;
-      case 'rise':   _drawRise(ctx, a, W, H);   break;
-      case 'shield': _drawShield(ctx, a, W, H); break;
+      case 'fireball':   _drawFireball(ctx, a, W, H);   break;
+      case 'lightning':  _drawLightning(ctx, a, W, H);  break;
+      case 'ice_shards': _drawIceShards(ctx, a, W, H);  break;
+      case 'water_wave': _drawWaterWave(ctx, a, W, H);  break;
+      case 'earth_slam': _drawEarthSlam(ctx, a, W, H);  break;
+      case 'vine_lash':  _drawVineLash(ctx, a, W, H);   break;
+      case 'plasma_orb': _drawPlasmaOrb(ctx, a, W, H);  break;
+      case 'wind_slash': _drawWindSlash(ctx, a, W, H);  break;
+      case 'arc':        _drawArc(ctx, a, W, H);        break;
+      case 'rise':       _drawRise(ctx, a, W, H);       break;
+      case 'shield':     _drawShield(ctx, a, W, H);     break;
     }
     a.t++;
     if (a.t >= a.dur) ACTIVE_ANIMS.splice(i, 1);
   }
+
+  // Screen flash overlay — drawn after all anims, decays per frame
+  if (_flashAlpha > 0.006) {
+    ctx.save();
+    ctx.globalAlpha = _flashAlpha;
+    ctx.fillStyle   = `rgb(${_flashR},${_flashG},${_flashB})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    _flashAlpha *= 0.72; // quick decay
+    if (_flashAlpha < 0.006) _flashAlpha = 0;
+  }
 }
+
 
 // ═══ CAMPFIRE SCENE ════════════════════════════════════════════════════════════
 // Full animated rest scene: player sitting by crackling campfire, night sky.

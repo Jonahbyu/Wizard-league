@@ -144,6 +144,26 @@ function musicStopAll() {
   _smartCurrentKey = null;
 }
 
+// ── Override _tryResumeAudio stub (music.js loads first, can't reference _mp3El yet) ──
+_tryResumeAudio = function() {
+  if (!_mp3El || !_smartCurrentKey) return;
+  if (_mp3El.paused) _mp3Play(_smartCurrentKey);
+};
+
+// ── Start audio on first user interaction of any kind ──────────────────────────
+// Browsers block autoplay until a gesture; scroll/move/key all count.
+(function _setupAudioUnlock() {
+  let _unlocked = false;
+  const _events = ['click','keydown','pointerdown','touchstart','scroll','mousemove'];
+  function _onInteraction() {
+    if (_unlocked) return;
+    _unlocked = true;
+    _tryResumeAudio();
+    _events.forEach(ev => document.removeEventListener(ev, _onInteraction, true));
+  }
+  _events.forEach(ev => document.addEventListener(ev, _onInteraction, { capture: true, passive: true }));
+})();
+
 // musicToggle is fully defined in music.js stubs above — no override needed here.
 
 

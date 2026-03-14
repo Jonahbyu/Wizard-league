@@ -1149,6 +1149,24 @@ function sandboxOpenEnemyPicker(){
   const gridStyle    = 'display:flex;flex-wrap:wrap;gap:.3rem;';
   const btnBase      = 'border-radius:4px;padding:3px 8px;font-size:.6rem;font-family:"Cinzel",serif;cursor:pointer;border-width:1px;border-style:solid;';
 
+  // ── Target Dummy ──
+  const dummyDiv = document.createElement('div');
+  dummyDiv.style.cssText = sectionStyle;
+  const dummyHead = document.createElement('div');
+  dummyHead.style.cssText = headStyle;
+  dummyHead.textContent = 'Training';
+  dummyDiv.appendChild(dummyHead);
+  const dummyBtn = document.createElement('button');
+  dummyBtn.textContent = '🎯 Target Dummy';
+  dummyBtn.style.cssText = btnBase + 'background:#1a1a0a;border-color:#6a6a22;color:#cccc44;';
+  dummyBtn.onclick = () => { sandboxLoadEnemy({
+    name: 'Target Dummy', emoji: '🎯', element: 'Neutral',
+    enemyMaxHP: 1000, enemyDmg: 0, xp: 0, gold: 0,
+    type: 'wizard', isTargetDummy: true,
+  }); };
+  dummyDiv.appendChild(dummyBtn);
+  content.appendChild(dummyDiv);
+
   // ── Singles ──
   const singlesDiv = document.createElement('div');
   singlesDiv.style.cssText = sectionStyle;
