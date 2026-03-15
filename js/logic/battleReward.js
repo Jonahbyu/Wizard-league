@@ -71,7 +71,7 @@ let _currentRewardTier = 'minor';
 
 function grantRandomLegendary() {
   const elements = [playerElement, ...(player.unlockedElements||[])];
-  const owned = new Set((player.spellbook||[]).map(s => s.id));
+  const owned = new Set((player.spellbook||[]).filter(s=>!s.isBuiltin).map(s => s.id));
 
   // Build legendary spell pool
   const spellPool = [];
@@ -286,8 +286,9 @@ function buildSkillPointPool(){
     { label:'+3 Defense', desc:'Permanently gain +3 Defense — scales armor, healing, and dodge.',
       apply(){ player.defense+=3; }},
   ];
-  // Add one entry per owned spell for upgrading
+  // Add one entry per owned spell for upgrading (skip builtins)
   player.spellbook.forEach((s,idx)=>{
+    if(s.isBuiltin) return;
     const rank=Math.round(((s.dmgMult||1.0)-1.0)/0.10);
     opts.push({ label:`Upgrade: ${s.emoji} ${s.name} (rank ${rank})`,
       desc:`+10% damage multiplier. Current: ${Math.round((s.dmgMult||1.0)*100)}%`,
@@ -330,7 +331,7 @@ function showSpellChoiceScreen(level, tier='secondary', forElement=null){
 }
 
 function buildSpellChoicePool(tier='secondary', forElement=null){
-  const owned = new Set(player.spellbook.map(s=>s.id));
+  const owned = new Set(player.spellbook.filter(s=>!s.isBuiltin).map(s=>s.id));
   const elements = forElement ? [forElement] : [playerElement, ...player.unlockedElements];
   const pool = [];
 

@@ -399,56 +399,63 @@ function renderSpellButtons(){
   // ── Non-Plasma: Build 3-col grid ─────────────────────────────────────────
   grid.innerHTML = '';
 
-  // Basic attack cell
-  const basicOnCD = combat.basicCD > 0;
-  const basicQueued = (combat.actionQueue||[]).some(a => a.label === '⚔ Basic');
-  const basicCell = document.createElement('button');
-  basicCell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'');
-  basicCell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued;
-  const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0));
-  basicCell.innerHTML =
-    '<div class="sb-spell-icon">⚔</div>' +
-    '<div class="sb-spell-name">Basic</div>' +
-    '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
-      (basicOnCD?'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
-    '</div>' +
-    (basicQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
-  basicCell.onclick = ()=>{
-    if(!isMyTurn||queueFull||basicOnCD||basicQueued) return;
-    const snapTgt=combat.targetIdx;
-    const snapCD=adjustedCooldownFor('player',1)||1;
-    queueAction('⚔ Basic',()=>{
-      combat.basicCD=snapCD;  // CD set when action actually executes
-      setActiveEnemy(snapTgt);
-      const ctx=makeSpellCtx('player','enemy',-1);
-      doBasicAttack(ctx);
-      updateHPBars();renderStatusTags();updateStatsUI();
-    });
-    renderSpellButtons();
-  };
-  grid.appendChild(basicCell);
-
-  // Armor cell
-  const armorCell = document.createElement('button');
-  const armAmt = armorBlockAmount();
-  armorCell.className = 'sb-spell-cell';
-  armorCell.disabled = !isMyTurn || queueFull;
-  armorCell.innerHTML =
-    '<div class="sb-spell-icon">🛡</div>' +
-    '<div class="sb-spell-name">Armor</div>' +
-    '<div class="sb-spell-cd ready">+'+armAmt+' Block</div>';
-  armorCell.onclick = ()=>{
-    if(!isMyTurn||queueFull) return;
-    queueAction('🛡 Armor',()=>{
-      status.player.block=(status.player.block||0)+armAmt;
-      log('🛡 You brace — +'+armAmt+' Block ('+status.player.block+' total).','player');
-      renderStatusTags();
-    });
-  };
-  grid.appendChild(armorCell);
-
-  // Spell cells
+  // Spell cells (player.spellbook includes _basic and _armor builtins)
   player.spellbook.forEach((spell) => {
+    // ── Built-in: Basic Attack ───────────────────────────────────────────
+    if (spell.id === '_basic') {
+      const basicOnCD = combat.basicCD > 0;
+      const basicQueued = (combat.actionQueue||[]).some(a => a.label === '⚔ Basic Attack');
+      const cell = document.createElement('button');
+      cell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'');
+      cell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued;
+      const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0));
+      cell.innerHTML =
+        '<div class="sb-spell-icon">⚔</div>' +
+        '<div class="sb-spell-name">Basic Attack</div>' +
+        '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
+          (basicOnCD ? 'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
+        '</div>' +
+        (basicQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
+      cell.onclick = ()=>{
+        if(!isMyTurn||queueFull||basicOnCD||basicQueued) return;
+        const snapTgt=combat.targetIdx;
+        const snapCD=adjustedCooldownFor('player',1)||1;
+        queueAction('⚔ Basic Attack',()=>{
+          combat.basicCD=snapCD;
+          setActiveEnemy(snapTgt);
+          const ctx=makeSpellCtx('player','enemy',-1);
+          doBasicAttack(ctx);
+          updateHPBars();renderStatusTags();updateStatsUI();
+        });
+        renderSpellButtons();
+      };
+      grid.appendChild(cell);
+      return;
+    }
+    // ── Built-in: Armor ──────────────────────────────────────────────────
+    if (spell.id === '_armor') {
+      const armAmt = armorBlockAmount();
+      const armorQueued = (combat.actionQueue||[]).some(a => a.label === '🛡 Armor');
+      const cell = document.createElement('button');
+      cell.className = 'sb-spell-cell free-action';
+      cell.disabled = !isMyTurn || armorQueued;
+      cell.innerHTML =
+        '<div class="sb-spell-icon">🛡</div>' +
+        '<div class="sb-spell-name">Armor ✦Free</div>' +
+        '<div class="sb-spell-cd ready">+'+armAmt+' Block</div>' +
+        (armorQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
+      cell.onclick = ()=>{
+        if(!isMyTurn||armorQueued) return;
+        queueAction('🛡 Armor',()=>{
+          status.player.block=(status.player.block||0)+armAmt;
+          log('🛡 You brace — +'+armAmt+' Block ('+status.player.block+' total).','player');
+          renderStatusTags();
+        },{isFree:true});
+        renderSpellButtons();
+      };
+      grid.appendChild(cell);
+      return;
+    }
     const onCD = !spell.multiUse && (spell.currentCD||0) > 0;
     const isFree = !!spell.isFreeAction;
     const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
@@ -456,7 +463,9 @@ function renderSpellButtons(){
     cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'') + (isFree?' free-action':'');
     const isChargeShot = spell.id === 'charge_shot';
     const slotsAvail = combat.actionsLeft - nonFreeQueued;
-    const canQueue = isFree ? !onCD && !alreadyQueued : !queueFull && !onCD;
+    const canQueue = isFree
+      ? !onCD && (spell.baseCooldown === 0 || !alreadyQueued)
+      : !queueFull && !onCD && (spell.multiUse || !alreadyQueued);
     cell.disabled = !isMyTurn || !canQueue || (isChargeShot && slotsAvail < 2);
     const rankPct = Math.round((spell.dmgMult||1.0)*100);
     const rankStr = rankPct>100 ? ' ['+rankPct+'%]' : '';
