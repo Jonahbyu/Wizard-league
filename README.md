@@ -2,7 +2,7 @@
 
 **A roguelite wizard battle RPG — fight your way through 8 elemental gyms and prove you're the greatest spellcaster alive.**
 
-🎮 **Play now:** [https://jonahbyu.github.io/Wizard-league/](https://jonahbyu.github.io/Wizard-league/)
+🎮 **Play now:** [(https://wizard-league-roguelite.github.io/Wizard-league/)]
 
 ---
 
