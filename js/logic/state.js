@@ -35,7 +35,7 @@ const player = {
 
 // ── SPELLBOOK HELPERS ─────────────────────────────────────────────────────────
 
-const BOOK_SPELL_SLOTS_BASE  = 4;
+const BOOK_SPELL_SLOTS_BASE  = 6;
 const BOOK_PASSIVE_SLOTS_BASE = 2;
 
 function makeSpellbook(element, name) {
@@ -76,6 +76,11 @@ function initSpellbooksForRun() {
   const bookName = playerElement + "'s Tome";
   const book = makeSpellbook(playerElement, bookName);
   applyBookUpgrades(book);
+  // Pre-fill the two built-in utility slots
+  book.spells.push(
+    { id:'_basic', emoji:'⚔', name:'Basic Attack', baseCooldown:1, currentCD:0, isBuiltin:true },
+    { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true, isFreeAction:true }
+  );
   player.spellbooks  = [book];
   player.activeBookIdx = 0;
   syncActiveBook();
