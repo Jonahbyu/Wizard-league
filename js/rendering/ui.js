@@ -246,6 +246,9 @@ function renderSpellButtons(){
   const isMyTurn  = combat.playerTurn && !combat.over;
   const nonFreeQueued = (combat.actionQueue||[]).filter(a=>!a.isFree).length;
   const queueFull = nonFreeQueued >= (combat.actionsLeft||0);
+  // Storm Rush preview: if it's queued, show all spell CDs as 1 lower
+  const stormRushQueued = (combat.actionQueue||[]).some(a => a.stormRushAction);
+  const cdPreviewReduce = stormRushQueued ? 1 : 0;
 
   // ── Populate book tab bar ────────────────────────────────────────────────
   const bookTabBar = document.getElementById('sb-book-tabs');
@@ -290,8 +293,8 @@ function renderSpellButtons(){
         const pip = document.createElement('div');
         pip.className = 'sb-passive-pip';
         pip.textContent = pdef ? (pdef.emoji||'✦') : '✦';
-        pip.setAttribute('data-tip', pdef ? pdef.name : pid);
-        pip.title = pdef ? pdef.name + ': ' + pdef.desc : pid;
+        pip.setAttribute('data-tip', pdef ? (pdef.title||pdef.name||pid) : pid);
+        pip.title = pdef ? (pdef.title||pdef.name||pid) + ': ' + (pdef.desc||'') : pid;
         passivesRow.appendChild(pip);
       });
     }
@@ -403,23 +406,28 @@ function renderSpellButtons(){
     if (spell.id === '_basic') {
       const basicOnCD = combat.basicCD > 0;
       const basicQueued = (combat.actionQueue||[]).some(a => a.label === '⚔ Basic Attack');
+      const basicOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
       const cell = document.createElement('button');
-      cell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'');
-      cell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued;
+      cell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'') + (basicOutOfPP?' no-pp':'');
+      cell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued || basicOutOfPP;
       const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0));
+      const basicPPLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
       cell.innerHTML =
         '<div class="sb-spell-icon">⚔</div>' +
         '<div class="sb-spell-name">Basic Attack</div>' +
         '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
-          (basicOnCD ? 'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
+          (basicOutOfPP ? 'No PP' : basicOnCD ? 'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
         '</div>' +
+        basicPPLabel +
         (basicQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
+      const basicSpellRef = spell;
       cell.onclick = ()=>{
-        if(!isMyTurn||queueFull||basicOnCD||basicQueued) return;
+        if(!isMyTurn||queueFull||basicOnCD||basicQueued||basicOutOfPP) return;
         const snapTgt=combat.targetIdx;
         const snapCD=adjustedCooldownFor('player',1)||1;
         queueAction('⚔ Basic Attack',()=>{
           combat.basicCD=snapCD;
+          if((basicSpellRef.currentPP||0) > 0) basicSpellRef.currentPP--;
           setActiveEnemy(snapTgt);
           const ctx=makeSpellCtx('player','enemy',-1);
           doBasicAttack(ctx);
@@ -434,45 +442,55 @@ function renderSpellButtons(){
     if (spell.id === '_armor') {
       const armAmt = armorBlockAmount();
       const armorQueued = (combat.actionQueue||[]).some(a => a.label === '🛡 Armor');
+      const armorOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
       const cell = document.createElement('button');
-      cell.className = 'sb-spell-cell free-action';
-      cell.disabled = !isMyTurn || armorQueued;
+      cell.className = 'sb-spell-cell elemental' + (armorOutOfPP?' no-pp':'');
+      cell.disabled = !isMyTurn || armorQueued || queueFull || armorOutOfPP;
+      const armorPPLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
       cell.innerHTML =
         '<div class="sb-spell-icon">🛡</div>' +
-        '<div class="sb-spell-name">Armor ✦Free</div>' +
-        '<div class="sb-spell-cd ready">+'+armAmt+' Block</div>' +
+        '<div class="sb-spell-name">Armor</div>' +
+        '<div class="sb-spell-cd ready">'+(armorOutOfPP ? 'No PP' : '+'+armAmt+' Block')+'</div>' +
+        armorPPLabel +
         (armorQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
+      const armorSpellRef = spell;
       cell.onclick = ()=>{
-        if(!isMyTurn||armorQueued) return;
+        if(!isMyTurn||armorQueued||queueFull||armorOutOfPP) return;
         queueAction('🛡 Armor',()=>{
+          if((armorSpellRef.currentPP||0) > 0) armorSpellRef.currentPP--;
           status.player.block=(status.player.block||0)+armAmt;
           log('🛡 You brace — +'+armAmt+' Block ('+status.player.block+' total).','player');
           renderStatusTags();
-        },{isFree:true});
+        },{});
         renderSpellButtons();
       };
       grid.appendChild(cell);
       return;
     }
-    const onCD = !spell.multiUse && (spell.currentCD||0) > 0;
+    const rawCD = spell.currentCD || 0;
+    const effectiveCD = Math.max(0, rawCD - cdPreviewReduce);
+    const onCD = !spell.multiUse && effectiveCD > 0;
+    const outOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
     const isFree = !!spell.isFreeAction;
     const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
     const cell = document.createElement('button');
-    cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'') + (isFree?' free-action':'');
+    cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'') + (outOfPP?' no-pp':'') + (isFree?' free-action':'');
     const isChargeShot = spell.id === 'charge_shot';
     const slotsAvail = combat.actionsLeft - nonFreeQueued;
     const canQueue = isFree
-      ? !onCD && (spell.baseCooldown === 0 || !alreadyQueued)
-      : !queueFull && !onCD && (spell.multiUse || !alreadyQueued);
+      ? !onCD && !outOfPP && (spell.baseCooldown === 0 || !alreadyQueued)
+      : !queueFull && !onCD && !outOfPP && (spell.multiUse || !alreadyQueued);
     cell.disabled = !isMyTurn || !canQueue || (isChargeShot && slotsAvail < 2);
     const rankPct = Math.round((spell.dmgMult||1.0)*100);
     const rankStr = rankPct>100 ? ' ['+rankPct+'%]' : '';
-    const cdLabel = spell.multiUse ? 'Free' : (onCD ? 'CD:'+spell.currentCD : 'CD:'+spell.baseCooldown);
+    const cdLabel = outOfPP ? 'No PP' : spell.multiUse ? 'Free' : (onCD ? 'CD:'+effectiveCD : 'CD:'+spell.baseCooldown);
     const freeLabel = isFree ? ' ✦Free' : '';
+    const ppLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
     cell.innerHTML =
       '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
       '<div class="sb-spell-name">'+spell.name+rankStr+freeLabel+'</div>' +
-      '<div class="sb-spell-cd '+(onCD?'on-cd':'ready')+'">'+cdLabel+'</div>' +
+      '<div class="sb-spell-cd '+(onCD||outOfPP?'on-cd':'ready')+'">'+cdLabel+'</div>' +
+      ppLabel +
       (alreadyQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
     cell.onclick = ()=>{
       if(!isMyTurn || !canQueue) return;
@@ -480,11 +498,16 @@ function renderSpellButtons(){
       const spellRef=spell;
       const spellIdx=player.spellbook.indexOf(spell);
       const snapCD=(!spell.multiUse) ? (adjustedCooldownFor('player',spell.baseCooldown)||1) : 0;
-      const opts = {isFree};
+      // Tag as stormRushDependent if it's only queueable due to the CD preview
+      const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
+      const opts = {isFree, stormRushDependent: isStormRushDependent};
       if(spell.onQueue) opts.onQueue = ()=>spell.onQueue();
+      if(spell.undoOnQueue) opts.undoOnQueue = ()=>spell.undoOnQueue();
+      if(spell.id === 'storm_rush') opts.stormRushAction = true;
       queueAction(spell.emoji+' '+spell.name,()=>{
-        // Set CD only when the action actually executes (not at queue time)
+        // Set CD and consume PP when the action executes
         if(!spellRef.multiUse) spellRef.currentCD = snapCD;
+        if((spellRef.currentPP||0) > 0) spellRef.currentPP--;
         setActiveEnemy(snapTgt);
         const ctx=makeSpellCtx('player','enemy',spellIdx);
         spellRef.execute(ctx);

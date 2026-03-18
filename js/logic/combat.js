@@ -10,12 +10,14 @@
 // Enemy simultaneously queues its actions.
 // Both sides resolve action-by-action with a short delay between each pair.
 
-function startRound(){
-  if(combat.over) return;
-
-  // ── Tick player CDs ──
+// Tick player CDs once per round (called at end of round, not start).
+function _tickPlayerCDs(){
   if(combat.basicCD>0) combat.basicCD--;
   player.spellbook.forEach(s=>{ if(s.currentCD>0) s.currentCD--; });
+}
+
+function startRound(){
+  if(combat.over) return;
 
   // ── Apply pending 1-turn power bonuses (Overcharge/Feedback) ──
   // Clear last round's bonus first, then promote pending to this-turn bonus.
@@ -182,6 +184,7 @@ function startRound(){
     log(`${playerEmoji} You are stunned — skip your turn!`,'status');
     renderStatusTags();
     setPlayerTurnUI(false);
+    _tickPlayerCDs(); // stun = lost turn, still tick CDs
     let delay=400;
     combat.enemies.forEach((e,i)=>{
       if(!e.alive) return;
@@ -267,7 +270,11 @@ function queueAction(label, fn, opts){
   // Immediate effect at queue time (e.g. Storm Rush +3 actions)
   if(opts && opts.onQueue) opts.onQueue();
   const snapTarget = combat.targetIdx;
-  combat.actionQueue.push({label, fn, targetIdx:snapTarget, isPlasma:false, isFree:!!isFree});
+  combat.actionQueue.push({label, fn, targetIdx:snapTarget, isPlasma:false, isFree:!!isFree,
+    stormRushAction:    !!(opts && opts.stormRushAction),
+    stormRushDependent: !!(opts && opts.stormRushDependent),
+    undoOnQueue:        (opts && opts.undoOnQueue) || null,
+  });
   renderQueue();
   updateActionUI();
   renderSpellButtons();
@@ -290,12 +297,19 @@ function removeFromQueue(idx){
   if(!combat.playerTurn||combat.over) return;
   const a = combat.actionQueue[idx];
   if(a && a.undoCD) a.undoCD();
+  if(a && a.undoOnQueue) a.undoOnQueue();
   // Refund reserved Plasma charge
   if(a && a.isPlasma && a.chargeReserved > 0){
     combat.plasmaChargeReserved = Math.max(0, (combat.plasmaChargeReserved||0) - a.chargeReserved);
     updateChargeUI();
   }
   combat.actionQueue.splice(idx,1);
+  // Storm Rush removed — cascade-remove any spells that were only queueable due to its CD preview
+  if(a && a.stormRushAction){
+    for(let i = combat.actionQueue.length-1; i >= 0; i--){
+      if(combat.actionQueue[i].stormRushDependent) combat.actionQueue.splice(i,1);
+    }
+  }
   renderQueue();
   updateActionUI();
   renderSpellButtons();
@@ -425,6 +439,7 @@ function resolveFlat(flatActions, idx){
       return;
     }
     if(combat.over) return;
+    _tickPlayerCDs(); // round fully resolved — tick CDs now
     if(!combat.enemies[combat.targetIdx]||!combat.enemies[combat.targetIdx].alive)
       combat.targetIdx=firstAliveIdx();
     setActiveEnemy(combat.targetIdx);
@@ -646,6 +661,11 @@ function endBattle(won){
     updateHPBars(); updateStatsUI();
     const isRival = !!(combat._isRival);
     if(isGym){
+      // Full heal + PP restore on gym clear
+      player.hp = maxHPFor('player');
+      restoreAllPP();
+      updateHPBars(); updateStatsUI();
+      log('✦ Gym cleared — full HP and PP restored!', 'win');
       const beatenGym = currentGymDef();
       const gymIdx = currentGymIdx;
       if(beatenGym) log('🏆 Gym '+(currentGymIdx+1)+' — '+beatenGym.name+' defeated!','win');

@@ -78,7 +78,7 @@ function initSpellbooksForRun() {
   // Pre-fill the two built-in utility slots
   book.spells.push(
     { id:'_basic', emoji:'⚔', name:'Basic Attack', baseCooldown:1, currentCD:0, isBuiltin:true },
-    { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true, isFreeAction:true }
+    { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true }
   );
   player.spellbooks  = [book];
   player.activeBookIdx = 0;
@@ -120,7 +120,9 @@ function addPassiveToBook(passiveId, bookIdx) {
   if (!book) return;
   if (book.passives.includes(passiveId)) return;
   if (book.passives.length >= book.passiveSlots) {
-    log('📖 ' + book.name + ' passive slots full!', 'status');
+    _pendingOverflowPassive     = passiveId;
+    _pendingOverflowPassiveBook = idx;
+    showPassiveOverflowScreen(passiveId, book);
     return;
   }
   book.passives.push(passiveId);
@@ -128,8 +130,10 @@ function addPassiveToBook(passiveId, bookIdx) {
 }
 
 // Overflow state
-let _pendingOverflowSpell    = null;
-let _pendingOverflowBookIdx  = 0;
+let _pendingOverflowSpell        = null;
+let _pendingOverflowBookIdx      = 0;
+let _pendingOverflowPassive      = null;
+let _pendingOverflowPassiveBook  = 0;
 
 function showBookOverflowScreen(newSpell, book) {
   const overlay = document.getElementById('book-overflow-overlay');
@@ -139,6 +143,7 @@ function showBookOverflowScreen(newSpell, book) {
   document.getElementById('boo-new-desc').textContent   = newSpell.desc;
   const list = document.getElementById('boo-spell-list');
   list.innerHTML = '';
+  // Remove-from-current-book options
   book.spells.forEach((sp, i) => {
     const btn = document.createElement('button');
     btn.className = 'boo-spell-btn';
@@ -146,6 +151,36 @@ function showBookOverflowScreen(newSpell, book) {
     btn.onclick = () => resolveBookOverflow(i);
     list.appendChild(btn);
   });
+  // Send-to-another-book options (only books that aren't full)
+  const otherBooks = player.spellbooks
+    .map((b, bi) => ({b, bi}))
+    .filter(({b, bi}) => bi !== _pendingOverflowBookIdx);
+  if (otherBooks.length > 0) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'font-size:.6rem;color:#4a6a9a;letter-spacing:.08em;text-transform:uppercase;margin-top:.5rem;margin-bottom:.2rem;';
+    sep.textContent = '— or move to another book —';
+    list.appendChild(sep);
+    otherBooks.forEach(({b: ob, bi}) => {
+      const btn = document.createElement('button');
+      btn.className = 'boo-spell-btn';
+      btn.style.borderColor = '#1a2a4a';
+      btn.innerHTML = '<span>📖 ' + ob.name + '</span><span class="boo-remove-hint" style="color:#4a6a9a">Move</span>';
+      btn.onclick = () => {
+        const spell = _pendingOverflowSpell;
+        _pendingOverflowSpell = null; _pendingOverflowBookIdx = 0;
+        overlay.classList.remove('open');
+        addSpellToBook(spell, bi); // may open overflow for target book
+      };
+      list.appendChild(btn);
+    });
+  }
+  // Discard option
+  const discardBtn = document.createElement('button');
+  discardBtn.className = 'boo-spell-btn';
+  discardBtn.style.cssText = 'margin-top:.5rem;border-color:#1a1a25;color:#666;';
+  discardBtn.innerHTML = '<span>↩ Discard new spell</span>';
+  discardBtn.onclick = () => discardOverflowSpell();
+  list.appendChild(discardBtn);
   overlay.classList.add('open');
 }
 
@@ -159,7 +194,73 @@ function resolveBookOverflow(removeIdx) {
   _pendingOverflowBookIdx = 0;
   const overlay = document.getElementById('book-overflow-overlay');
   if (overlay) overlay.classList.remove('open');
-  // Continue any pending level-up flow
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+
+function discardOverflowSpell() {
+  _pendingOverflowSpell   = null;
+  _pendingOverflowBookIdx = 0;
+  const overlay = document.getElementById('book-overflow-overlay');
+  if (overlay) overlay.classList.remove('open');
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+
+// ── Passive overflow ──────────────────────────────────────────────────────────
+function _lookupPassiveDef(passiveId) {
+  let def = null;
+  Object.values(PASSIVE_CHOICES || {}).forEach(arr => {
+    const found = (arr || []).find(p => p.id === passiveId);
+    if (found) def = found;
+  });
+  return def;
+}
+
+function showPassiveOverflowScreen(passiveId, book) {
+  const overlay = document.getElementById('passive-overflow-overlay');
+  if (!overlay) return;
+  const def = _lookupPassiveDef(passiveId);
+  document.getElementById('poo-book-name').textContent    = book.name;
+  document.getElementById('poo-new-passive').textContent  = def ? (def.emoji + ' ' + def.title) : passiveId;
+  document.getElementById('poo-new-desc').textContent     = def ? (def.desc || '') : '';
+  const list = document.getElementById('poo-passive-list');
+  list.innerHTML = '';
+  // Replace options — one per existing passive
+  book.passives.forEach((pid, i) => {
+    const pdef = _lookupPassiveDef(pid);
+    const btn = document.createElement('button');
+    btn.className = 'boo-spell-btn';
+    btn.innerHTML = '<span>' + (pdef ? pdef.emoji + ' ' + pdef.title : pid) + '</span><span class="boo-remove-hint">Replace</span>';
+    btn.onclick = () => resolvePassiveOverflow(i);
+    list.appendChild(btn);
+  });
+  // Decline option
+  const declineBtn = document.createElement('button');
+  declineBtn.className = 'boo-spell-btn';
+  declineBtn.style.cssText = 'margin-top:.5rem;border-color:#1a1a25;color:#666;';
+  declineBtn.innerHTML = '<span>↩ Decline new passive</span>';
+  declineBtn.onclick = () => declinePassiveOverflow();
+  list.appendChild(declineBtn);
+  overlay.classList.add('open');
+}
+
+function resolvePassiveOverflow(removeIdx) {
+  const book = player.spellbooks[_pendingOverflowPassiveBook];
+  if (!book || !_pendingOverflowPassive) return;
+  book.passives.splice(removeIdx, 1);
+  book.passives.push(_pendingOverflowPassive);
+  if (_pendingOverflowPassiveBook === player.activeBookIdx) syncActiveBook();
+  _pendingOverflowPassive     = null;
+  _pendingOverflowPassiveBook = 0;
+  const overlay = document.getElementById('passive-overflow-overlay');
+  if (overlay) overlay.classList.remove('open');
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+
+function declinePassiveOverflow() {
+  _pendingOverflowPassive     = null;
+  _pendingOverflowPassiveBook = 0;
+  const overlay = document.getElementById('passive-overflow-overlay');
+  if (overlay) overlay.classList.remove('open');
   if (typeof processNextLevelUp === 'function') processNextLevelUp();
 }
 

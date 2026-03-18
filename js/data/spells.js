@@ -755,6 +755,10 @@ const SPELL_CATALOGUE = {
       log('⚡ Storm Rush! +3 actions available this turn.','status');
       if(typeof updateActionUI==='function') updateActionUI();
     },
+    undoOnQueue(){
+      combat.actionsLeft = Math.max(1, (combat.actionsLeft||0) - 3);
+      if(typeof updateActionUI==='function') updateActionUI();
+    },
     execute(s){
       status.player.momentumStacks = (status.player.momentumStacks||0) + 5;
       player.spellbook.forEach(sp=>{ if((sp.currentCD||0)>0) sp.currentCD = Math.max(0,sp.currentCD-1); });

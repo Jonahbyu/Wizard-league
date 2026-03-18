@@ -365,6 +365,8 @@
     .sb-spell-cell:disabled { opacity: .42; cursor: not-allowed; }
     .sb-spell-cell.on-cd { background: rgba(80,50,20,.08); }
     .sb-spell-cell.on-cd .sb-spell-icon { filter: grayscale(.65) opacity(.65); }
+    .sb-spell-cell.no-pp { background: rgba(50,20,60,.12); }
+    .sb-spell-cell.no-pp .sb-spell-icon { filter: grayscale(.8) opacity(.5); }
     .sb-spell-icon { font-size: 1.4rem; line-height: 1; }
     .sb-spell-name {
       font-family: 'Cinzel', serif;
@@ -380,6 +382,11 @@
     }
     .sb-spell-cd.ready { color: #4a6a20; }
     .sb-spell-cd.on-cd  { color: #8a3a20; }
+    .sb-spell-pp {
+      font-size: .46rem;
+      color: #5a4a7a;
+      letter-spacing: .04em;
+    }
     .sb-spell-queued-badge {
       position: absolute; top: 3px; right: 4px;
       font-size: .5rem; color: #6a4010;

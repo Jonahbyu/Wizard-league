@@ -42,6 +42,10 @@ function makeEnemyObj(enc){
   };
 }
 
+function restoreAllPP(){
+  player.spellbook.forEach(s=>{ if(s.maxPP !== undefined) s.currentPP = s.maxPP; });
+}
+
 function loadBattle(enc){
   combat.over=false; combat.tempDmgBonus=0; combat.playerTurn=false;
   combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
@@ -52,7 +56,12 @@ function loadBattle(enc){
   const _gymDef = currentGymDef();
   _setZoneElement((_gymDef && _gymDef.element) ? _gymDef.element : playerElement);
   resetStatusForBattle();
-  player.spellbook.forEach(s=>s.currentCD=0);
+  player.spellbook.forEach(s=>{
+    s.currentCD = 0;
+    const maxPP = Math.ceil(16 / Math.max(1, s.baseCooldown || 0));
+    s.maxPP = maxPP;
+    s.currentPP = maxPP;
+  });
   // Apply per-battle character buff effects
   if(player._blockStart > 0) status.player.block = (status.player.block||0) + player._blockStart;
   // Plasma: start each battle with 3 charge (+ Reserve Cell bonus)

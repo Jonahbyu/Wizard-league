@@ -161,6 +161,22 @@
 
   <!-- Save Files button always visible -->
   <button onclick="showSaveSelect()" style="position:absolute;bottom:.6rem;left:.6rem;background:#0a0806;border:1px solid #2a1a08;color:#4a3820;font-family:'Cinzel',serif;font-size:.6rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;z-index:5;">← Files</button>
+
+</div>
+
+<!-- PASSIVE OVERFLOW OVERLAY -->
+<div class="modal-overlay" id="passive-overflow-overlay">
+  <div class="modal-box" style="max-width:380px;">
+    <div style="font-family:'Cinzel',serif;font-size:.85rem;color:#c8a060;margin-bottom:.3rem;">✦ Passive Slots Full</div>
+    <div style="font-size:.7rem;color:#888;margin-bottom:.8rem;"><span id="poo-book-name">Book</span> passive slots are full.</div>
+    <div style="background:#0f0d0b;border:1px solid #2a2020;border-radius:4px;padding:.5rem .7rem;margin-bottom:.8rem;">
+      <div style="font-size:.65rem;color:#6a4a20;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem;">New Passive</div>
+      <div style="font-family:'Cinzel',serif;font-size:.82rem;color:#e8c060;" id="poo-new-passive"></div>
+      <div style="font-size:.65rem;color:#666;margin-top:.2rem;" id="poo-new-desc"></div>
+    </div>
+    <div style="font-size:.65rem;color:#6a4a20;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.4rem;">Replace an existing passive — or decline:</div>
+    <div id="poo-passive-list" style="display:flex;flex-direction:column;gap:.4rem;"></div>
+  </div>
 </div>
 
 <!-- BOOK OVERFLOW OVERLAY -->

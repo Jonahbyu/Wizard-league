@@ -5,6 +5,7 @@ function enterCampfire(){
   const pMax=maxHPFor('player');
   const h=Math.floor(pMax*CAMPFIRE_HEAL);
   const actual=applyHeal('player',h,null);
+  restoreAllPP();
   const descEl = document.getElementById("campfire-desc");
   descEl.textContent = actual>0
     ?`You rest and recover ${actual} HP. (${player.hp}/${pMax})`
