@@ -97,18 +97,6 @@ const ARTIFACT_CATALOGUE = {
     },
   },
 
-  veterans_eye: {
-    id:'veterans_eye', name:"Veteran's Eye", emoji:'👁️',
-    flavor:'Experience compounds.',
-    desc:[
-      '+10% XP gained this run.',
-      '+20% XP.',
-      '+30% XP.',
-      '+50% XP.',
-    ],
-    applyToRun(star){ player._xpBonus = (player._xpBonus||0) + [0.10,0.20,0.30,0.50][star]; },
-  },
-
   ember_heart: {
     id:'ember_heart', name:'Ember Heart', emoji:'🩷',
     flavor:'Even fire can nourish.',
@@ -167,7 +155,6 @@ const ARTIFACT_ORDER = [
   'gold_hoard',
   'quick_hands',
   'survivors_grit',
-  'veterans_eye',
   'ember_heart',
   'storm_core',
   'iron_skin',
@@ -264,12 +251,10 @@ function saveRunStats() {
   meta.phos      = (meta.phos||0) + phosEarned;
   meta.phosTotal = (meta.phosTotal||0) + phosEarned;
   meta.totalRuns  = (meta.totalRuns||0) + 1;
-  meta.bestLevel  = Math.max(meta.bestLevel||0, player.level);
   if(!meta.runHistory) meta.runHistory = [];
   meta.runHistory.unshift({
     element:  playerElement || '?',
     emoji:    playerEmoji   || '⚔',
-    level:    player.level,
     battles:  battleNumber,
     gold:     player.gold,
     spells:   player.spellbook.length,

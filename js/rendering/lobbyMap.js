@@ -925,7 +925,7 @@ function _openLobbyLocation(id) {
         <div class="brun-hist-row">
           <div class="brun-hist-el">${r.emoji||'⚔'} ${r.element||'?'} <span style="color:#4a6a8a;font-size:.6rem;margin-left:.3rem;">${r.zone && r.zone !== r.element ? '→ '+r.zone+' Zone' : ''}</span></div>
           <div class="brun-hist-stats">
-            <span>Lv.${r.level||'?'}</span><span>${r.battles||0} battles</span>
+            <span>${r.battles||0} battles</span>
             <span style="color:#c8a830">${r.gold||0}g</span>
             <span style="color:#a080ff">${r.phos||0}✦</span>
           </div>

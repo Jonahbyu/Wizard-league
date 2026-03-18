@@ -21,85 +21,85 @@ function elemHatSVG(element, size=24) {
 
 const ENCOUNTER_POOL = [
   // ── FIRE ──────────────────────────────────────────────────────────────────
-  { campType:'Fire', name:'Emberweave',  emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:95,  enemyDmg:22, xp:110, gold:42, type:'wizard' },
-  { campType:'Fire', name:'Ashcaller',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:110, enemyDmg:20, xp:115, gold:44, type:'wizard' },
-  { campType:'Fire', name:'Pyromancer',  emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:130, enemyDmg:18, xp:120, gold:48, type:'wizard' },
+  { campType:'Fire', name:'Emberweave',  emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:95,  enemyDmg:22, gold:42, type:'wizard' },
+  { campType:'Fire', name:'Ashcaller',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:110, enemyDmg:20, gold:44, type:'wizard' },
+  { campType:'Fire', name:'Pyromancer',  emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:130, enemyDmg:18, gold:48, type:'wizard' },
 
   // ── WATER ──────────────────────────────────────────────────────────────────
-  { campType:'Water', name:'Tidecaller',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:90,  enemyDmg:20, xp:108, gold:40, type:'wizard' },
-  { campType:'Water', name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:115, enemyDmg:18, xp:112, gold:42, type:'wizard' },
-  { campType:'Water', name:'Abyssmancer', emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:100, enemyDmg:24, xp:118, gold:46, type:'wizard' },
+  { campType:'Water', name:'Tidecaller',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:90,  enemyDmg:20, gold:40, type:'wizard' },
+  { campType:'Water', name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:115, enemyDmg:18, gold:42, type:'wizard' },
+  { campType:'Water', name:'Abyssmancer', emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:100, enemyDmg:24, gold:46, type:'wizard' },
 
   // ── ICE ───────────────────────────────────────────────────────────────────
-  { campType:'Ice', name:'Frostbinder',  emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:95,  enemyDmg:22, xp:110, gold:42, type:'wizard' },
-  { campType:'Ice', name:'Glacialmancer',emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:125, enemyDmg:18, xp:115, gold:44, type:'wizard' },
-  { campType:'Ice', name:'Rimecaster',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:105, enemyDmg:22, xp:112, gold:43, type:'wizard' },
+  { campType:'Ice', name:'Frostbinder',  emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:95,  enemyDmg:22, gold:42, type:'wizard' },
+  { campType:'Ice', name:'Glacialmancer',emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:125, enemyDmg:18, gold:44, type:'wizard' },
+  { campType:'Ice', name:'Rimecaster',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:105, enemyDmg:22, gold:43, type:'wizard' },
 
   // ── LIGHTNING ─────────────────────────────────────────────────────────────
-  { campType:'Lightning', name:'Stormweave',   emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:85,  enemyDmg:26, xp:115, gold:44, type:'wizard' },
-  { campType:'Lightning', name:'Voltmancer',   emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, xp:118, gold:46, type:'wizard' },
-  { campType:'Lightning', name:'Thunderscribe',emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:110, enemyDmg:22, xp:112, gold:43, type:'wizard' },
+  { campType:'Lightning', name:'Stormweave',   emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:85,  enemyDmg:26, gold:44, type:'wizard' },
+  { campType:'Lightning', name:'Voltmancer',   emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, gold:46, type:'wizard' },
+  { campType:'Lightning', name:'Thunderscribe',emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:110, enemyDmg:22, gold:43, type:'wizard' },
 
   // ── EARTH ─────────────────────────────────────────────────────────────────
-  { campType:'Earth', name:'Geomancer',   emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:120, enemyDmg:18, xp:108, gold:40, type:'wizard' },
-  { campType:'Earth', name:'Stonewarden', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:145, enemyDmg:16, xp:112, gold:42, type:'wizard' },
-  { campType:'Earth', name:'Terramancer', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:22, xp:115, gold:44, type:'wizard' },
+  { campType:'Earth', name:'Geomancer',   emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:120, enemyDmg:18, gold:40, type:'wizard' },
+  { campType:'Earth', name:'Stonewarden', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:145, enemyDmg:16, gold:42, type:'wizard' },
+  { campType:'Earth', name:'Terramancer', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:22, gold:44, type:'wizard' },
 
   // ── NATURE ────────────────────────────────────────────────────────────────
-  { campType:'Nature', name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:95,  enemyDmg:20, xp:110, gold:42, type:'wizard' },
-  { campType:'Nature', name:'Thornmancer', emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:120, enemyDmg:18, xp:115, gold:44, type:'wizard' },
-  { campType:'Nature', name:'Rootbinder',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:135, enemyDmg:16, xp:112, gold:43, type:'wizard' },
+  { campType:'Nature', name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:95,  enemyDmg:20, gold:42, type:'wizard' },
+  { campType:'Nature', name:'Thornmancer', emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:120, enemyDmg:18, gold:44, type:'wizard' },
+  { campType:'Nature', name:'Rootbinder',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:135, enemyDmg:16, gold:43, type:'wizard' },
 
   // ── PLASMA ────────────────────────────────────────────────────────────────
-  { campType:'Plasma', name:'Voidweave',   emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:90,  enemyDmg:26, xp:118, gold:46, type:'wizard' },
-  { campType:'Plasma', name:'Plasmancer',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:85,  enemyDmg:28, xp:120, gold:48, type:'wizard' },
-  { campType:'Plasma', name:'Riftscribe',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:100, enemyDmg:24, xp:115, gold:44, type:'wizard' },
+  { campType:'Plasma', name:'Voidweave',   emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:90,  enemyDmg:26, gold:46, type:'wizard' },
+  { campType:'Plasma', name:'Plasmancer',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:85,  enemyDmg:28, gold:48, type:'wizard' },
+  { campType:'Plasma', name:'Riftscribe',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:100, enemyDmg:24, gold:44, type:'wizard' },
 
   // ── AIR ───────────────────────────────────────────────────────────────────
-  { campType:'Air', name:'Zephyrcaster', emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:80,  enemyDmg:28, xp:115, gold:44, type:'wizard' },
-  { campType:'Air', name:'Galecaller',   emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:90,  enemyDmg:26, xp:112, gold:43, type:'wizard' },
-  { campType:'Air', name:'Skymancer',    emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:85,  enemyDmg:26, xp:118, gold:46, type:'wizard' },
+  { campType:'Air', name:'Zephyrcaster', emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:80,  enemyDmg:28, gold:44, type:'wizard' },
+  { campType:'Air', name:'Galecaller',   emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:90,  enemyDmg:26, gold:43, type:'wizard' },
+  { campType:'Air', name:'Skymancer',    emoji:'🌀', element:'Air', color:'#B0E0E6', enemyMaxHP:85,  enemyDmg:26, gold:46, type:'wizard' },
 ];
 
 // Pack encounters
 const PACK_POOL = [
-  { campType:'Pack', element:'Fire', packName:'Ember Coven', isPack:true, xp:200, gold:70,
+  { campType:'Pack', element:'Fire', packName:'Ember Coven', isPack:true, gold:70,
     members:[
       { name:'Ashweave',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:80,  enemyDmg:16, type:'wizard' },
       { name:'Ashweave',   emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:80,  enemyDmg:16, type:'wizard' },
       { name:'Pyromancer', emoji:'🔥', element:'Fire', color:'#FF4500', enemyMaxHP:110, enemyDmg:20, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Water', packName:'Tidal Coven', isPack:true, xp:185, gold:65,
+  { campType:'Pack', element:'Water', packName:'Tidal Coven', isPack:true, gold:65,
     members:[
       { name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'wizard' },
       { name:'Brineweave',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:65, enemyDmg:14, type:'wizard' },
       { name:'Tidecaller',  emoji:'💧', element:'Water', color:'#1E90FF', enemyMaxHP:90, enemyDmg:18, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Ice', packName:'Frost Coven', isPack:true, xp:205, gold:72,
+  { campType:'Pack', element:'Ice', packName:'Frost Coven', isPack:true, gold:72,
     members:[
       { name:'Frostbinder',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:85,  enemyDmg:18, type:'wizard' },
       { name:'Frostbinder',   emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:85,  enemyDmg:18, type:'wizard' },
       { name:'Glacialmancer', emoji:'❄️', element:'Ice', color:'#A0EFFF', enemyMaxHP:120, enemyDmg:22, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Lightning', packName:'Storm Coven', isPack:true, xp:195, gold:68,
+  { campType:'Pack', element:'Lightning', packName:'Storm Coven', isPack:true, gold:68,
     members:[
       { name:'Stormweave',    emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:75,  enemyDmg:22, type:'wizard' },
       { name:'Stormweave',    emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:75,  enemyDmg:22, type:'wizard' },
       { name:'Thunderscribe', emoji:'⚡', element:'Lightning', color:'#FFD700', enemyMaxHP:100, enemyDmg:24, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Nature', packName:'Grove Coven', isPack:true, xp:210, gold:74,
+  { campType:'Pack', element:'Nature', packName:'Grove Coven', isPack:true, gold:74,
     members:[
       { name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:90,  enemyDmg:18, type:'wizard' },
       { name:'Groveweave',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:90,  enemyDmg:18, type:'wizard' },
       { name:'Rootbinder',  emoji:'🌿', element:'Nature', color:'#32CD32', enemyMaxHP:130, enemyDmg:16, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Plasma', packName:'Void Coven', isPack:true, xp:215, gold:75,
+  { campType:'Pack', element:'Plasma', packName:'Void Coven', isPack:true, gold:75,
     members:[
       { name:'Voidweave',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'wizard' },
       { name:'Voidweave',  emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:22, type:'wizard' },
       { name:'Plasmancer', emoji:'🔮', element:'Plasma', color:'#DA70D6', enemyMaxHP:80, enemyDmg:26, type:'wizard' },
     ]},
-  { campType:'Pack', element:'Earth', packName:'Stone Coven', isPack:true, xp:200, gold:70,
+  { campType:'Pack', element:'Earth', packName:'Stone Coven', isPack:true, gold:70,
     members:[
       { name:'Geomancer',   emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:110, enemyDmg:16, type:'wizard' },
       { name:'Stonewarden', emoji:'🪨', element:'Earth', color:'#8B6914', enemyMaxHP:130, enemyDmg:14, type:'wizard' },
@@ -145,7 +145,7 @@ const GYM_ROSTER_FIXED = [
     entryEffect: null,
     signature:'Burn stacks grow over time. Charges every 3 hits. Phase 2: Pyromaniac.',
     zoneDesc:'Fire zone: enemies apply +3 Burn on every hit.',
-    battleAt:8, xp:350, gold:150,
+    battleAt:8, gold:150,
   },
   {
     gymIdx:1, element:'Ice', name:'Leader Glacius', emoji:'🧊', color:'#A0EFFF',
@@ -154,7 +154,7 @@ const GYM_ROSTER_FIXED = [
     entryEffect:'frozen_ground',
     signature:'Opens with Frozen Ground. Phase 2 executes below 25% HP.',
     zoneDesc:'Ice zone: enemies apply +2 Frost on every hit.',
-    battleAt:16, xp:450, gold:200,
+    battleAt:16, gold:200,
   },
   {
     gymIdx:2, element:'Lightning', name:'Leader Volta', emoji:'⚡', color:'#FFD700',
@@ -163,7 +163,7 @@ const GYM_ROSTER_FIXED = [
     entryEffect:'chain_shock',
     signature:'Starts at 200% Overload damage. Phase 2 gains Conduction (Shock reduces your damage).',
     zoneDesc:'Lightning zone: enemies apply +1 Shock on every hit.',
-    battleAt:24, xp:600, gold:270,
+    battleAt:24, gold:270,
   },
   {
     gymIdx:3, element:'Earth', name:'Leader Terras', emoji:'🗿', color:'#8B6914',
@@ -172,7 +172,7 @@ const GYM_ROSTER_FIXED = [
     entryEffect:'fortify',
     signature:'Enters with armor and stone stacks. Phase 2 gains Fissure — all attacks bypass your block.',
     zoneDesc:'Earth zone: enemies gain +1 Stone on each hit they land.',
-    battleAt:32, xp:780, gold:360,
+    battleAt:32, gold:360,
   },
 ];
 
@@ -184,7 +184,7 @@ const GYM_ROSTER_VARIABLE_TEMPLATES = [
     entryEffect:'summon_treant',
     signature:'Summons a Treant on entry. Roots accumulate. Phase 2: +5 damage per root stack.',
     zoneDesc:'Nature zone: enemies have 50% Root proc on every hit.',
-    xp:980, gold:460,
+    gold:460,
   },
   {
     element:'Water', name:'Leader Torrent', emoji:'💧', color:'#1E90FF',
@@ -193,7 +193,7 @@ const GYM_ROSTER_VARIABLE_TEMPLATES = [
     entryEffect:null,
     signature:'Stacks Foam on every hit. Phase 2 gains Ebb — reflects 20%+ of your damage back.',
     zoneDesc:'Water zone: enemies apply +1 Foam on every hit.',
-    xp:1200, gold:580,
+    gold:580,
   },
   {
     element:'Plasma', name:'Leader Vael', emoji:'🔮', color:'#DA70D6',
@@ -202,7 +202,7 @@ const GYM_ROSTER_VARIABLE_TEMPLATES = [
     entryEffect:null,
     signature:'Converts damage taken into counterattacks. Phase 2 reflects 20% of every hit back.',
     zoneDesc:'Plasma zone: enemies absorb energy from hits, occasionally counterattacking.',
-    xp:1500, gold:720,
+    gold:720,
   },
   {
     element:'Air', name:'Leader Zephyr', emoji:'🌀', color:'#B0E0E6',
@@ -211,7 +211,7 @@ const GYM_ROSTER_VARIABLE_TEMPLATES = [
     entryEffect:null,
     signature:'Extra actions every other turn. Phase 2 surges with even more tempo.',
     zoneDesc:'Air zone: enemies have 20% chance to stun you on each hit.',
-    xp:1800, gold:900,
+    gold:900,
   },
 ];
 

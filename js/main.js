@@ -283,14 +283,14 @@ function enemyHasPassive(id) {
 // ── RUN INIT ──────────────────────────────────────────────────────────────────
 function beginRun(){
   Object.assign(player, {
-    hp:BASE_MAX_HP, level:1, xp:0,
+    hp:BASE_MAX_HP,
     attackPower:0, effectPower:0, defense:0,
     skillPoints:0, gold:0, inventory:[], spellbook:[],
     passives:[], startPassive:null,
     unlockedElements:[], baseMaxHPBonus:0, spellbooks:[], activeBookIdx:0,
     revives:0, bonusActions:0,
     basicUpgrade:0, basicDmgMult:1.0,
-    _xpBonus:0, _hasteStart:false, _blockStart:0, _extraStartSpell:false, _rerolls:0,
+    _hasteStart:false, _blockStart:0, _extraStartSpell:false, _rerolls:0,
     _rhythmStar:-1, _quickHandsStar:-1, _gritHealOnRevive:0, _healBonus:0,
     basicDmgFlat:0, _bannerStar:-1,
     _talentReviveBonus:0, _goldBonus:0,
@@ -307,7 +307,7 @@ function beginRun(){
     enemies:[], targetIdx:0, activeEnemyIdx:0, enemy:{}, enemyHP:0,
     playerTurn:false, over:false, tempDmgBonus:0, actionsLeft:0, basicCD:0,
     playerAirToggle:false, enemyAirToggle:false, actionQueue:[], summons:[],
-    totalXP:0, totalGold:0,
+    totalGold:0,
   });
   resetStatusForBattle();
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[]; _zoneRivalDefeated=false;

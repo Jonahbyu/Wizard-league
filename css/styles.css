@@ -77,9 +77,6 @@
     .stat-label{color:#444;letter-spacing:.08em;text-transform:uppercase;font-size:.58rem;}
     .stat-value{color:#aaa;font-family:'Cinzel',serif;}
     .stat-value.gold{color:#c8a830;} .stat-value.sp{color:#7a6aff;} .stat-value.power{color:#cc6644;}
-    .xp-mini{display:flex;flex-direction:column;align-items:center;gap:2px;}
-    .xp-bar-wrap{width:70px;height:4px;background:#1a1a1a;border-radius:2px;overflow:hidden;}
-    .xp-bar-fill{height:100%;background:#3a5a8a;border-radius:2px;transition:width .4s;}
 
     /* MAP */
     .map-header{font-family:'Cinzel',serif;font-size:.68rem;letter-spacing:.2em;color:#444;text-transform:uppercase;margin-bottom:.4rem;text-align:center;}

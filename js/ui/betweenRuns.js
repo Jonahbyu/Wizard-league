@@ -37,7 +37,6 @@ function renderBrunLastRun() {
   el.innerHTML = `
     <div class="brun-run-title">${playerEmoji} ${playerElement}${zoneStr} — Run Ended</div>
     <div class="brun-run-grid">
-      <div class="brun-run-stat"><div class="brun-run-label">Level</div><div class="brun-run-val">${player.level}</div></div>
       <div class="brun-run-stat"><div class="brun-run-label">Rooms</div><div class="brun-run-val">${_runRoomsCompleted}</div></div>
       <div class="brun-run-stat"><div class="brun-run-label">⚔ Dealt</div><div class="brun-run-val" style="color:#e84a4a">${_runDmgDealt}</div></div>
       <div class="brun-run-stat"><div class="brun-run-label">🛡 Taken</div><div class="brun-run-val" style="color:#4a8aaa">${_runDmgTaken}</div></div>
@@ -68,7 +67,6 @@ function switchBrunTab(tab, btnEl) {
       <div class="brun-hist-row">
         <div class="brun-hist-el">${r.emoji||'⚔'} ${r.element||'?'} <span style="color:#4a6a8a;font-size:.6rem;margin-left:.3rem;">${r.zone && r.zone !== r.element ? '→ '+r.zone+' Zone' : ''}</span></div>
         <div class="brun-hist-stats">
-          <span>Lv.${r.level||'?'}</span>
           <span>${r.battles||0} battles</span>
           <span>${r.rooms||r.battles||0} rooms</span>
           <span style="color:#c8a830">${r.gold||0}g</span>

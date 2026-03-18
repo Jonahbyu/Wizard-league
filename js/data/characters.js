@@ -100,8 +100,8 @@ const CHARACTER_BUFFS = {
   },
   buff_xp_bonus: {
     name: 'Deep Study', emoji: '📖',
-    desc: 'Gain +5 Effect Power at the start of each new zone.',
-    apply() { player._xpBonus = (player._xpBonus || 0) + 0.20; }, // legacy flag, effect below
+    desc: 'Gain +5 Effect Power at run start.',
+    apply() { player.effectPower = (player.effectPower || 0) + 5; },
   },
 
   // ── TODO: add more exotic buffs here ──────────────────────────────────────

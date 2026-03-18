@@ -15,7 +15,7 @@ function elementOfSide(side){
 }
 function maxHPFor(side){
   if(side!=='player') return 999; // enemies use their own maxHP field
-  const base = BASE_MAX_HP + (player.level-1)*10 + (player.baseMaxHPBonus||0);
+  const base = BASE_MAX_HP + (player.baseMaxHPBonus||0);
   return playerElement==='Water' ? Math.floor(base*0.5) : base;
 }
 function healingMultiplier(){
@@ -262,7 +262,6 @@ function actionsPerTurnFor(side){
 // ── Misc ──────────────────────────────────────────────────────────────────────
 function aliveEnemies(){ return combat.enemies.filter(e=>e.alive); }
 function firstAliveIdx(){ const i=combat.enemies.findIndex(e=>e.alive); return i>=0?i:0; }
-// xpNeeded removed
 
 function gymBossHP(){
   const g = currentGymDef();

@@ -373,7 +373,6 @@ function renderRunInfo(){
   const maxHP = maxHPFor('player');
   section('Stats',
     row('Element', `${playerEmoji} ${playerElement}`) +
-    row('Level', player.level) +
     row('HP', `${Math.max(0,player.hp)} / ${maxHP}`) +
     row('Attack Power', player.atkStat ?? player.power) +
     row('Effect Power', player.efxStat ?? player.power) +
@@ -437,7 +436,6 @@ function renderRunInfo(){
   // ── Battle info
   section('Run Progress',
     row('Battle #', battleNumber) +
-    row('XP to next level', `${player.xp} / ${xpNeeded()}`) +
     row('Gym defeated', gymDefeated ? 'Yes ✦' : 'Not yet')
   );
 }

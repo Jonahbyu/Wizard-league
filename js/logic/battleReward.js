@@ -432,4 +432,3 @@ function pickRandom(arr, n){
   return result;
 }
 
-function openSpellUpgrade(){ showSkillPointScreen(player.level); } // legacy compat

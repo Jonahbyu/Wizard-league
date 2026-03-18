@@ -40,7 +40,7 @@ function sandboxOpenEnemyPicker(){
   dummyBtn.style.cssText = btnBase + 'background:#1a1a0a;border-color:#6a6a22;color:#cccc44;';
   dummyBtn.onclick = () => { sandboxLoadEnemy({
     name: 'Target Dummy', emoji: '🎯', element: 'Neutral',
-    enemyMaxHP: 1000, enemyDmg: 0, xp: 0, gold: 0,
+    enemyMaxHP: 1000, enemyDmg: 0, gold: 0,
     type: 'wizard', isTargetDummy: true,
   }); };
   dummyDiv.appendChild(dummyBtn);
@@ -105,7 +105,7 @@ function sandboxOpenEnemyPicker(){
         name: gym.name, emoji: gym.emoji, element: gym.element, color: gym.color,
         difficulty: 'gym', diffClass: 'diff-hard',
         enemyMaxHP: gymBossHP(), enemyDmg: gym.baseDmg,
-        xp: gym.xp, gold: gym.gold, type: 'wizard', isGym: true,
+        gold: gym.gold, type: 'wizard', isGym: true,
         signature: gym.signature,
         gymPassive: gym.passive, gymPhase2Passive: gym.phase2Passive,
         gymEntryEffect: gym.entryEffect,
