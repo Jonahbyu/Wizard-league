@@ -71,7 +71,10 @@ let _currentRewardTier = 'minor';
 
 function grantRandomLegendary() {
   const elements = [playerElement, ...(player.unlockedElements||[])];
-  const owned = new Set((player.spellbook||[]).filter(s=>!s.isBuiltin).map(s => s.id));
+  // Check all books for already-owned spells
+  const _allOwned = [];
+  (player.spellbooks||[]).forEach(b => b.spells.forEach(s => { if(!s.isBuiltin) _allOwned.push(s.id); }));
+  const owned = new Set(_allOwned);
 
   // Build legendary spell pool
   const spellPool = [];
@@ -331,7 +334,10 @@ function showSpellChoiceScreen(level, tier='secondary', forElement=null){
 }
 
 function buildSpellChoicePool(tier='secondary', forElement=null){
-  const owned = new Set(player.spellbook.filter(s=>!s.isBuiltin).map(s=>s.id));
+  // Check all books for already-owned spells
+  const _allOwned = [];
+  (player.spellbooks||[]).forEach(b => b.spells.forEach(s => { if(!s.isBuiltin) _allOwned.push(s.id); }));
+  const owned = new Set(_allOwned);
   const elements = forElement ? [forElement] : [playerElement, ...player.unlockedElements];
   const pool = [];
 
@@ -377,6 +383,8 @@ function showElementUnlockScreen(level){
       <div class="pc-desc">Unlocks ${el} spells and passives. Starter: ${starterSpell?starterSpell.emoji+' '+starterSpell.name:'—'}</div>`;
     btn.onclick=()=>{
       player.unlockedElements.push(el);
+      // Plasma always gets its own dedicated spellbook
+      if (el === 'Plasma') ensurePlasmaBook();
       addSpellById(STARTER_SPELL[el]);
       // Queue: spell choice in new element, then legendary
       pendingLevelUps = [
@@ -411,11 +419,14 @@ function showPassiveChoiceScreen(level){
 
 function buildPassiveChoicePool(){
   const elements=[playerElement, ...player.unlockedElements];
+  // Collect all owned passives across every book
+  const allOwnedPassives = new Set();
+  (player.spellbooks||[]).forEach(b => b.passives.forEach(id => allOwnedPassives.add(id)));
   const pool=[];
   elements.forEach(el=>{
     (PASSIVE_CHOICES[el]||[]).forEach(p=>{
       if(p.legendary) return;          // legendaries not offered through normal passive picks
-      if(!player.passives.includes(p.id)) pool.push({...p, element:el});
+      if(!allOwnedPassives.has(p.id)) pool.push({...p, element:el});
     });
   });
   return pool;

@@ -47,7 +47,22 @@ function makeSpellbook(element, name) {
     spellSlots:   BOOK_SPELL_SLOTS_BASE,
     passiveSlots: BOOK_PASSIVE_SLOTS_BASE,
     effect:       null,  // on-switch combat effect (null = none for basic book)
+    isPlasmaBook: false, // true only for the dedicated Plasma abilities book
   };
+}
+
+// Returns the index of the plasma-only book, or -1 if none exists
+function plasmaBookIdx() {
+  return player.spellbooks.findIndex(b => b.isPlasmaBook);
+}
+
+// Creates a dedicated Plasma abilities book if one doesn't exist yet
+function ensurePlasmaBook() {
+  if (player.spellbooks.some(b => b.isPlasmaBook)) return;
+  const pb = makeSpellbook('Plasma', 'Plasma Abilities');
+  pb.id = 'plasma_abilities';
+  pb.isPlasmaBook = true;
+  player.spellbooks.push(pb);
 }
 
 function activeBook() {
@@ -72,7 +87,9 @@ function hasPassive(id) {
 }
 
 function initSpellbooksForRun() {
-  const bookName = playerElement + "'s Tome";
+  // Plasma players use "General" for the non-plasma book since their elemental identity
+  // is expressed through the dedicated Plasma Abilities book
+  const bookName = playerElement === 'Plasma' ? 'General' : (playerElement + "'s Tome");
   const book = makeSpellbook(playerElement, bookName);
   applyBookUpgrades(book);
   // Pre-fill the two built-in utility slots
@@ -82,6 +99,10 @@ function initSpellbooksForRun() {
   );
   player.spellbooks  = [book];
   player.activeBookIdx = 0;
+  // Plasma players always start with a dedicated Plasma Abilities book
+  if (playerElement === 'Plasma') {
+    ensurePlasmaBook();
+  }
   syncActiveBook();
 }
 
@@ -97,36 +118,69 @@ function switchBook(idx) {
 }
 
 // Add a spell to the active book (with overflow check)
+// Plasma abilities are always routed to the plasma book regardless of bookIdx
 function addSpellToBook(spell, bookIdx) {
+  // Plasma abilities belong exclusively in the plasma book
+  if (spell.isPlasmaAbility) {
+    ensurePlasmaBook();
+    const pIdx = plasmaBookIdx();
+    if (pIdx >= 0) {
+      const pb = player.spellbooks[pIdx];
+      if (pb.spells.find(s => s.id === spell.id)) return; // already owned
+      if (pb.spells.length >= pb.spellSlots) {
+        _pendingOverflowSpell = spell;
+        _pendingOverflowBookIdx = pIdx;
+        showBookOverflowScreen(spell, pb);
+        return;
+      }
+      pb.spells.push(spell);
+      if (pIdx === player.activeBookIdx) syncActiveBook();
+    }
+    return;
+  }
+
   const idx  = (bookIdx !== undefined) ? bookIdx : player.activeBookIdx;
-  const book = player.spellbooks[idx];
+  // Never route non-plasma spells into the plasma book
+  const targetIdx = (player.spellbooks[idx] && player.spellbooks[idx].isPlasmaBook) ? 0 : idx;
+  const book = player.spellbooks[targetIdx];
   if (!book) return;
   if (book.spells.find(s => s.id === spell.id)) return; // already owned
   if (book.spells.length >= book.spellSlots) {
     // Full — trigger overflow removal UI
     _pendingOverflowSpell = spell;
-    _pendingOverflowBookIdx = idx;
+    _pendingOverflowBookIdx = targetIdx;
     showBookOverflowScreen(spell, book);
     return;
   }
   book.spells.push(spell);
-  if (idx === player.activeBookIdx) syncActiveBook();
+  if (targetIdx === player.activeBookIdx) syncActiveBook();
 }
 
 // Add a passive to the active book (with overflow check)
 function addPassiveToBook(passiveId, bookIdx) {
+  // Plasma passives always go to the plasma book
+  if (bookIdx === undefined) {
+    const isPlasmaPassive = (PASSIVE_CHOICES['Plasma']||[]).some(p => p.id === passiveId);
+    if (isPlasmaPassive) {
+      ensurePlasmaBook();
+      bookIdx = plasmaBookIdx();
+    }
+  }
+
   const idx  = (bookIdx !== undefined) ? bookIdx : player.activeBookIdx;
-  const book = player.spellbooks[idx];
+  // Never route a non-plasma passive into the plasma book
+  const targetIdx = (player.spellbooks[idx] && player.spellbooks[idx].isPlasmaBook) ? 0 : idx;
+  const book = player.spellbooks[targetIdx];
   if (!book) return;
   if (book.passives.includes(passiveId)) return;
   if (book.passives.length >= book.passiveSlots) {
     _pendingOverflowPassive     = passiveId;
-    _pendingOverflowPassiveBook = idx;
+    _pendingOverflowPassiveBook = targetIdx;
     showPassiveOverflowScreen(passiveId, book);
     return;
   }
   book.passives.push(passiveId);
-  if (idx === player.activeBookIdx) syncActiveBook();
+  if (targetIdx === player.activeBookIdx) syncActiveBook();
 }
 
 // Overflow state
@@ -151,10 +205,17 @@ function showBookOverflowScreen(newSpell, book) {
     btn.onclick = () => resolveBookOverflow(i);
     list.appendChild(btn);
   });
-  // Send-to-another-book options (only books that aren't full)
+  // Send-to-another-book options (only books that aren't full and accept this spell type)
+  // Plasma abilities can only live in the plasma book; non-plasma spells cannot enter the plasma book
+  const isPlasmAbil = !!(_pendingOverflowSpell && _pendingOverflowSpell.isPlasmaAbility);
   const otherBooks = player.spellbooks
     .map((b, bi) => ({b, bi}))
-    .filter(({b, bi}) => bi !== _pendingOverflowBookIdx);
+    .filter(({b, bi}) => {
+      if (bi === _pendingOverflowBookIdx) return false;
+      if (isPlasmAbil) return false;       // plasma abilities can't move to another book
+      if (b.isPlasmaBook) return false;    // non-plasma spells can't enter plasma book
+      return true;
+    });
   if (otherBooks.length > 0) {
     const sep = document.createElement('div');
     sep.style.cssText = 'font-size:.6rem;color:#4a6a9a;letter-spacing:.08em;text-transform:uppercase;margin-top:.5rem;margin-bottom:.2rem;';

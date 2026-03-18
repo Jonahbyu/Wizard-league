@@ -244,7 +244,7 @@ function renderSpellButtons(){
   const grid = document.getElementById("spell-grid");
   if(!grid) return;
   const isMyTurn  = combat.playerTurn && !combat.over;
-  const nonFreeQueued = (combat.actionQueue||[]).filter(a=>!a.isFree).length;
+  const nonFreeQueued = (combat.actionQueue||[]).filter(a=>!a.isFree && !a.isPlasma).length;
   const queueFull = nonFreeQueued >= (combat.actionsLeft||0);
   // Storm Rush preview: if it's queued, show all spell CDs as 1 lower
   const stormRushQueued = (combat.actionQueue||[]).some(a => a.stormRushAction);
@@ -318,8 +318,8 @@ function renderSpellButtons(){
     if(invCount) invCount.textContent = count;
   }
 
-  // ── PLASMA: full custom grid ─────────────────────────────────────────────
-  if(playerElement === 'Plasma'){
+  // ── PLASMA: full custom grid (shown whenever the plasma abilities book is active) ─────────────────────────────────────────────
+  if(activeBook() && activeBook().isPlasmaBook){
     grid.style.gridTemplateColumns = 'repeat(3,1fr)';
     grid.innerHTML = '';
     const availCharge = Math.max(0, (status.player.plasmaCharge||0) - (combat.plasmaChargeReserved||0));

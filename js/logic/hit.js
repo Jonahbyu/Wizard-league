@@ -511,9 +511,13 @@ function applyDirectDamage(attackerSide, defenderSide, dmg, label){
 }
 
 // Grant Charge when a debuff is applied to the player (Plasma only, 1 per application instance)
+// Only triggers when the Plasma abilities book is the currently active book
 function _plasmaChargeOnDebuff(defenderSide){
   if(playerElement !== 'Plasma') return;
   if(defenderSide !== 'player') return;
+  // Charge only accumulates when the plasma book is active
+  const _pIdx = plasmaBookIdx();
+  if(_pIdx < 0 || player.activeBookIdx !== _pIdx) return;
   const hasStabilized = hasPassive('plasma_stabilized_core');
   if(hasStabilized){
     // Stabilized: 1 charge per debuff (was 0.5)

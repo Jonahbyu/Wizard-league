@@ -43,7 +43,9 @@ function makeEnemyObj(enc){
 }
 
 function restoreAllPP(){
-  player.spellbook.forEach(s=>{ if(s.maxPP !== undefined) s.currentPP = s.maxPP; });
+  (player.spellbooks||[]).forEach(book => {
+    book.spells.forEach(s=>{ if(s.maxPP !== undefined) s.currentPP = s.maxPP; });
+  });
 }
 
 function loadBattle(enc){
@@ -56,11 +58,14 @@ function loadBattle(enc){
   const _gymDef = currentGymDef();
   _setZoneElement((_gymDef && _gymDef.element) ? _gymDef.element : playerElement);
   resetStatusForBattle();
-  player.spellbook.forEach(s=>{
-    s.currentCD = 0;
-    const maxPP = Math.ceil(16 / Math.max(1, s.baseCooldown || 0));
-    s.maxPP = maxPP;
-    s.currentPP = maxPP;
+  // Initialize all books' spells (CDs reset, PP calculated) so non-active books are ready too
+  (player.spellbooks||[]).forEach(book => {
+    book.spells.forEach(s=>{
+      s.currentCD = 0;
+      const maxPP = Math.ceil(16 / Math.max(1, s.baseCooldown || 0));
+      s.maxPP = maxPP;
+      s.currentPP = maxPP;
+    });
   });
   // Apply per-battle character buff effects
   if(player._blockStart > 0) status.player.block = (status.player.block||0) + player._blockStart;

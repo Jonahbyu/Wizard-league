@@ -13,7 +13,10 @@
 // Tick player CDs once per round (called at end of round, not start).
 function _tickPlayerCDs(){
   if(combat.basicCD>0) combat.basicCD--;
-  player.spellbook.forEach(s=>{ if(s.currentCD>0) s.currentCD--; });
+  // Tick all books' spells so CDs advance regardless of which book is active
+  (player.spellbooks||[]).forEach(book => {
+    book.spells.forEach(s=>{ if(s.currentCD>0) s.currentCD--; });
+  });
 }
 
 function startRound(){
@@ -235,10 +238,13 @@ function startRound(){
       applyEffectDamage('enemy','player', penalty, '⏳ Borrowed Power debt');
       if(combat.over) return;
     }
-    // Stabilized Core: +3 charge per turn start (passive only)
+    // Stabilized Core: +3 charge per turn start — only if Plasma book is active
     if(hasPassive('plasma_stabilized_core')){
-      status.player.plasmaCharge = (status.player.plasmaCharge||0) + 3;
-      log(`🔋 Stabilized Core: +3 Charge → ${status.player.plasmaCharge}`, 'status');
+      const _pIdx = plasmaBookIdx();
+      if(_pIdx >= 0 && player.activeBookIdx === _pIdx){
+        status.player.plasmaCharge = (status.player.plasmaCharge||0) + 3;
+        log(`🔋 Stabilized Core: +3 Charge → ${status.player.plasmaCharge}`, 'status');
+      }
     }
     // Overcharge check: >= 20 at turn start
     combat.plasmaOvercharged = (status.player.plasmaCharge||0) >= 20;
@@ -347,7 +353,7 @@ function updateActionUI(){
   const slotsTxt=document.getElementById("queue-slots-left");
   if(!el) return;
   if(combat.playerTurn){
-    const queued=(combat.actionQueue||[]).filter(a=>!a.isFree).length;
+    const queued=(combat.actionQueue||[]).filter(a=>!a.isFree && !a.isPlasma).length;
     const total=combat.actionsLeft||0;
     const alive=aliveEnemies();
     const tgt=combat.enemies[combat.targetIdx];
@@ -363,11 +369,31 @@ function updateActionUI(){
 function queueSwitchBook(bookIdx) {
   if (!combat.playerTurn || combat.over) return;
   const book = player.spellbooks[bookIdx];
-  if (!book) return;
+  if (!book || bookIdx === player.activeBookIdx) return;
+
+  // Ensure there's room in the queue before switching display
+  const nonFreeCount = (combat.actionQueue||[]).filter(a=>!a.isFree).length;
+  if (nonFreeCount >= (combat.actionsLeft||0)) return;
+
+  const prevIdx = player.activeBookIdx;
+
+  // Immediately switch the display so the player can see the target book's spells
+  switchBook(bookIdx);
+  renderSpellButtons();
+  updateActionUI();
+
   queueAction('📖 ' + book.name, () => {
-    switchBook(bookIdx);
+    // Confirm switch at resolve time (may already be correct)
+    if (player.activeBookIdx !== bookIdx) switchBook(bookIdx);
     renderSpellButtons();
     updateActionUI();
+  }, {
+    undoOnQueue: () => {
+      // Revert display if the switch action is removed from the queue
+      switchBook(prevIdx);
+      renderSpellButtons();
+      updateActionUI();
+    }
   });
 }
 

@@ -865,10 +865,11 @@ function updateChargeUI(){
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function giveStarterSpell(){
   if(playerElement === 'Plasma'){
-    // Plasma starts with all primary abilities
+    // Plasma starts with all primary abilities — check all books to avoid duplicates
     Object.values(SPELL_CATALOGUE).forEach(s => {
-      if(s.element === 'Plasma' && s.tier === 'primary' && !player.spellbook.find(x=>x.id===s.id)){
-        addSpellById(s.id);
+      if(s.element === 'Plasma' && s.tier === 'primary'){
+        const alreadyOwned = (player.spellbooks||[]).some(b => b.spells.some(x => x.id === s.id));
+        if(!alreadyOwned) addSpellById(s.id);
       }
     });
   }
