@@ -9,7 +9,7 @@ function _setZoneElement(z) {
 }
 
 const player = {
-  hp:BASE_MAX_HP, level:1, xp:0,
+  hp:BASE_MAX_HP,
   attackPower:0, effectPower:0, defense:0,
   skillPoints:0, gold:0, inventory:[], spellbook:[],
   passives:[], startPassive:null,
@@ -18,7 +18,6 @@ const player = {
   revives:0,          // set by talent tree (lives node) at run start
   bonusActions:0,     // permanent extra actions per turn (shop purchase)
   basicUpgrade:0, basicDmgMult:1.0,
-  _xpBonus:    0,
   _hasteStart: false,
   _blockStart: 0,
   _extraStartSpell: false,
@@ -204,7 +203,7 @@ const combat = {
   playerAirToggle:false, enemyAirToggle:false,
   actionQueue:[],
   summons:[],
-  totalXP:0, totalGold:0,
+  totalGold:0,
   turnInBattle:0,
   // Plasma
   plasmaSpendAmounts:{},    // per-spell stepper amounts, keyed by spell.id

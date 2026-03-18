@@ -10,10 +10,7 @@
 function calcPhosEarned() {
   let phos = 0;
   phos += battleNumber;                          // 1 per battle survived
-  phos += player.level * 2;                      // 2 per level reached
   phos += (currentGymIdx || 0) * 10;             // 10 per gym beaten this run
-  if (player.level >= 10)  phos += 15;           // bonus for reaching lv10
-  if (player.level >= 20)  phos += 30;           // bonus for reaching lv20
   phos += Math.floor(player.gold / 20);          // 1 per 20 gold accumulated
   return Math.max(1, Math.round(phos));
 }
@@ -94,15 +91,6 @@ const TALENT_TREE = {
         maxLevel: 4,
         cost: lvl => lvl * 3,
         apply(lvl) { player._goldBonus = (player._goldBonus||0) + lvl * 0.10; },
-      },
-      {
-        id: 'xp_gain',
-        name: 'Fast Learner',
-        emoji: '📚',
-        desc: '+10% XP from all sources per level.',
-        maxLevel: 4,
-        cost: lvl => lvl * 3,
-        apply(lvl) { player._xpBonus = (player._xpBonus||0) + lvl * 0.10; },
       },
       {
         id: 'start_gold',
@@ -191,7 +179,6 @@ function applyTalentBonuses() {
   player.revives = 0;
   player._talentReviveBonus = 0;
   player._goldBonus   = player._goldBonus   || 0; // artifacts may also set this
-  player._xpBonus     = player._xpBonus     || 0;
   player._blockStart  = player._blockStart  || 0;
 
   // Apply each purchased node

@@ -8,14 +8,12 @@ function updateStatsUI(){
   const maxDisplay = Math.max(player.revives, 3);
   const heartsStr = '❤'.repeat(player.revives) + '🖤'.repeat(Math.max(0, maxDisplay - player.revives));
   ["map","combat"].forEach(prefix=>{
-    const lv=document.getElementById(prefix+"-level");   if(lv) lv.textContent=player.level;
     const ap=document.getElementById(prefix+"-atk");  if(ap) ap.textContent=player.attackPower;
     const ep=document.getElementById(prefix+"-ep");   if(ep) ep.textContent=player.effectPower;
     const df=document.getElementById(prefix+"-def");  if(df) df.textContent=player.defense;
     const g =document.getElementById(prefix+"-gold");    if(g)  g.textContent=player.gold;
     const lh=document.getElementById(prefix+"-lives");  if(lh) lh.textContent=heartsStr;
   });
-  const xt=document.getElementById("map-xp-txt");   if(xt) xt.textContent=`${player.xp}/${xpNeeded()}`;
   const mi=document.getElementById("map-items");    if(mi) mi.textContent=player.inventory.length;
 }
 
@@ -186,14 +184,14 @@ function showScreen(id){
 
 function restartToSelect(){
   Object.assign(player,{
-    hp:BASE_MAX_HP, level:1, xp:0, attackPower:0, effectPower:0, defense:0,
+    hp:BASE_MAX_HP, attackPower:0, effectPower:0, defense:0,
     skillPoints:0, gold:0, inventory:[], spellbook:[], passives:[], startPassive:null,
     unlockedElements:[], baseMaxHPBonus:0, spellbooks:[], activeBookIdx:0,
     revives:0, bonusActions:0,
     basicUpgrade:0, basicDmgMult:1.0,
-    _xpBonus:0, _hasteStart:false, _blockStart:0, _extraStartSpell:false, _rerolls:0,
+    _hasteStart:false, _blockStart:0, _extraStartSpell:false, _rerolls:0,
   });
-  Object.assign(combat,{enemies:[],targetIdx:0,activeEnemyIdx:0,enemy:{},enemyHP:0,playerTurn:false,over:false,tempDmgBonus:0,actionsLeft:0,basicCD:0,playerAirToggle:false,enemyAirToggle:false,actionQueue:[],summons:[],totalXP:0,totalGold:0});
+  Object.assign(combat,{enemies:[],targetIdx:0,activeEnemyIdx:0,enemy:{},enemyHP:0,playerTurn:false,over:false,tempDmgBonus:0,actionsLeft:0,basicCD:0,playerAirToggle:false,enemyAirToggle:false,actionQueue:[],summons:[],totalGold:0});
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[];
   _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = '';
   sandboxMode = false;

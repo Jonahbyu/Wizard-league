@@ -25,7 +25,7 @@ function startRivalBattle() {
     color: '#9a6aee',
     difficulty: 'rival', diffClass: 'diff-hard',
     enemyMaxHP: hp, enemyDmg: dmg,
-    xp: 0, gold: Math.round(30 + currentGymIdx * 15),
+    gold: Math.round(30 + currentGymIdx * 15),
     type: 'wizard',
     isRival: true,
   };
@@ -61,7 +61,7 @@ function startGymBattle(){
     name:gym.name, emoji:gym.emoji, element:gym.element, color:gym.color,
     difficulty:"gym", diffClass:"diff-hard",
     enemyMaxHP:gymBossHP(), enemyDmg:gym.baseDmg,
-    xp:gym.xp, gold:gym.gold, type:"wizard", isGym:true,
+    gold:gym.gold, type:"wizard", isGym:true,
     signature:gym.signature,
     gymPassive:gym.passive, gymPhase2Passive:gym.phase2Passive,
     gymEntryEffect:gym.entryEffect,

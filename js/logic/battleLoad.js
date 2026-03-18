@@ -45,7 +45,7 @@ function makeEnemyObj(enc){
 function loadBattle(enc){
   combat.over=false; combat.tempDmgBonus=0; combat.playerTurn=false;
   combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
-  combat.totalXP=0; combat.totalGold=0; combat.hitFlashes=[]; combat.turnInBattle=0;
+  combat.totalGold=0; combat.hitFlashes=[]; combat.turnInBattle=0;
   combat.activeZoneElement=(inGymZone()&&!enc.isGym)?(currentGymDef()||{}).element:null;
 
   // Zone background = the map zone you are fighting in, never the enemy element
@@ -76,12 +76,11 @@ function loadBattle(enc){
     combat.enemies=enc.members.map(m=>makeEnemyObj({...m,
       enemyMaxHP: Math.round(m.enemyMaxHP * hpScale),
       enemyDmg:   Math.round(m.enemyDmg   * dmgScale),
-      xp:Math.floor(enc.xp/enc.members.length),
       gold:Math.floor(enc.gold/enc.members.length),isGym:false}));
-    combat.totalXP=enc.xp; combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
+    combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
   } else {
     combat.enemies=[makeEnemyObj(enc)];
-    combat.totalXP=enc.xp; combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
+    combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
   }
   combat.targetIdx=0; setActiveEnemy(0);
 
