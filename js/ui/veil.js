@@ -63,6 +63,11 @@ function _renderVeilContent(content) {
         🌫 Total Mist: <b>${totalMist}</b>
       </span>
       ${totalMist === 0 ? '<div style="font-size:.62rem;color:#554477;margin-top:3px;">Activate the Veil to begin</div>' : ''}
+      ${cfg.active ? `<div style="margin-top:8px;">
+        <button onclick="resetVeil()" style="padding:4px 14px;border-radius:4px;font-size:.63rem;
+          cursor:pointer;font-family:'Cinzel',serif;background:#1a0010;border:1px solid #6020aa;
+          color:#886699;transition:all .15s;">Reset All</button>
+      </div>` : ''}
     </div>`;
 
   content.innerHTML = html;
@@ -95,6 +100,14 @@ function setMistModifier(modId, tier) {
   const meta = getMeta();
   if (!meta.mistConfig) meta.mistConfig = { active: true, modifiers: {} };
   meta.mistConfig.modifiers[modId] = tier;
+  saveMeta();
+  const content = document.getElementById('lobby-panel-content');
+  if (content) _renderVeilContent(content);
+}
+
+function resetVeil() {
+  const meta = getMeta();
+  meta.mistConfig = { active: false, modifiers: {} };
   saveMeta();
   const content = document.getElementById('lobby-panel-content');
   if (content) _renderVeilContent(content);
