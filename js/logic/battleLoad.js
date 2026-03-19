@@ -8,16 +8,6 @@ function makeEnemyObj(enc){
     passive=null;
   } else if(enc.gymPassive){
     passive=enc.gymPassive;
-  } else if(inGymZone()&&!enc.isGym){
-    const zGym=currentGymDef();
-    const zPool=zGym?(PASSIVE_CHOICES[zGym.element]||[]).filter(p=>!p.legendary):[];
-    const nativePool=(PASSIVE_CHOICES[el]||[]).filter(p=>!p.legendary);
-    // 65% chance to use zone element passive, 35% native
-    if(zPool.length && Math.random()<0.65){
-      passive=zPool[Math.floor(Math.random()*zPool.length)].id;
-    } else if(nativePool.length){
-      passive=nativePool[Math.floor(Math.random()*nativePool.length)].id;
-    }
   } else {
     const pool=(PASSIVE_CHOICES[el]||[]).filter(p=>!p.legendary);
     passive=pool.length?pool[Math.floor(Math.random()*pool.length)].id:null;
@@ -32,7 +22,9 @@ function makeEnemyObj(enc){
   const finalDmg    = Math.round((zoneScaled.enemyDmg   || enc.enemyDmg)   * mistDmgMult);
 
   // Build ability list based on element + zone depth
-  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, enc.difficulty||'easy');
+  // Derive difficulty from base HP if not specified: tankier enemies get more abilities
+  const _difficulty = enc.difficulty || (enc.enemyMaxHP > 120 ? 'hard' : enc.enemyMaxHP > 100 ? 'medium' : 'easy');
+  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, _difficulty);
 
   // Mist: extra passives for non-dummy enemies
   let extraPassives = [];

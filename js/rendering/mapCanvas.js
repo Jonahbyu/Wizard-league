@@ -91,17 +91,21 @@ function showMap(){
   const encounters = [];
 
   // Pool of zone-matching singles; fallback to any if zone has none
-  const zoneSingles = ENCOUNTER_POOL.filter(e => e.campType === zoneEl);
-  const fallbackSingles = ENCOUNTER_POOL.filter(e => e.campType !== 'Pack');
+  const zoneSingles  = ENCOUNTER_POOL.filter(e => e.campType === zoneEl);
+  const crossSingles = ENCOUNTER_POOL.filter(e => e.campType !== zoneEl);
+  const fallbackSingles = ENCOUNTER_POOL;
   const singlePool = zoneSingles.length ? zoneSingles : fallbackSingles;
 
   // Zone-matching packs
   const zonePacks = PACK_POOL.filter(p => p.element === zoneEl);
 
   for(let i = 0; i < 2; i++){
-    // 25% chance of a zone pack on first slot if available
+    // Slot 0: 25% pack, else zone enemy
+    // Slot 1: 30% cross-element wildcard to add variety
     if(i === 0 && zonePacks.length && Math.random() < 0.25){
       encounters.push(zonePacks[Math.floor(Math.random()*zonePacks.length)]);
+    } else if(i === 1 && crossSingles.length && Math.random() < 0.30){
+      encounters.push(crossSingles[Math.floor(Math.random()*crossSingles.length)]);
     } else {
       encounters.push(singlePool[Math.floor(Math.random()*singlePool.length)]);
     }

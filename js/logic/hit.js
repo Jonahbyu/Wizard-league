@@ -371,10 +371,12 @@ function performHit(attackerSide, defenderSide, pkg){
     }
 
     // ── Thorned Strikes: bonus damage per Root/Overgrowth stack ──
-    if(attackerSide==='player' && hasPassive('nature_thorned_strikes')){
+    const hasThorns = (attackerSide==='player' && hasPassive('nature_thorned_strikes')) ||
+                      (attackerSide==='enemy'  && enemyHasPassive('nature_thorned_strikes'));
+    if(hasThorns){
       const totalRoots = (status[defenderSide].rootStacks||0) + (status[defenderSide].overgrowthStacks||0);
       if(totalRoots > 0){
-        applyDirectDamage('player', defenderSide, totalRoots * 5, `🌵 Thorned Strikes (×${totalRoots})`);
+        applyDirectDamage(attackerSide, defenderSide, totalRoots * 5, `🌵 Thorned Strikes (×${totalRoots})`);
         if(combat.over) return;
       }
     }
