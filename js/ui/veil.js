@@ -1,5 +1,5 @@
 // ===== veil.js =====
-// ── The Veil — Pact of Punishment UI ─────────────────────────────────────────
+// ── The Veil UI ───────────────────────────────────────────────────────────────
 
 function openVeilPanel() {
   const panel   = document.getElementById('lobby-panel');
@@ -16,7 +16,7 @@ function _renderVeilContent(content) {
   let html = `
     <div class="lobby-panel-title">The Veil</div>
     <div style="color:#9070cc;font-size:.72rem;margin-bottom:12px;font-style:italic;">
-      Make your pact. Each burden you accept is another layer of Mist.
+      Each burden you accept is another layer of Mist.
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px;
                 background:#120020;border:1px solid #4020aa;border-radius:6px;">
@@ -24,8 +24,8 @@ function _renderVeilContent(content) {
                     color:${cfg.active?'#c080ff':'#776699'};">
         <input type="checkbox" id="veil-active-toggle" ${cfg.active?'checked':''} style="accent-color:#8040cc;width:14px;height:14px;">
         <span>${cfg.active
-          ? `<b style="color:#c080ff;">Pact Active</b> — <span style="color:#e0a0ff;">🌫 ${totalMist} Mist</span>`
-          : 'Enter the Pact of Punishment'}</span>
+          ? `<b style="color:#c080ff;">The Veil Active</b> — <span style="color:#e0a0ff;">🌫 ${totalMist} Mist</span>`
+          : 'Enter the Veil'}</span>
       </label>
     </div>
   `;
@@ -62,7 +62,7 @@ function _renderVeilContent(content) {
       <span style="font-size:.9rem;color:#c080ff;letter-spacing:.04em;">
         🌫 Total Mist: <b>${totalMist}</b>
       </span>
-      ${totalMist === 0 ? '<div style="font-size:.62rem;color:#554477;margin-top:3px;">Activate the pact to begin</div>' : ''}
+      ${totalMist === 0 ? '<div style="font-size:.62rem;color:#554477;margin-top:3px;">Activate the Veil to begin</div>' : ''}
     </div>`;
 
   content.innerHTML = html;

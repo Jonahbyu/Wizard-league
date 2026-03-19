@@ -1,6 +1,20 @@
 // ===== hit.js =====
 // ─── DAMAGE PIPELINE ─────────────────────────────────────────────────────────
 
+function _elemTalentDmgMult(element) {
+  switch(element) {
+    case 'Fire':      return player._talentFireDmgMult   || 1.0;
+    case 'Water':     return player._talentWaterDmgMult  || 1.0;
+    case 'Ice':       return player._talentIceDmgMult    || 1.0;
+    case 'Lightning': return player._talentLightDmgMult  || 1.0;
+    case 'Earth':     return player._talentEarthDmgMult  || 1.0;
+    case 'Nature':    return player._talentNatureDmgMult || 1.0;
+    case 'Plasma':    return player._talentPlasmaDmgMult || 1.0;
+    case 'Air':       return player._talentAirDmgMult    || 1.0;
+    default:          return 1.0;
+  }
+}
+
 function makeSpellCtx(attackerSide, defenderSide, spellIdx=-1){
   const temp = { deltaPower: 0 };
   return {
@@ -23,7 +37,12 @@ function makeSpellCtx(attackerSide, defenderSide, spellIdx=-1){
       if(attackerSide==='player' && typeof adj.baseDamage==='number'){
         const spell = player.spellbook[spellIdx];
         const mult = spell ? (spell.dmgMult||1.0) : 1.0;
-        adj.baseDamage = Math.round(adj.baseDamage * mult);
+        const elemMult = _elemTalentDmgMult(adj.abilityElement || (spell ? spell.element : '') || '');
+        adj.baseDamage = Math.round(adj.baseDamage * mult * elemMult);
+        // Air multi-hit talent: extra hits on multi-hit Air spells
+        if((adj.abilityElement==='Air' || (spell && spell.element==='Air')) && (adj.hits||1) > 1){
+          adj.hits = (adj.hits||1) + (player._talentAirHits||0);
+        }
       }
       if(!adj.abilityElement) adj.abilityElement = elementOfSide(attackerSide);
       performHit(attackerSide, defenderSide, adj);
@@ -56,10 +75,11 @@ function applyOutgoingDamageMods(attackerSide, defenderSide, baseDamage, meta){
     const hasOverload = (attackerSide==='player' && hasPassive('lightning_overload')) ||
                         (attackerSide==='enemy'  && enemyHasPassive('lightning_overload'));
     if(hasOverload){
-      const mult = clamp(status[attackerSide].lightningMult, 0.25, 10);
+      const overloadFloor = (attackerSide==='player') ? Math.max(0.25, player._talentOverloadFloor||0.25) : 0.25;
+      const mult = clamp(status[attackerSide].lightningMult, overloadFloor, 10);
       dmg = Math.round(dmg * mult);
       if(meta && meta.consumeLightningAmp){
-        status[attackerSide].lightningMult = Math.max(0.25, status[attackerSide].lightningMult - 0.25);
+        status[attackerSide].lightningMult = Math.max(overloadFloor, status[attackerSide].lightningMult - 0.25);
       }
     }
   }
@@ -293,6 +313,7 @@ function performHit(attackerSide, defenderSide, pkg){
     if(pkg.abilityElement==='Lightning'){
       let stacksToAdd = 1;
       if(attackerSide==='player' && hasPassive('lightning_conduction')) stacksToAdd += 1;
+      if(attackerSide==='player') stacksToAdd += (player._talentShockBonus || 0);
       if(attackerSide==='enemy'  && enemyHasPassive('lightning_conduction')) stacksToAdd += 1;
       status[defenderSide].shockPending = (status[defenderSide].shockPending||0) + stacksToAdd;
       log(`⚡ Shock +${stacksToAdd} queued`, 'status');
@@ -385,7 +406,7 @@ function performHit(attackerSide, defenderSide, pkg){
     if(defenderSide==='enemy' && attackerSide==='player' && hasPassive('ice_blast')){
       const e = combat.enemies[combat.activeEnemyIdx];
       if(e && e.alive){
-        const threshold = clamp(20 + Math.floor(effectPowerFor('player')/10), 0, 40);
+        const threshold = clamp(20 + Math.floor(effectPowerFor('player')/10) + (player._talentIceExecute||0), 0, 60);
         const pct = (e.hp / e.enemyMaxHP) * 100;
         if(pct <= threshold){
           log(`❄️ Ice Blast executes ${e.name} at ${Math.round(pct)}% HP!`, 'player');

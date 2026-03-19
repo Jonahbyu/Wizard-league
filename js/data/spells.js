@@ -202,7 +202,7 @@ const SPELL_CATALOGUE = {
     }},
 
   glacial_spike:{ id:'glacial_spike', tier:'primary', name:'Glacial Spike', emoji:'🗡️', element:'Ice', tags:['freeze'],
-    desc:'Heavy ice spike drives frost into the target', baseCooldown:2,
+    desc:'Heavy ice spike drives frost into the target', baseCooldown:3,
     execute(s){ s.hit({baseDamage:25, effects:[], abilityElement:'Ice'}); applyFrost('player','enemy',1); s.log('🗡️ Glacial Spike!','player'); }},
 
   snowstorm:{ id:'snowstorm', tier:'primary', name:'Snowstorm', emoji:'🌨️', element:'Ice', tags:['freeze'],
@@ -215,7 +215,7 @@ const SPELL_CATALOGUE = {
     execute(s){ applyFrost('player','enemy',5); s.log('❄️❄️ Flash Freeze! +5 Frost','player'); }},
 
   shatter:{ id:'shatter', tier:'secondary', name:'Shatter', emoji:'💎', element:'Ice', requiresTag:'freeze',
-    desc:'Shatter a frozen target for massive damage — or pop Frost stacks', baseCooldown:2,
+    desc:'Shatter a frozen target for massive damage — or pop Frost stacks', baseCooldown:3,
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx];
       if(e && e.status.frozen){
@@ -488,7 +488,7 @@ const SPELL_CATALOGUE = {
     execute(s){
       if(combat.summons.length>=4){ s.log('🌳 Max summons reached!','status'); return; }
       const isLegendary = hasPassive('nature_verdant_legion');
-      const hp = isLegendary ? 50 : 25;
+      const hp = (isLegendary ? 50 : 25) + (player._talentTreantHP||0);
       const dmg = isLegendary ? 15 : 5;
       combat.summons.push({name:'Treant',emoji:'🌳',hp,maxHP:hp,dmg,cd:0,rootChance:isLegendary?1.0:0.5,id:Date.now()+Math.random()});
       s.log(`🌳 A Treant rises! (${hp} HP, ${dmg} dmg)`,'player');
@@ -768,10 +768,10 @@ const SPELL_CATALOGUE = {
 
   // ════════════════════════════════ NEUTRAL ════════════════════════════════════
   power_strike:{ id:'power_strike', tier:'secondary', name:'Power Strike', emoji:'⚔️', element:'Neutral',
-    desc:'Raw powerful strike', baseCooldown:1,
+    desc:'Raw powerful strike', baseCooldown:2,
     execute(s){ s.hit({baseDamage:40, effects:[]}); s.log('⚔️ Power Strike!','player'); }},
   double_tap:{ id:'double_tap', tier:'secondary', name:'Double Tap', emoji:'👊', element:'Neutral',
-    desc:'Two rapid strikes in quick succession', baseCooldown:1,
+    desc:'Two rapid strikes in quick succession', baseCooldown:2,
     execute(s){ s.hit({baseDamage:22, effects:[], hits:2}); s.log('👊 Double Tap!','player'); }},
   shield_bash:{ id:'shield_bash', tier:'secondary', name:'Shield Bash', emoji:'🛡️', element:'Neutral',
     desc:'Stunning bash that also gives cover', baseCooldown:2,

@@ -14,7 +14,7 @@ const LOBBY_LOCATIONS = [
   { id:'talents',  label:'Talent Tree',      desc:'Spend Phos on permanent upgrades',        x:0.74, y:0.91 },
   { id:'guild',    label:'Wizard Guild',     desc:'Unlock and choose your wizard',           x:0.17, y:0.82 },
   { id:'tailor',   label:'Customize Wizard', desc:'Change your wizard\'s look',              x:0.83, y:0.82 },
-  { id:'veil',     label:'The Veil',         desc:'Make a pact — choose your burdens',       x:0.355, y:0.748 },
+  { id:'veil',     label:'The Veil',         desc:'Choose your burdens, layer your Mist',    x:0.355, y:0.748 },
 ];
 
 // Player walk state

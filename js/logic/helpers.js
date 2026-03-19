@@ -130,7 +130,9 @@ function enemyPower(){ return enemyScaledStat(); }
 function burnDmgPerStack(side){
   const legendary = (side==='player' && hasPassive('fire_roaring_heat')) ||
                     (side==='enemy'   && enemyHasPassive('fire_roaring_heat'));
-  return legendary ? 1.5 : 1.0;
+  // _talentBurnDmg: flat bonus burn damage/stack when enemy is burning (player applied it)
+  const talentBonus = (side === 'enemy') ? (player._talentBurnDmg || 0) : 0;
+  return (legendary ? 1.5 : 1.0) + talentBonus;
 }
 function totalEnemyBurnStacks(){
   return combat.enemies.reduce((s,e)=> s + (e.alive ? (e.status.burnStacks||0) : 0), 0);
@@ -218,6 +220,8 @@ function dodgeChanceFor(side){
   if(side==='player' && playerElement==='Air'){
     return Math.min(0.80, (status.player.momentumStacks||0) * 0.02);
   }
+  // Plasma Ghost Step talent: flat base dodge chance
+  if(side==='player') return Math.min(0.50, player._talentDodgeBonus || 0);
   return 0;
 }
 
@@ -287,6 +291,7 @@ function advanceToNextGym(){
 // ── Status application helpers ────────────────────────────────────────────────
 function applyFrost(attackerSide, defenderSide, stacks){
   if(attackerSide==='player' && hasPassive('ice_stay_frosty')) stacks++;
+  if(attackerSide==='player') stacks += (player._talentFrostBonus || 0);
   const s = status[defenderSide];
   s.frostStacks = (s.frostStacks||0) + stacks;
   if(s.frostStacks >= 10 && !s.frozen){
@@ -302,6 +307,7 @@ function applyFrost(attackerSide, defenderSide, stacks){
 function applyRoot(attackerSide, defenderSide, stacks){
   let total = stacks;
   if(attackerSide==='player' && hasPassive('nature_stay_rooted')) total++;
+  if(attackerSide==='player') total += (player._talentRootBonus || 0);
   status[defenderSide].rootStacks = (status[defenderSide].rootStacks||0) + total;
   log(`🌿 Root +${total} (×${status[defenderSide].rootStacks})`, 'status');
   _plasmaChargeOnDebuff(defenderSide);
@@ -431,7 +437,8 @@ function burnValueFor(){ return 1; }
 function hasPassive(id){ return (player.passives||[]).includes(id); }
 function enemyHasPassive(id){
   const e = combat.enemies[combat.activeEnemyIdx];
-  return e ? e.passive===id : false;
+  if(!e) return false;
+  return e.passive===id || (e.extraPassives||[]).includes(id);
 }
 
 function pickRandom(arr,n){

@@ -78,6 +78,7 @@ function showMap(){
   }
 
   showScreen('map-screen');
+  updateStatsUI();
 
   // ── Forced gym ──
   if(gym && gymIsForced()){
@@ -100,11 +101,12 @@ function showMap(){
   const zonePacks = PACK_POOL.filter(p => p.element === zoneEl);
 
   for(let i = 0; i < 2; i++){
-    // Slot 0: 25% pack, else zone enemy
-    // Slot 1: 30% cross-element wildcard to add variety
+    // Slot 0: 25% pack, 35% cross-element, else zone enemy
+    // Slot 1: 50% cross-element, else zone enemy
+    const crossChance = i === 0 ? 0.35 : 0.50;
     if(i === 0 && zonePacks.length && Math.random() < 0.25){
       encounters.push(zonePacks[Math.floor(Math.random()*zonePacks.length)]);
-    } else if(i === 1 && crossSingles.length && Math.random() < 0.30){
+    } else if(crossSingles.length && Math.random() < crossChance){
       encounters.push(crossSingles[Math.floor(Math.random()*crossSingles.length)]);
     } else {
       encounters.push(singlePool[Math.floor(Math.random()*singlePool.length)]);
@@ -115,8 +117,8 @@ function showMap(){
   const specials = [];
   if(gym && gymShouldAppear()) specials.push({ type:'gym', enc:{} });
 
-  // Rival timing: battle 6 in first gym, battle 4 in all others
-  const rivalSlot = currentGymIdx === 0 ? 6 : 4;
+  // Rival timing: battle 8 in first gym (zone 1 is longer), battle 6 in all others
+  const rivalSlot = currentGymIdx === 0 ? 8 : 6;
   if(zoneBattleCount === rivalSlot && !_zoneRivalDefeated) specials.push({ type:'rival', enc:{} });
 
   // Campfire / shop: replace ONE encounter slot (keeps total at 2 unless gym present)
@@ -125,6 +127,11 @@ function showMap(){
     // Replace the first encounter slot with the special
     encounters[0] = { _specialType: zoneSpecial, _isSpecial: true };
   }
+
+  // Determine reward tier for the NEXT battle slot (after zoneBattleCount increments)
+  const nextSlot = zoneBattleCount + 1;
+  const nextReward = getZoneRewardType(nextSlot, currentGymIdx);
+  const isMajorBattle = (nextReward === 'major');
 
   // Tag second encounter as spell reward battle when applicable
   const isSpellTurn = (battleNumber % SPELL_REWARD_EVERY === 0);
@@ -136,6 +143,18 @@ function showMap(){
         enemyDmg:   Math.round((encounters[spellIdx].enemyDmg   ||  15) * 1.2) };
     }
   }
+
+  // Tag major-reward battles — tougher enemies, bigger indicator on card
+  if (isMajorBattle) {
+    encounters.forEach((enc, i) => {
+      if (!enc._isSpecial && !enc._isSpellBattle) {
+        encounters[i] = { ...enc, _isMajorBattle: true,
+          enemyMaxHP: Math.round((enc.enemyMaxHP || 100) * 1.20),
+          enemyDmg:   Math.round((enc.enemyDmg   ||  15) * 1.12) };
+      }
+    });
+  }
+
   _buildAndShowCanvas(encounters, specials);
 }
 
@@ -146,8 +165,8 @@ let _zoneShopBattle     = -1;
 let _zoneCampfireBattle = -1;
 
 function initZoneSpecial(){
-  // Both appear at battle 5 or later, separated by at least 2 battles
-  const latest = Math.max(7, GYM_ZONE_FORCE - 2);
+  // Both appear at battle 5 or later, separated by at least 2 battles (zone is 14 battles)
+  const latest = Math.max(9, GYM_ZONE_FORCE - 3);
   const earlyPos = 5 + Math.floor(Math.random() * 2);           // 5 or 6
   const latePos  = earlyPos + 2 + Math.floor(Math.random() * 2); // 2-3 after early
   const clampedLate = Math.min(latePos, latest);
@@ -213,19 +232,28 @@ function makeCombatCard(enc){
     const meta=CAMP_META['Pack'];
     const totalHP=enc.members.reduce((s,m)=>s+m.enemyMaxHP,0);
     const maxDmg=enc.members.reduce((s,m)=>Math.max(s,m.enemyDmg),0);
-    const packReward = enc._isSpellBattle ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>' : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
+    const packReward = enc._isSpellBattle
+      ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>'
+      : enc._isMajorBattle
+        ? '<div class="enc-reward-tag" style="color:#e8c060;">★ MAJOR</div>'
+        : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
     const packHat = elemHatSVG(enc.element||'Neutral', 20);
     card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${packHat} ${enc.packName}</div><div class="enc-desc" style="color:${meta.color};opacity:.7;">${enc.members.length} wizards · HP:${totalHP} · Dmg:${maxDmg}</div>${zoneLine}</div><div class="enc-right">${packReward}<div class="enc-stats">Gold:${enc.gold}</div></div>`;
     card.onclick=()=>loadBattle(enc);
   } else {
     const meta=CAMP_META[enc.campType]||{color:enc.color||'#888',icon:'⚔',label:enc.campType};
-    // Determine what reward this battle will give based on when it's fought
-    const nextBattle = battleNumber + (enc._isSpellBattle ? 0 : 0);
     const isSpellBattle = enc._isSpellBattle || false;
-    const rewardTag  = isSpellBattle
+    const isMajor = enc._isMajorBattle || false;
+    const rewardTag = isSpellBattle
       ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>'
-      : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
-    const enemyNote  = isSpellBattle ? `<span style="color:#6a4a80;font-size:.58rem;"> · ⚠ Elite</span>` : '';
+      : isMajor
+        ? '<div class="enc-reward-tag" style="color:#e8c060;">★ MAJOR</div>'
+        : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
+    const enemyNote = isSpellBattle
+      ? `<span style="color:#6a4a80;font-size:.58rem;"> · ⚠ Elite</span>`
+      : isMajor
+        ? `<span style="color:#7a6a20;font-size:.58rem;"> · ★ Major</span>`
+        : '';
     const hatIcon = elemHatSVG(enc.element||'Neutral', 20);
     card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${meta.icon} ${meta.label}</div><div class="enc-desc" style="color:#777;display:flex;align-items:center;gap:5px;">${hatIcon}<span style="color:${meta.color};font-family:'Cinzel',serif;font-size:.72rem;">${enc.name}</span><span style="color:#555;"> · HP:${enc.enemyMaxHP} · Dmg:${enc.enemyDmg}/turn${enemyNote}</span></div>${zoneLine}</div><div class="enc-right">${rewardTag}<div class="enc-stats">Gold:${enc.gold}</div></div>`;
     card.onclick=()=>loadBattle(enc);

@@ -80,7 +80,7 @@ function renderEnemyCards(){
     if(s.frostStacks>0)      row.appendChild(tag(`❄️${s.frostStacks}`,'tag-stun',`Frost ×${s.frostStacks} — -${s.frostStacks} ATK/Armor`));
     if(s.stoneStacks>0)      row.appendChild(tag(`🪨${s.stoneStacks}`,'tag-block',`Stone ×${s.stoneStacks} — +${s.stoneStacks*3} ATK, +${s.stoneStacks*2} Armor`));
     // Mist HP bonus: undispellable indicator
-    if(_mistHPPct > 0){ const t=tag(`🌫+${_mistHPPct}%HP`,'tag-block',`Mist — Veil pact grants this enemy +${_mistHPPct}% max HP (cannot be removed)`); t.style.opacity='.7'; row.appendChild(t); }
+    if(_mistHPPct > 0){ const t=tag(`🌫+${_mistHPPct}%HP`,'tag-block',`Mist — The Veil grants this enemy +${_mistHPPct}% max HP (cannot be removed)`); t.style.opacity='.7'; row.appendChild(t); }
   });
 
   renderBattlefield();

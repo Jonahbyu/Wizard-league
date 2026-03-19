@@ -6,17 +6,17 @@ const MIST_MODIFIERS = [
     id: 'enemy_damage',
     label: 'Relentless Aggression',
     emoji: '⚔',
-    desc: t => `Enemy damage +${[15,30,50][t-1]}%`,
-    tiers: 3,
-    mistCost: [1, 2, 3],
+    desc: t => `Enemy damage +${[15,30,50,75][t-1]}%`,
+    tiers: 4,
+    mistCost: [1, 2, 3, 4],
   },
   {
     id: 'enemy_hp',
     label: 'Fortified Enemies',
     emoji: '🛡',
-    desc: t => `Enemy HP +${[15,30,50][t-1]}%`,
-    tiers: 3,
-    mistCost: [1, 2, 3],
+    desc: t => `Enemy HP +${[15,30,50,75][t-1]}%`,
+    tiers: 4,
+    mistCost: [1, 2, 3, 4],
   },
   {
     id: 'enemy_passives',
@@ -105,10 +105,10 @@ function applyMistModifiers() {
   if (!cfg.active) return;
 
   const dmg = getMistTier('enemy_damage');
-  if (dmg > 0) player._mistEnemyDmgMult = [1.15, 1.30, 1.50][dmg - 1];
+  if (dmg > 0) player._mistEnemyDmgMult = [1.15, 1.30, 1.50, 1.75][dmg - 1];
 
   const hp = getMistTier('enemy_hp');
-  if (hp > 0) player._mistEnemyHPMult = [1.15, 1.30, 1.50][hp - 1];
+  if (hp > 0) player._mistEnemyHPMult = [1.15, 1.30, 1.50, 1.75][hp - 1];
 
   const pass = getMistTier('enemy_passives');
   if (pass > 0) player._mistExtraPassives = pass;

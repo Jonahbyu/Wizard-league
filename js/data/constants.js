@@ -13,8 +13,8 @@ const CAMPFIRE_HEAL    = 0.5;
 const CAMPFIRE_CHANCE  = 0.25;
 const SHOP_CHANCE      = 0.15;
 const ITEM_DROP_CHANCE = 0.30;
-const GYM_ZONE_OPEN   = 7;    // gym card appears as option after this many zone battles
-const GYM_ZONE_FORCE  = 12;   // gym is forced at this count
+const GYM_ZONE_OPEN   = 11;   // gym card appears as option after this many zone battles
+const GYM_ZONE_FORCE  = 14;   // gym is forced at this count
 const GYM_SKIP_BONUS  = 20;   // +20 HP per skip
 const XP_PER_LEVEL     = 100;
 

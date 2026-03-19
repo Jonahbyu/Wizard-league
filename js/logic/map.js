@@ -374,9 +374,9 @@ function renderRunInfo(){
   section('Stats',
     row('Element', `${playerEmoji} ${playerElement}`) +
     row('HP', `${Math.max(0,player.hp)} / ${maxHP}`) +
-    row('Attack Power', player.atkStat ?? player.power) +
-    row('Effect Power', player.efxStat ?? player.power) +
-    row('Defense', player.defStat ?? 0) +
+    row('Attack Power', player.attackPower) +
+    row('Effect Power', player.effectPower) +
+    row('Defense', player.defense) +
     row('Gold', player.gold) +
     row('Lives', player.revives) +
     (player.bonusActions ? row('Bonus Actions', `+${player.bonusActions}`) : '')
@@ -438,6 +438,34 @@ function renderRunInfo(){
     row('Battle #', battleNumber) +
     row('Gym defeated', gymDefeated ? 'Yes ✦' : 'Not yet')
   );
+
+  // ── Status Effects Reference
+  const STATUS_DEFS = [
+    { emoji:'🔥', name:'Burn',       color:'#c06030', desc:'Deals 1 damage per stack at the start of each turn. Stacks accumulate; decays over time.' },
+    { emoji:'❄️', name:'Frost',      color:'#60a0cc', desc:'-1 ATK, -1 EFX, -1 Armor per stack. At 10 stacks: Frozen (stunned for 1 turn). Decays 1/turn.' },
+    { emoji:'🧊', name:'Frozen',     color:'#a0e0ff', desc:'Stunned for 1 turn. Triggered by reaching 10 Frost stacks. Ice hits deal double damage while frozen.' },
+    { emoji:'🌿', name:'Root',       color:'#3a8a3a', desc:`+${ROOT_POWER_PER_STACK} bonus damage taken from attacks per stack. Enemy cannot dodge. Stacks accumulate.` },
+    { emoji:'🌿G', name:'Overgrowth',color:'#50a050', desc:`Enhanced root. +${ROOT_POWER_PER_STACK} bonus damage per stack. Applied by Nature zone/abilities.` },
+    { emoji:'🫧', name:'Foam',       color:'#4080a0', desc:'-10% ATK & EFX per stack. -5 Armor per stack. Applied by Water enemies.' },
+    { emoji:'⚡', name:'Shock',      color:'#c0c020', desc:'Reduces outgoing damage by 5% per stack. Applied by Lightning enemies and abilities.' },
+    { emoji:'🛡', name:'Armor/Block',color:'#a08060', desc:'Absorbs incoming damage before HP. Gained from spells, Earth abilities, Defense stat, and campfire.' },
+    { emoji:'🪨', name:'Stone',      color:'#8a7a5a', desc:'+3 ATK and +2 Armor per stack. Decays 25% each turn. Gained from Earth abilities.' },
+    { emoji:'🔮', name:'Phase',      color:'#9060cc', desc:'Complete damage immunity for the duration. Expires each turn.' },
+    { emoji:'💨', name:'Momentum',   color:'#60a0cc', desc:'(Air only) +1 ATK and +2% dodge per stack. Decays each turn unless refreshed.' },
+    { emoji:'⏳', name:'Borrowed Charge', color:'#cc8040', desc:'(Plasma) Charge debt — must repay before next cast. Causes self-damage if unpaid.' },
+    { emoji:'✦',  name:'Overcharged',color:'#c080ff', desc:'(Plasma) Next plasma cast gains bonus power. Consumed on cast.' },
+  ];
+  let statusHtml = '';
+  STATUS_DEFS.forEach(d => {
+    statusHtml += `<div style="padding:.22rem 0;border-bottom:1px solid #111;">
+      <div style="display:flex;gap:5px;align-items:center;">
+        <span style="color:${d.color};font-size:.75rem;">${d.emoji}</span>
+        <span style="color:${d.color};font-family:'Cinzel',serif;font-size:.68rem;">${d.name}</span>
+      </div>
+      <div style="color:#555;font-size:.6rem;margin-top:.1rem;line-height:1.4;">${d.desc}</div>
+    </div>`;
+  });
+  section('Status Effects', statusHtml);
 }
 
 // ── Global Background Canvas ─────────────────────────────────────────────────
