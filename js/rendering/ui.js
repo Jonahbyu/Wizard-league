@@ -49,16 +49,45 @@ function renderEnemyCards(){
       };
     }
 
-    const passiveName = e.passive
-      ? (PASSIVE_CHOICES[primaryElement(e.element||'')]||[]).find(p=>p.id===e.passive)?.title||''
-      : '';
+    // Build passive list: primary + extra passives
+    const el = primaryElement(e.element||'');
+    const passivePool = PASSIVE_CHOICES[el]||[];
+    const allPassiveIds = [e.passive, ...(e.extraPassives||[])].filter(Boolean);
+    const passiveLabels = allPassiveIds.map(id => passivePool.find(p=>p.id===id)?.title||id);
+
+    // Build intent HTML
+    let intentHtml = '';
+    if(e.alive && e.intentQueue && e.intentQueue.length > 0){
+      intentHtml = `<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">`;
+      e.intentQueue.forEach((intent, ii) => {
+        if(intent.hidden){
+          intentHtml += `<div style="font-size:.55rem;color:#554466;font-family:'Cinzel',serif;
+            background:#110022;border:1px solid #2a1040;border-radius:3px;padding:2px 5px;">
+            ${ii===0?'▶':'·'} <span style="letter-spacing:.06em;">???</span>
+          </div>`;
+        } else {
+          const isCurrent = ii === 0;
+          const isCharge = intent.label.includes('⚡');
+          const color = isCharge ? '#ffcc44' : isCurrent ? '#e0c0ff' : '#886aa0';
+          const bg = isCharge ? '#2a1800' : isCurrent ? '#1a0030' : '#0e0018';
+          const border = isCharge ? '#aa7700' : isCurrent ? '#7040cc' : '#2a1040';
+          intentHtml += `<div style="font-size:.55rem;color:${color};font-family:'Cinzel',serif;
+            background:${bg};border:1px solid ${border};border-radius:3px;padding:2px 5px;
+            ${isCurrent?'font-weight:bold;':'opacity:.75;'}">
+            ${isCurrent?'▶':'·'} ${intent.label}
+          </div>`;
+        }
+      });
+      intentHtml += `</div>`;
+    }
 
     card.innerHTML = `
       <div class="arena-hud-name" style="display:flex;align-items:center;gap:4px;">${elemHatSVG(e.element||'Neutral',14)} <span>${e.name}</span></div>
       <div class="arena-hud-hp-wrap"><div class="arena-hud-hp-fill" style="width:${pct}%;background:${hpColor(pct)}"></div></div>
       <div class="arena-hud-hp-text">${e.hp}/${e.enemyMaxHP}</div>
+      ${passiveLabels.length > 0 ? `<div style="font-size:.42rem;color:#7a5a30;font-family:'Cinzel',serif;margin-top:1px;">${passiveLabels.map(l=>'✦ '+l).join(' ')}</div>` : ''}
       <div class="arena-hud-status" id="estatus-${i}"></div>
-      ${passiveName ? `<div style="font-size:.42rem;color:#4a3a18;font-family:'Cinzel',serif;">${passiveName}</div>` : ''}
+      ${intentHtml}
     `;
     hud.appendChild(card);
   });

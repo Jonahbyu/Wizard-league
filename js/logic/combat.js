@@ -501,6 +501,9 @@ function commitEndTurn(){
     return buildEnemyQueueFor(i, actions);
   });
 
+  // Show enemy intents before resolution
+  renderEnemyCards();
+
   // Priority sort among non-Plasma participants
   const participants = [];
   if(normalPlayerActions.length > 0)
@@ -575,26 +578,42 @@ function resolveFlat(flatActions, idx){
     const eIdx = p.idx;
     if(!combat.enemies[eIdx]||!combat.enemies[eIdx].alive){ next(); return; }
     setActiveEnemy(eIdx);
-    if(combat.enemies[eIdx].status.stunned > 0){
-      combat.enemies[eIdx].status.stunned--;
-      log(combat.enemies[eIdx].emoji + ' ' + combat.enemies[eIdx].name + ' is stunned!', 'status');
+    // Remove the fired intent from the queue so remaining ones stay visible
+    const enemy = combat.enemies[eIdx];
+    if(enemy.intentQueue && enemy.intentQueue.length > 0) enemy.intentQueue.shift();
+    if(enemy.status.stunned > 0){
+      enemy.status.stunned--;
+      log(enemy.emoji + ' ' + enemy.name + ' is stunned!', 'status');
       renderStatusTags();
     } else {
       action.fn();
       updateHPBars(); renderStatusTags();
     }
+    renderEnemyCards();
     next();
   }
+}
+
+// Returns true if this intent should be hidden by the Hidden Intentions mist modifier
+function _intentHidden(){
+  const tier = getMistTier('hidden_intentions');
+  if(!tier) return false;
+  const chance = [0.25, 0.50, 0.75, 1.00][tier - 1];
+  return Math.random() < chance;
 }
 
 function buildEnemyQueueFor(idx, count){
   const e=combat.enemies[idx];
   const q=[];
 
+  // Clear previous intent
+  e.intentQueue = [];
+
   // Target dummy: never attacks, just stands still
   if(e.isTargetDummy){
     for(let j=0;j<count;j++){
-      q.push({label:'Stand Still', fn:()=>{ log('🎯 '+e.name+' stands still.','enemy'); }});
+      q.push({label:'Stand Still', intentIdx:j, fn:()=>{ log('🎯 '+e.name+' stands still.','enemy'); }});
+      e.intentQueue.push({label:'Stand Still', hidden:false});
     }
     return q;
   }
@@ -610,11 +629,10 @@ function buildEnemyQueueFor(idx, count){
         if(!gymE.gymPhase2 && gymE.hp <= gymE.enemyMaxHP * 0.5){
           gymE.gymPhase2 = true;
           gymE.enemyDmg = gymE.gymPhase2Dmg;
-          if(gymE.gymPhase2Passive && gymE.gymPhase2Passive !== gymE.passive){
-            gymE.passive = gymE.gymPhase2Passive;
-          }
-          q.push({label:'Rage', fn:()=>{
-            log('💢 ' + gymE.name + ' ENRAGES! ' + (gymE.gymPhase2Passive ? '(' + gymE.gymPhase2Passive + ' activated)' : 'Damage surges!'), 'enemy');
+          const intentEntry = {label:'💢 Enrage', hidden:false};
+          e.intentQueue.push(intentEntry);
+          q.push({label:'💢 Enrage', intentIdx:e.intentQueue.length-1, fn:()=>{
+            log('💢 ' + gymE.name + ' ENRAGES! Damage surges!', 'enemy');
             gymE.hp = Math.min(gymE.enemyMaxHP, (gymE.hp||0)+40);
             renderEnemyCards();
           }});
@@ -623,7 +641,10 @@ function buildEnemyQueueFor(idx, count){
         }
         gymE.gymHitCounter = (gymE.gymHitCounter||0) + 1;
         const isCharge = gymE.gymChargeInterval && (gymE.gymHitCounter % gymE.gymChargeInterval === 0);
-        q.push({label: isCharge ? '⚡ Charge' : 'Attack', fn:()=>{
+        const chargeLabel = isCharge ? '⚡ Charge' : '⚔ Attack';
+        const intentEntry = {label:chargeLabel, hidden:_intentHidden()};
+        e.intentQueue.push(intentEntry);
+        q.push({label:chargeLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
           setActiveEnemy(snapIdx);
           const gem = combat.enemies[snapIdx];
           const dmg = isCharge ? Math.round(gem.enemyDmg * 2.5) : gem.enemyDmg;
@@ -638,7 +659,10 @@ function buildEnemyQueueFor(idx, count){
         if(ability){
           ability.cd = ability.baseCd;
           const snapAbility = ability;
-          q.push({label: snapAbility.emoji+' '+snapAbility.name, fn:()=>{
+          const abilLabel = snapAbility.emoji+' '+snapAbility.name;
+          const intentEntry = {label:abilLabel, hidden:_intentHidden()};
+          e.intentQueue.push(intentEntry);
+          q.push({label:abilLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
             if(combat.over) return;
             if(!combat.enemies[snapIdx].alive) return;
             setActiveEnemy(snapIdx);
@@ -647,7 +671,9 @@ function buildEnemyQueueFor(idx, count){
           }});
         } else {
           // Basic attack
-          q.push({label:'Attack', fn:()=>{
+          const intentEntry = {label:'⚔ Attack', hidden:_intentHidden()};
+          e.intentQueue.push(intentEntry);
+          q.push({label:'⚔ Attack', intentIdx:e.intentQueue.length-1, fn:()=>{
             setActiveEnemy(snapIdx);
             const e2 = combat.enemies[snapIdx];
             const el = primaryElement(e2.element||'');
@@ -664,7 +690,9 @@ function buildEnemyQueueFor(idx, count){
       cd=1+cdPenalty;
     } else {
       const snapIdx=idx;
-      q.push({label:'Wait', fn:()=>{ log(combat.enemies[snapIdx].emoji + ' ' + combat.enemies[snapIdx].name + ' waits.', 'enemy'); }});
+      const intentEntry = {label:'⏳ Wait', hidden:false};
+      e.intentQueue.push(intentEntry);
+      q.push({label:'⏳ Wait', intentIdx:e.intentQueue.length-1, fn:()=>{ log(combat.enemies[snapIdx].emoji + ' ' + combat.enemies[snapIdx].name + ' waits.', 'enemy'); }});
       cd--;
     }
   }

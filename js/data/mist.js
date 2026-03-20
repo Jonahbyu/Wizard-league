@@ -66,6 +66,14 @@ const MIST_MODIFIERS = [
     tiers: 2,
     mistCost: [3, 4],
   },
+  {
+    id: 'hidden_intentions',
+    label: 'Veiled Intentions',
+    emoji: '🎭',
+    desc: t => `${[25,50,75,100][t-1]}% chance each enemy action is hidden`,
+    tiers: 4,
+    mistCost: [1, 2, 3, 4],
+  },
 ];
 
 function getMistConfig() {
@@ -127,4 +135,6 @@ function applyMistModifiers() {
 
   const boss = getMistTier('boss_legendaries');
   if (boss > 0) player._mistBossLegendaries = boss;
+
+  // hidden_intentions is read live via getMistTier() in _intentHidden() — no player prop needed
 }
