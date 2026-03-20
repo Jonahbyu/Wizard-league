@@ -90,6 +90,7 @@ function _applyBookAuraToPlayer(book) {
   if (atk !== 0) player.attackPower += atk;
   if (def !== 0) player.defense     += def;
   if (efx !== 0) player.effectPower += efx;
+  player._mutualEnemyAura = aura.mutualAura ? { atk, def, efx } : null;
   player._activeBookAura = { atk, def, efx, catalogueId: book.catalogueId };
 }
 
@@ -99,6 +100,7 @@ function _removeBookAuraFromPlayer() {
   player.attackPower -= (player._activeBookAura.atk || 0);
   player.defense     -= (player._activeBookAura.def || 0);
   player.effectPower -= (player._activeBookAura.efx || 0);
+  player._mutualEnemyAura = null;
   player._activeBookAura = null;
 }
 

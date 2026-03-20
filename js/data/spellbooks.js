@@ -121,19 +121,19 @@ const SPELLBOOK_CATALOGUE = {
   earth_ledger: {
     id:'earth_ledger', name:'Earthen Ledger', emoji:'📗',
     rarity:'element', element:'Earth',
-    desc:'Strong Defense aura. Each spell cast grants Block.',
-    negative:'Spells deal less damage (−8 effective ATK from aura).',
+    desc:'Defense aura for both sides. Each spell cast grants Block.',
+    negative:'Aura buffs enemies too. Spells deal less damage (−8 ATK).',
     freeSwitch:false, stickySwitch:false,
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[15,25,40,60],
     levelDescs:[
-      '+5 DEF aura. +1 Block per spell. −8 ATK.',
-      '+8 DEF aura. +2 Block per spell. −8 ATK.',
-      '+12 DEF aura. +3 Block per spell. −8 ATK.',
-      '+15 DEF aura. +4 Block per spell. −8 ATK.',
-      '+20 DEF aura. +5 Block per spell. −8 ATK.',
+      '+3 DEF aura (both sides). +1 Block per spell. −8 ATK.',
+      '+4 DEF aura (both sides). +2 Block per spell. −8 ATK.',
+      '+6 DEF aura (both sides). +3 Block per spell. −8 ATK.',
+      '+8 DEF aura (both sides). +4 Block per spell. −8 ATK.',
+      '+10 DEF aura (both sides). +5 Block per spell. −8 ATK.',
     ],
-    aura(lvl){ return {atk:-8, def:[5,8,12,15,20][lvl]||5, efx:0}; },
+    aura(lvl){ return {atk:-8, def:[3,4,6,8,10][lvl]||3, efx:0, mutualAura:true}; },
     onSpellExecute(spell,lvl){
       if(spell.isBuiltin) return;
       const block=[1,2,3,4,5][lvl]||1;
@@ -152,16 +152,16 @@ const SPELLBOOK_CATALOGUE = {
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[15,25,40,60],
     levelDescs:[
-      'Regen 3 HP per turn. −5 ATK aura.',
-      'Regen 5 HP per turn. −5 ATK aura.',
+      'Regen 4 HP per turn. −5 ATK aura.',
       'Regen 7 HP per turn. −5 ATK aura.',
-      'Regen 10 HP per turn. +5 EFX aura. −5 ATK.',
-      'Regen 14 HP per turn. +8 EFX aura. −5 ATK.',
+      'Regen 10 HP per turn. −5 ATK aura.',
+      'Regen 14 HP per turn. +5 EFX aura. −5 ATK.',
+      'Regen 20 HP per turn. +8 EFX aura. −5 ATK.',
     ],
     aura(lvl){ return {atk:-5, def:0, efx:[0,0,0,5,8][lvl]||0}; },
     onSpellExecute(spell,lvl){},
     onTurnStart(lvl){
-      const regen=[3,5,7,10,14][lvl]||3;
+      const regen=[4,7,10,14,20][lvl]||4;
       _bookHeal(regen,'📔 Verdant Regen');
     },
     onSwitchTo(lvl){},
@@ -364,21 +364,27 @@ const SPELLBOOK_CATALOGUE = {
   tome_of_time: {
     id:'tome_of_time', name:'Tome of Time', emoji:'⏳',
     rarity:'legendary', element:null,
-    desc:'All spells in this book have −1 effective cooldown.',
+    desc:'Every few turns, all spells in this book have their CD reduced by 1.',
     negative:'Switching AWAY from this book costs +1 extra action.',
     freeSwitch:false, stickySwitch:true,
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[40,70,110,160],
     levelDescs:[
-      '−1 Spell CD (min 1). Sticky: switch-away costs +1 action.',
-      '−1 Spell CD. +5 ATK aura. Sticky.',
-      '−1 Spell CD. +8 ATK aura. Sticky.',
-      '−1 Spell CD. +12 ATK aura. Sticky.',
-      '−2 Spell CD (min 0). +16 ATK aura. Sticky.',
+      '−1 CD every 3 turns. Sticky: switch-away costs +1 action.',
+      '−1 CD every 3 turns. +5 ATK aura. Sticky.',
+      '−1 CD every 2 turns. +8 ATK aura. Sticky.',
+      '−1 CD every 2 turns. +12 ATK aura. Sticky.',
+      '−1 CD every turn. +16 ATK aura. Sticky.',
     ],
-    aura(lvl){ return {atk:[0,5,8,12,16][lvl]||0, def:0, efx:0, cdBonus:lvl>=4?-2:-1}; },
-    onSpellExecute(spell,lvl){
-      // CD reduction applied in _applyBookSpellEffect via aura.cdBonus
+    aura(lvl){ return {atk:[0,5,8,12,16][lvl]||0, def:0, efx:0}; },
+    onSpellExecute(spell,lvl){},
+    onTurnStart(lvl){
+      const interval = [3,3,2,2,1][lvl]||3;
+      if(combat.turnInBattle > 0 && combat.turnInBattle % interval === 0){
+        const book = activeBook();
+        if(book) book.spells.forEach(s=>{ if((s.currentCD||0)>0) s.currentCD = Math.max(0, s.currentCD-1); });
+        log('⏳ Tome of Time: all spell CDs −1', 'status');
+      }
     },
     onSwitchTo(lvl){},
     onSwitchAway(lvl){},
@@ -410,19 +416,19 @@ const SPELLBOOK_CATALOGUE = {
   soul_codex: {
     id:'soul_codex', name:'Soul Codex', emoji:'👁',
     rarity:'legendary', element:null,
-    desc:'Spells cost HP but deal greatly increased damage.',
-    negative:'Each non-builtin spell costs HP to cast.',
+    desc:'Massive ATK aura for both sides. Spells cost HP.',
+    negative:'ATK aura buffs enemies too. Each non-builtin spell costs HP.',
     freeSwitch:false, stickySwitch:false,
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[40,70,110,160],
     levelDescs:[
-      'Each spell: −5 HP, +20 ATK aura.',
-      'Each spell: −5 HP, +25 ATK aura.',
-      'Each spell: −4 HP, +30 ATK aura.',
-      'Each spell: −4 HP, +35 ATK aura.',
-      'Each spell: −3 HP, +40 ATK aura.',
+      'Each spell: −5 HP, +20 ATK aura (both sides).',
+      'Each spell: −5 HP, +25 ATK aura (both sides).',
+      'Each spell: −4 HP, +30 ATK aura (both sides).',
+      'Each spell: −4 HP, +35 ATK aura (both sides).',
+      'Each spell: −3 HP, +40 ATK aura (both sides).',
     ],
-    aura(lvl){ return {atk:[20,25,30,35,40][lvl]||20, def:0, efx:0}; },
+    aura(lvl){ return {atk:[20,25,30,35,40][lvl]||20, def:0, efx:0, mutualAura:true}; },
     onSpellExecute(spell,lvl){
       if(spell.isBuiltin) return;
       const cost=[5,5,4,4,3][lvl]||5;

@@ -99,6 +99,9 @@ function attackPowerFor(side, targetSide){
   // Enemy AP reduced by player's Defense
   if(side==='enemy') pow -= defenseFor('player');
 
+  // Mutual book aura (Soul Codex etc.) — enemy shares ATK aura
+  if(side==='enemy') pow += (player._mutualEnemyAura ? (player._mutualEnemyAura.atk||0) : 0);
+
   return Math.max(0, pow);
 }
 
@@ -116,6 +119,9 @@ function effectPowerFor(side){
   // Enemy EFX reduced by player's Defense
   if(side==='enemy') pow -= defenseFor('player');
 
+  // Mutual book aura — enemy shares EFX aura
+  if(side==='enemy') pow += (player._mutualEnemyAura ? (player._mutualEnemyAura.efx||0) : 0);
+
   return Math.max(0, pow);
 }
 
@@ -126,6 +132,9 @@ function defenseFor(side){
 
   // Frost weakens defense too
   def -= Math.floor((s.frostStacks||0) * 0.5);
+
+  // Mutual book aura — enemy shares DEF aura
+  if(side==='enemy') def += (player._mutualEnemyAura ? (player._mutualEnemyAura.def||0) : 0);
 
   return Math.max(0, def);
 }
@@ -152,7 +161,7 @@ function effectiveArmor(side){
   const sm = s.stoneStanceThisTurn ? 2 : 1;
   armor += Math.floor(s.stoneStacks||0) * 2 * sm;   // Stone: +2 block/stack
   armor -= Math.floor(s.frostStacks||0);   // Frost: -1 armor/stack (integer part only)
-  armor -= Math.floor(s.foamStacks||0) * 5; // Foam: -5 armor/stack (integer part only)
+  armor -= Math.floor((s.foamStacks||0) * 1.5); // Foam: -1.5 armor/stack
   return armor; // can be negative (negative = bonus dmg to attacker)
 }
 

@@ -108,7 +108,7 @@ const TALENT_TREE = {
   Fire: {
     label: '🔥 Fire',
     nodes: [
-      { id:'fire_burn_dmg',   name:'Hotter Burns',   emoji:'🔥', desc:'+1 base burn damage per level.',  maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._talentBurnDmg = (player._talentBurnDmg||0) + lvl; } },
+      { id:'fire_burn_dmg',   name:'Hotter Burns',   emoji:'🔥', desc:'+0.1 bonus burn damage per stack per level (max +0.5).', maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._talentBurnDmg = lvl * 0.1; } },
       { id:'fire_burn_stacks',name:'Kindling',       emoji:'🪵', desc:'Start with +2 burn stacks on enemy per level.', maxLevel:3, cost: lvl => lvl * 4, apply(lvl){ player._talentBurnStart = (player._talentBurnStart||0) + lvl * 2; } },
       { id:'fire_spell_dmg',  name:'Pyroclasm',      emoji:'💥', desc:'+5% fire spell damage per level.', maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentFireDmgMult = (player._talentFireDmgMult||1.0) + lvl * 0.05; } },
     ],
@@ -124,7 +124,7 @@ const TALENT_TREE = {
   Ice: {
     label: '❄️ Ice',
     nodes: [
-      { id:'ice_frost_stacks',name:'Deep Freeze',    emoji:'❄️', desc:'+1 frost stack applied per ability per level.', maxLevel:4, cost: lvl => lvl * 3, apply(lvl){ player._talentFrostBonus = (player._talentFrostBonus||0) + lvl; } },
+      { id:'ice_frost_stacks',name:'Deep Freeze',    emoji:'❄️', desc:'+0.5 frost stack applied per ability per level (max +1.5).', maxLevel:3, cost: lvl => lvl * 3, apply(lvl){ player._talentFrostBonus = lvl * 0.5; } },
       { id:'ice_execute',     name:'Brittle',        emoji:'🧊', desc:'+2% execute threshold per level.', maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._talentIceExecute = (player._talentIceExecute||0) + lvl * 2; } },
       { id:'ice_spell_dmg',   name:'Glacier',        emoji:'🏔️', desc:'+5% ice spell damage per level.',  maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentIceDmgMult = (player._talentIceDmgMult||1.0) + lvl * 0.05; } },
     ],
@@ -132,7 +132,7 @@ const TALENT_TREE = {
   Lightning: {
     label: '⚡ Lightning',
     nodes: [
-      { id:'lightning_shock', name:'Conductor',      emoji:'⚡', desc:'+1 shock stack per hit per level.',maxLevel:4, cost: lvl => lvl * 3, apply(lvl){ player._talentShockBonus = (player._talentShockBonus||0) + lvl; } },
+      { id:'lightning_shock', name:'Conductor',      emoji:'⚡', desc:'+0.5 shock stack per hit per level (max +1.5).',maxLevel:3, cost: lvl => lvl * 3, apply(lvl){ player._talentShockBonus = lvl * 0.5; } },
       { id:'lightning_overload_floor','name':'Surge', emoji:'💥', desc:'Overload damage floor +10% per level (min 25%).', maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentOverloadFloor = (player._talentOverloadFloor||0.25) + lvl * 0.10; } },
       { id:'lightning_spell_dmg','name':'Voltage',   emoji:'🔌', desc:'+5% lightning spell damage per level.', maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentLightDmgMult = (player._talentLightDmgMult||1.0) + lvl * 0.05; } },
     ],
@@ -148,7 +148,7 @@ const TALENT_TREE = {
   Nature: {
     label: '🌿 Nature',
     nodes: [
-      { id:'nature_root',     name:'Deep Roots',     emoji:'🌿', desc:'+1 root stack on root proc per level.', maxLevel:4, cost: lvl => lvl * 3, apply(lvl){ player._talentRootBonus = (player._talentRootBonus||0) + lvl; } },
+      { id:'nature_root',     name:'Deep Roots',     emoji:'🌿', desc:'+0.5 root stack on root proc per level (max +1.5).', maxLevel:3, cost: lvl => lvl * 3, apply(lvl){ player._talentRootBonus = lvl * 0.5; } },
       { id:'nature_treant',   name:'Ancient Grove',  emoji:'🌳', desc:'Treants start with +15 HP per level.', maxLevel:4, cost: lvl => lvl * 3, apply(lvl){ player._talentTreantHP = (player._talentTreantHP||0) + lvl * 15; } },
       { id:'nature_spell_dmg','name':'Verdant',      emoji:'🌱', desc:'+5% nature spell damage per level.',maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentNatureDmgMult = (player._talentNatureDmgMult||1.0) + lvl * 0.05; } },
     ],
@@ -164,7 +164,7 @@ const TALENT_TREE = {
   Air: {
     label: '🌀 Air',
     nodes: [
-      { id:'air_actions',     name:'Slipstream',     emoji:'💨', desc:'+1 bonus action per turn per level.', maxLevel:3, cost: lvl => lvl * 5, apply(lvl){ player.bonusActions = (player.bonusActions||0) + lvl; } },
+      { id:'air_actions',     name:'Slipstream',     emoji:'💨', desc:'+1 action every 5/4/3 turns (scales with level).', maxLevel:3, cost: lvl => lvl * 5, apply(lvl){ player._slipstreamInterval = [5,4,3][lvl-1]; } },
       { id:'air_multihit',    name:'Gust',           emoji:'🌪️', desc:'+1 hit on multi-hit Air spells per level.', maxLevel:3, cost: lvl => lvl * 4, apply(lvl){ player._talentAirHits = (player._talentAirHits||0) + lvl; } },
       { id:'air_spell_dmg',   name:'Windshear',      emoji:'🌬️', desc:'+5% air spell damage per level.',  maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentAirDmgMult = (player._talentAirDmgMult||1.0) + lvl * 0.05; } },
     ],

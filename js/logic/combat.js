@@ -38,13 +38,8 @@ function _applyBookSpellEffect(action) {
 
   if (combat.over) return;
 
-  // Tome of Time: reduce spell CD by cdBonus after spell sets it
-  const aura = cat.aura ? cat.aura(lvl) : {};
-  if (aura.cdBonus && aura.cdBonus < 0 && spell && !spell.isBuiltin) {
-    spell.currentCD = Math.max(0, (spell.currentCD || 0) + aura.cdBonus);
-  }
-
   // Echo Grimoire: first non-builtin spell each turn gets bonus damage
+  const aura = cat.aura ? cat.aura(lvl) : {};
   if (aura.echoBonus && combat._echoReady && spell && !spell.isBuiltin) {
     combat._echoReady = false;
     const echoDmg = Math.round((player.attackPower || 0) * aura.echoBonus);
@@ -251,6 +246,11 @@ function startRound(){
   combat.turnInBattle++;
   combat.actionQueue=[];
   combat.actionsLeft=actionsPerTurnFor('player') + artifactExtraActions();
+  // ── Air: Slipstream talent — bonus action every N turns ──
+  if(playerElement==='Air' && player._slipstreamInterval && combat.turnInBattle % player._slipstreamInterval === 0){
+    combat.actionsLeft++;
+    log(`💨 Slipstream: +1 bonus action! (turn ${combat.turnInBattle})`, 'status');
+  }
   // ── Air: Sleeper Gust bonus actions ──
   if(playerElement==='Air' && (status.player.nextTurnBonusActions||0) > 0){
     const bonus = status.player.nextTurnBonusActions;
