@@ -165,7 +165,14 @@ function hubPlay() {
   // Only called for new saves needing name entry
   if (!_hubGetName()) return;
   sandboxMode = false;
-  showBetweenRuns();
+  const meta = getMeta();
+  const isFirstRun = !meta.totalRuns || meta.totalRuns === 0;
+  if (isFirstRun && typeof playCutscene === 'function') {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    playCutscene(() => showBetweenRuns());
+  } else {
+    showBetweenRuns();
+  }
 }
 
 // ── ELEMENT SELECT ────────────────────────────────────────────────────────────
@@ -258,7 +265,8 @@ function showPassiveScreen(element){
     btn.className    = 'choice-btn';
     btn.type         = 'button';
     btn.dataset.passiveId = ch.id;
-    btn.innerHTML    = `<div class="choice-title">${ch.emoji} ${ch.title}</div><div class="choice-desc">${ch.desc}</div>`;
+    const infoIcon = ch.detail ? `<span class="pc-info-icon" title="${ch.detail}" onclick="event.stopPropagation()">ℹ</span>` : '';
+    btn.innerHTML    = `<div class="choice-title">${ch.emoji} ${ch.title}${infoIcon}</div><div class="choice-desc">${ch.desc}</div>`;
     btn.addEventListener('click', () => {
       pendingStartPassive = ch.id;
       list.querySelectorAll('button.choice-btn').forEach(b => {

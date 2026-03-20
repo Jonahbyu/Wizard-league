@@ -111,6 +111,7 @@ const TALENT_TREE = {
       { id:'fire_burn_dmg',   name:'Hotter Burns',   emoji:'🔥', desc:'+0.1 bonus burn damage per stack per level (max +0.5).', maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._talentBurnDmg = lvl * 0.1; } },
       { id:'fire_burn_stacks',name:'Kindling',       emoji:'🪵', desc:'Start with +2 burn stacks on enemy per level.', maxLevel:3, cost: lvl => lvl * 4, apply(lvl){ player._talentBurnStart = (player._talentBurnStart||0) + lvl * 2; } },
       { id:'fire_spell_dmg',  name:'Pyroclasm',      emoji:'💥', desc:'+5% fire spell damage per level.', maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentFireDmgMult = (player._talentFireDmgMult||1.0) + lvl * 0.05; } },
+      { id:'fire_basic',      name:'Ember Strike',   emoji:'🔥', desc:'Basic Attack becomes Ember Strike: deals +10 damage + applies 2 Burn stacks. (Fire only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Fire') player._elementalBasicFire = true; } },
     ],
   },
   Water: {
@@ -119,6 +120,7 @@ const TALENT_TREE = {
       { id:'water_heal',      name:'Deep Current',   emoji:'💧', desc:'+10% healing per level.',          maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._healBonus = (player._healBonus||0) + lvl * 0.10; } },
       { id:'water_foam',      name:'Froth',          emoji:'🫧', desc:'Start each battle with 2 Foam on all enemies per level.', maxLevel:3, cost: lvl => lvl * 4, apply(lvl){ player._talentFoamStart = (player._talentFoamStart||0) + lvl * 2; } },
       { id:'water_spell_dmg', name:'Torrent',        emoji:'🌊', desc:'+5% water spell damage per level.',maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentWaterDmgMult = (player._talentWaterDmgMult||1.0) + lvl * 0.05; } },
+      { id:'water_basic',     name:'Tidal Jab',      emoji:'💧', desc:'Basic Attack becomes Tidal Jab: deals +10 damage + applies 1 Foam stack. (Water only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Water') player._elementalBasicWater = true; } },
     ],
   },
   Ice: {
@@ -127,6 +129,7 @@ const TALENT_TREE = {
       { id:'ice_frost_stacks',name:'Deep Freeze',    emoji:'❄️', desc:'+0.5 frost stack applied per ability per level (max +1.5).', maxLevel:3, cost: lvl => lvl * 3, apply(lvl){ player._talentFrostBonus = lvl * 0.5; } },
       { id:'ice_execute',     name:'Brittle',        emoji:'🧊', desc:'+2% execute threshold per level.', maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._talentIceExecute = (player._talentIceExecute||0) + lvl * 2; } },
       { id:'ice_spell_dmg',   name:'Glacier',        emoji:'🏔️', desc:'+5% ice spell damage per level.',  maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentIceDmgMult = (player._talentIceDmgMult||1.0) + lvl * 0.05; } },
+      { id:'ice_basic',       name:'Frost Jab',      emoji:'❄️', desc:'Basic Attack becomes Frost Jab: deals +10 damage + applies 1 Frost stack. (Ice only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Ice') player._elementalBasicIce = true; } },
     ],
   },
   Lightning: {
@@ -135,6 +138,7 @@ const TALENT_TREE = {
       { id:'lightning_shock', name:'Conductor',      emoji:'⚡', desc:'+0.5 shock stack per hit per level (max +1.5).',maxLevel:3, cost: lvl => lvl * 3, apply(lvl){ player._talentShockBonus = lvl * 0.5; } },
       { id:'lightning_overload_floor','name':'Surge', emoji:'💥', desc:'Overload damage floor +10% per level (min 25%).', maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentOverloadFloor = (player._talentOverloadFloor||0.25) + lvl * 0.10; } },
       { id:'lightning_spell_dmg','name':'Voltage',   emoji:'🔌', desc:'+5% lightning spell damage per level.', maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentLightDmgMult = (player._talentLightDmgMult||1.0) + lvl * 0.05; } },
+      { id:'lightning_basic', name:'Spark Strike',   emoji:'⚡', desc:'Basic Attack becomes Spark Strike: deals +10 damage + applies an extra Shock stack. (Lightning only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Lightning') player._elementalBasicLightning = true; } },
     ],
   },
   Earth: {
@@ -143,6 +147,7 @@ const TALENT_TREE = {
       { id:'earth_armor',     name:'Stoneback',      emoji:'🪨', desc:'+5 starting armor per level.',     maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._blockStart = (player._blockStart||0) + lvl * 5; } },
       { id:'earth_stone',     name:'Bedrock',        emoji:'⛰️', desc:'+1 starting Stone stack per level.',maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentStoneStart = (player._talentStoneStart||0) + lvl; } },
       { id:'earth_spell_dmg', name:'Tectonic',       emoji:'🌍', desc:'+5% earth spell damage per level.',maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentEarthDmgMult = (player._talentEarthDmgMult||1.0) + lvl * 0.05; } },
+      { id:'earth_basic',     name:'Stone Fist',     emoji:'🪨', desc:'Basic Attack becomes Stone Fist: deals +10 damage + grants +1 Stone stack. (Earth only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Earth') player._elementalBasicEarth = true; } },
     ],
   },
   Nature: {
@@ -151,6 +156,7 @@ const TALENT_TREE = {
       { id:'nature_root',     name:'Deep Roots',     emoji:'🌿', desc:'+0.5 root stack on root proc per level (max +1.5).', maxLevel:3, cost: lvl => lvl * 3, apply(lvl){ player._talentRootBonus = lvl * 0.5; } },
       { id:'nature_treant',   name:'Ancient Grove',  emoji:'🌳', desc:'Treants start with +15 HP per level.', maxLevel:4, cost: lvl => lvl * 3, apply(lvl){ player._talentTreantHP = (player._talentTreantHP||0) + lvl * 15; } },
       { id:'nature_spell_dmg','name':'Verdant',      emoji:'🌱', desc:'+5% nature spell damage per level.',maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentNatureDmgMult = (player._talentNatureDmgMult||1.0) + lvl * 0.05; } },
+      { id:'nature_basic',    name:'Vine Whip',      emoji:'🌿', desc:'Basic Attack becomes Vine Whip: deals +10 damage + applies 1 Root stack. (Nature only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Nature') player._elementalBasicNature = true; } },
     ],
   },
   Plasma: {
@@ -159,6 +165,7 @@ const TALENT_TREE = {
       { id:'plasma_dodge',    name:'Ghost Step',     emoji:'👻', desc:'+2% base dodge per level.',        maxLevel:5, cost: lvl => lvl * 3, apply(lvl){ player._talentDodgeBonus = (player._talentDodgeBonus||0) + lvl * 0.02; } },
       { id:'plasma_charge',   name:'Capacitor',      emoji:'🔋', desc:'+1 starting Charge per level.',    maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentChargeStart = (player._talentChargeStart||0) + lvl; } },
       { id:'plasma_spell_dmg','name':'Ionize',       emoji:'⚛️', desc:'+5% plasma spell damage per level.',maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentPlasmaDmgMult = (player._talentPlasmaDmgMult||1.0) + lvl * 0.05; } },
+      { id:'plasma_basic',    name:'Surge Bolt',     emoji:'🔮', desc:'Basic Attack becomes Surge Bolt: deals +10 damage + generates 2 Plasma Charge. (Plasma only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Plasma') player._elementalBasicPlasma = true; } },
     ],
   },
   Air: {
@@ -167,6 +174,7 @@ const TALENT_TREE = {
       { id:'air_actions',     name:'Slipstream',     emoji:'💨', desc:'+1 action every 5/4/3 turns (scales with level).', maxLevel:3, cost: lvl => lvl * 5, apply(lvl){ player._slipstreamInterval = [5,4,3][lvl-1]; } },
       { id:'air_multihit',    name:'Gust',           emoji:'🌪️', desc:'+1 hit on multi-hit Air spells per level.', maxLevel:3, cost: lvl => lvl * 4, apply(lvl){ player._talentAirHits = (player._talentAirHits||0) + lvl; } },
       { id:'air_spell_dmg',   name:'Windshear',      emoji:'🌬️', desc:'+5% air spell damage per level.',  maxLevel:4, cost: lvl => lvl * 4, apply(lvl){ player._talentAirDmgMult = (player._talentAirDmgMult||1.0) + lvl * 0.05; } },
+      { id:'air_basic',       name:'Gust Slash',     emoji:'💨', desc:'Basic Attack becomes Gust Slash: deals +10 damage + grants +1 Momentum. (Air only)', maxLevel:1, cost: ()=>6, apply(){ if(playerElement==='Air') player._elementalBasicAir = true; } },
     ],
   },
 };

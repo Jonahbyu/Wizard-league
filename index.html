@@ -12,6 +12,12 @@
 <!-- Global pixel night sky background canvas -->
 <canvas id="bg-canvas" style="position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;z-index:0;pointer-events:none;"></canvas>
 
+<!-- OPENING CUTSCENE -->
+<div id="cutscene-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#000;cursor:pointer;">
+  <canvas id="cutscene-canvas" style="width:100%;height:100%;display:block;"></canvas>
+  <div style="position:absolute;bottom:18px;right:22px;color:rgba(180,150,255,0.3);font-size:.7rem;font-family:'Cinzel',serif;letter-spacing:.15em;pointer-events:none;">CLICK TO SKIP</div>
+</div>
+
 <div id="title-screen" class="screen active">
   <h1>Wizard's League</h1>
   <p class="title-sub">A Roguelite Adventure</p>
@@ -464,6 +470,7 @@
 <script src="js/audio/mp3audio.js"></script>
 
 <!-- Rendering -->
+<script src="js/rendering/cutscene.js"></script>
 <script src="js/rendering/animations.js"></script>
 <script src="js/data/sprite_data.js"></script>
 <script src="js/rendering/sprites.js"></script>

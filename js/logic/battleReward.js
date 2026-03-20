@@ -548,7 +548,8 @@ function showPassiveChoiceScreen(level){
   chosen.forEach(p=>{
     const btn=document.createElement("button");
     btn.className="prog-choice-btn passive-btn";
-    btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name">${p.emoji} ${p.title}</div><div class="pc-desc">${p.desc}</div>`;
+    const infoIcon = p.detail ? `<span class="pc-info-icon" title="${p.detail}" onclick="event.stopPropagation()">ℹ</span>` : '';
+    btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name">${p.emoji} ${p.title}${infoIcon}</div><div class="pc-desc">${p.desc}</div>`;
     btn.onclick=()=>{ addPassiveToBook(p.id); processNextLevelUp(); };
     c.appendChild(btn);
   });

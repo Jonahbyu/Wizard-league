@@ -477,6 +477,8 @@
     .prog-choice-btn:hover{ background:#161208; border-color:#8a6030; }
     .prog-choice-btn .pc-name{ font-family:'Cinzel',serif; font-size:.88rem; color:#e8c870; }
     .prog-choice-btn .pc-desc{ font-size:.67rem; color:#7a6a50; line-height:1.4; }
+    .prog-choice-btn .pc-info-icon, .choice-btn .pc-info-icon{ display:inline-flex; align-items:center; justify-content:center; margin-left:5px; width:14px; height:14px; border-radius:50%; background:#3a2a10; border:1px solid #8a6030; color:#c8a050; font-size:.6rem; font-style:normal; cursor:help; vertical-align:middle; line-height:1; flex-shrink:0; }
+    .prog-choice-btn .pc-info-icon:hover, .choice-btn .pc-info-icon:hover{ background:#5a3a18; border-color:#e8c870; color:#ffd080; }
     .prog-choice-btn .pc-tag{ font-size:.58rem; letter-spacing:.1em; text-transform:uppercase;
       color:#4a3a18; font-family:'Cinzel',serif; margin-bottom:2px; }
     .prog-choice-btn.spell-btn-el{ border-color:#2a1a2a; }

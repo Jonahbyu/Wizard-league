@@ -261,8 +261,29 @@ function basicSpellDamagePreview(){
 }
 
 function doBasicAttack(ctx){
-  const dmg = Math.round((BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0)) * (player.basicDmgMult||1.0));
-  ctx.hit({ baseDamage: dmg, effects: [], isBasic: true, abilityElement: playerElement });
+  const _elemBasicFlag = {Fire:'_elementalBasicFire',Water:'_elementalBasicWater',Ice:'_elementalBasicIce',Earth:'_elementalBasicEarth',Nature:'_elementalBasicNature',Lightning:'_elementalBasicLightning',Plasma:'_elementalBasicPlasma',Air:'_elementalBasicAir'};
+  const hasElemBasicActive = player[_elemBasicFlag[playerElement]||''];
+  const dmg = Math.round((BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasicActive ? 10 : 0)) * (player.basicDmgMult||1.0));
+  // Elemental basic talent: add burn to effects array for Fire; others handled post-hit
+  const elemEffects = (hasElemBasicActive && playerElement==='Fire') ? [{type:'burn', stacks:2}] : [];
+  ctx.hit({ baseDamage: dmg, effects: elemEffects, isBasic: true, abilityElement: playerElement });
+  if(combat.over || !hasElemBasicActive) return;
+  // Post-hit elemental procs (non-Fire elements)
+  if(playerElement==='Water')     { applyFoam('player','enemy',1); }
+  if(playerElement==='Ice')       { applyFrost('player','enemy',1); }
+  if(playerElement==='Earth')     { addStoneStacks('player',1); }
+  if(playerElement==='Nature')    { applyRoot('player','enemy',1); }
+  if(playerElement==='Lightning') {
+    const extraShock = Math.round(1 * (1 + effectPowerFor('player')/50));
+    status.enemy.shockStacks = (status.enemy.shockStacks||0) + extraShock;
+    log(`⚡ Spark Strike: +${extraShock} extra Shock (×${status.enemy.shockStacks})`, 'status');
+  }
+  if(playerElement==='Plasma') {
+    status.player.plasmaCharge = Math.min((status.player.plasmaCharge||0)+2, 20);
+    if(typeof updateChargeUI==='function') updateChargeUI();
+    log(`🔮 Surge Bolt: +2 Charge (${status.player.plasmaCharge} total)`, 'player');
+  }
+  if(playerElement==='Air') { addMomentumStacks(1); }
 }
 
 // ── Spell damage preview for tooltips ────────────────────────────────────────
@@ -388,12 +409,36 @@ function renderSpellButtons(){
         btn.textContent = book.name;
         btn.disabled = (i === player.activeBookIdx) || !isMyTurn || queueFull;
         btn.onclick = () => queueSwitchBook(i);
+        // Tooltip: show book description if it's a catalogue book
+        if(book.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'){
+          const cat = SPELLBOOK_CATALOGUE[book.catalogueId];
+          if(cat){
+            const lvl = book.upgradeLevel || 0;
+            const lvlDesc = (cat.levelDescs||[])[lvl] || '';
+            const lines = [cat.name + (cat.rarity==='legendary'?' ✦':''), cat.desc];
+            if(lvlDesc) lines.push('Level '+(lvl+1)+': '+lvlDesc);
+            if(cat.negative) lines.push('Downside: '+cat.negative);
+            btn.title = lines.join('\n');
+          }
+        }
         bookTabBar.appendChild(btn);
       });
     } else if(player.spellbooks && player.spellbooks.length === 1){
       const lbl = document.createElement('span');
-      lbl.style.cssText = 'font-family:Cinzel,serif;font-size:.6rem;color:#6a4a20;letter-spacing:.06em;';
+      lbl.style.cssText = 'font-family:Cinzel,serif;font-size:.6rem;color:#6a4a20;letter-spacing:.06em;cursor:help;';
       lbl.textContent = player.spellbooks[0].name;
+      const _b0 = player.spellbooks[0];
+      if(_b0.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'){
+        const _cat = SPELLBOOK_CATALOGUE[_b0.catalogueId];
+        if(_cat){
+          const _lvl = _b0.upgradeLevel || 0;
+          const _lvlDesc = (_cat.levelDescs||[])[_lvl] || '';
+          const _lines = [_cat.name, _cat.desc];
+          if(_lvlDesc) _lines.push('Level '+(_lvl+1)+': '+_lvlDesc);
+          if(_cat.negative) _lines.push('Downside: '+_cat.negative);
+          lbl.title = _lines.join('\n');
+        }
+      }
       bookTabBar.appendChild(lbl);
     }
   }
@@ -421,7 +466,11 @@ function renderSpellButtons(){
         pip.className = 'sb-passive-pip';
         pip.textContent = pdef ? (pdef.emoji||'✦') : '✦';
         pip.setAttribute('data-tip', pdef ? (pdef.title||pdef.name||pid) : pid);
-        pip.title = pdef ? (pdef.title||pdef.name||pid) + ': ' + (pdef.desc||'') : pid;
+        if(pdef){
+          const _tipLines = [(pdef.title||pdef.name||pid), pdef.desc||''];
+          if(pdef.detail) _tipLines.push('─────', pdef.detail);
+          pip.title = _tipLines.join('\n');
+        } else { pip.title = pid; }
         passivesRow.appendChild(pip);
       });
     }
@@ -539,29 +588,35 @@ function renderSpellButtons(){
   player.spellbook.forEach((spell) => {
     // ── Built-in: Basic Attack ───────────────────────────────────────────
     if (spell.id === '_basic') {
+      const _elemBasicNames = {Fire:'Ember Strike',Water:'Tidal Jab',Ice:'Frost Jab',Earth:'Stone Fist',Nature:'Vine Whip',Lightning:'Spark Strike',Plasma:'Surge Bolt',Air:'Gust Slash'};
+      const _elemBasicIcons = {Fire:'🔥',Water:'💧',Ice:'❄️',Earth:'🪨',Nature:'🌿',Lightning:'⚡',Plasma:'🔮',Air:'💨'};
+      const _elemBasicFlags = {Fire:'_elementalBasicFire',Water:'_elementalBasicWater',Ice:'_elementalBasicIce',Earth:'_elementalBasicEarth',Nature:'_elementalBasicNature',Lightning:'_elementalBasicLightning',Plasma:'_elementalBasicPlasma',Air:'_elementalBasicAir'};
+      const hasElemBasic = player[_elemBasicFlags[playerElement]||''];
+      const basicName = hasElemBasic ? (_elemBasicNames[playerElement]||'Basic Attack') : 'Basic Attack';
+      const basicIcon = hasElemBasic ? (_elemBasicIcons[playerElement]||'⚔') : '⚔';
       const basicOnCD = combat.basicCD > 0;
-      const basicQueued = (combat.actionQueue||[]).some(a => a.label === '⚔ Basic Attack');
+      const basicQueued = (combat.actionQueue||[]).some(a => a.label === `${basicIcon} ${basicName}`);
       const basicOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
       const cell = document.createElement('button');
       cell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'') + (basicOutOfPP?' no-pp':'');
       cell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued || basicOutOfPP;
-      const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0));
+      const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0) + (hasElemBasic ? 10 : 0));
       const basicPPLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
       cell.innerHTML =
-        '<div class="sb-spell-icon">⚔</div>' +
-        '<div class="sb-spell-name">Basic Attack</div>' +
+        `<div class="sb-spell-icon">${basicIcon}</div>` +
+        `<div class="sb-spell-name">${basicName}</div>` +
         '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
           (basicOutOfPP ? 'No PP' : basicOnCD ? 'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
         '</div>' +
         basicPPLabel +
         (basicQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
-      cell.title = `Basic Attack [${playerElement}]\nDeals ~${basicDmgEst} dmg (ATK: ${attackPowerFor('player')})\nCooldown: 1 turn`;
+      cell.title = `${basicName} [${playerElement}]\nDeals ~${basicDmgEst} dmg (ATK: ${attackPowerFor('player')})${hasElemBasic?' + elemental effect':''}\nCooldown: 1 turn`;
       const basicSpellRef = spell;
       cell.onclick = ()=>{
         if(!isMyTurn||queueFull||basicOnCD||basicQueued||basicOutOfPP) return;
         const snapTgt=combat.targetIdx;
         const snapCD=adjustedCooldownFor('player',1)||1;
-        queueAction('⚔ Basic Attack',()=>{
+        queueAction(`${basicIcon} ${basicName}`,()=>{
           combat.basicCD=snapCD;
           if((basicSpellRef.currentPP||0) > 0) basicSpellRef.currentPP--;
           setActiveEnemy(snapTgt);
