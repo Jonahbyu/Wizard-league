@@ -39,6 +39,7 @@ function makeSpellCtx(attackerSide, defenderSide, spellIdx=-1){
         const mult = spell ? (spell.dmgMult||1.0) : 1.0;
         const elemMult = _elemTalentDmgMult(adj.abilityElement || (spell ? spell.element : '') || '');
         adj.baseDamage = Math.round(adj.baseDamage * mult * elemMult);
+        if(spell && !adj.label) adj.label = `${spell.emoji||''} ${spell.name}`;
         // Air multi-hit talent: extra hits on multi-hit Air spells
         if((adj.abilityElement==='Air' || (spell && spell.element==='Air')) && (adj.hits||1) > 1){
           adj.hits = (adj.hits||1) + (player._talentAirHits||0);
@@ -251,8 +252,11 @@ function performHit(attackerSide, defenderSide, pkg){
       dmg = 0;
     }
 
+    const _atkEnemy = combat.enemies[combat.activeEnemyIdx];
     applyDirectDamage(attackerSide, defenderSide, dmg,
-      pkg.isEnemyAttack ? `${combat.enemy.emoji} Attack` : 'Hit');
+      pkg.label || (pkg.isEnemyAttack
+        ? `${_atkEnemy?.emoji||''} ${_atkEnemy?.name||'Enemy'}`
+        : 'Hit'));
 
     // ── Air: Momentum gain per damage instance ──
     if(attackerSide==='player' && playerElement==='Air' && dmg > 0 && !pkg._isTornadoSelf){

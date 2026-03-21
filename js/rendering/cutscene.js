@@ -10,14 +10,14 @@
 
   // ── Timeline (ms) ────────────────────────────────────────────────────────────
   const T = {
-    woodsEnd:   7000,
-    portalEnd:  13000,
-    reflectEnd: 15800,
-    fallEnd:    18000,
-    lobbyEnd:   24500,
-    staffEnd:   27800,
-    titleEnd:   31500,
-    panEnd:     35500,
+    woodsEnd:   14000,
+    portalEnd:  26000,
+    reflectEnd: 31600,
+    fallEnd:    36000,
+    lobbyEnd:   49000,
+    staffEnd:   55600,
+    titleEnd:   63000,
+    panEnd:     71000,
   };
 
   const W = () => _canvas.width;
@@ -38,26 +38,35 @@
   // Each entry: { t0, t1, text } — t0/t1 are fractions of the scene duration.
   const NAR = {
     woods:  [
-      { t0:.06, t1:.46, text:'Deep in the Mirewood, he searched for something simple.' },
-      { t0:.54, t1:.93, text:'A new staff. Nothing more.' },
+      { t0:.05, t1:.34, text:'The Wizard League.  A cutthroat world where magic belongs to those who earn it.' },
+      { t0:.42, t1:.68, text:'A young wizard walked the Mirewood alone.  He had come for something ordinary.' },
+      { t0:.76, t1:.96, text:'A new staff.  That was all he wanted.' },
     ],
     portal: [
-      { t0:.08, t1:.46, text:'Instead, he found a door.' },
-      { t0:.54, t1:.91, text:'Ancient. Humming with runes older than the League itself.' },
+      { t0:.08, t1:.44, text:'But at the edge of the forest, half-buried in roots, he found a doorway.' },
+      { t0:.54, t1:.90, text:'Stone.  Ancient.  Carved with runes that hummed in a language no living wizard knew.' },
     ],
     reflect:[
-      { t0:.18, t1:.84, text:'He should have walked away.' },
+      { t0:.10, t1:.48, text:'In the glow, he saw his own face.' },
+      { t0:.56, t1:.88, text:'Something on the other side was already waiting for him.' },
     ],
     fall:   [
-      { t0:.22, t1:.78, text:'He didn\'t.' },
+      { t0:.22, t1:.78, text:'He stepped through.' },
     ],
     lobby:  [
-      { t0:.10, t1:.48, text:'He woke inside The Veil.' },
-      { t0:.55, t1:.92, text:'A world looping without end.  A tournament without mercy.' },
+      { t0:.08, t1:.42, text:'He woke somewhere that should not exist.' },
+      { t0:.52, t1:.92, text:'The Veil.  A world sealed in a loop.  A tournament with no end, run by someone who preferred it that way.' },
     ],
     staff:  [
-      { t0:.12, t1:.52, text:'No door home.  No memory of how he got here.' },
-      { t0:.60, t1:.92, text:'Just this staff.  And a tournament he intended to win.' },
+      { t0:.10, t1:.48, text:'There was no door back.  No trace of how he had arrived.' },
+      { t0:.58, t1:.92, text:'Only a staff on the ground.  And a game he had not chosen — but would not lose.' },
+    ],
+    title:  [
+      { t0:.22, t1:.78, text:'This is where his story begins.' },
+    ],
+    panDown:[
+      { t0:.12, t1:.55, text:'Welcome to The Veil.' },
+      { t0:.62, t1:.90, text:'You are already inside.' },
     ],
   };
 
@@ -415,8 +424,8 @@
     if (Math.random()<.22) spawnP(Math.random()*W(),gY-Math.random()*H()*.25,{vx:(Math.random()-.5)*.4,vy:-.2,decay:.004,size:1.4,r:130,g:90,b:200});
     tickP();
 
-    drawNarration(NAR.woods, t);
     drawBars(1);
+    drawNarration(NAR.woods, t);
     const ov=1-fadeCurve(t,.10,.88); if(ov>0){_ctx.fillStyle=`rgba(0,0,0,${ov})`;_ctx.fillRect(0,0,W(),H());}
   }
 
@@ -449,8 +458,8 @@
     _ctx.restore();
 
     tickP();
-    drawNarration(NAR.portal, t);
     drawBars(1);
+    drawNarration(NAR.portal, t);
     const ov=1-fadeCurve(t,.08,.88); if(ov>0){_ctx.fillStyle=`rgba(0,0,0,${ov})`;_ctx.fillRect(0,0,W(),H());}
   }
 
@@ -483,8 +492,8 @@
       _ctx.restore();
     }
 
-    drawNarration(NAR.reflect, t);
     drawBars(1);
+    drawNarration(NAR.reflect, t);
     const ov=1-fadeCurve(t,.18,.78); if(ov>0){_ctx.fillStyle=`rgba(0,0,0,${ov})`;_ctx.fillRect(0,0,W(),H());}
   }
 
@@ -516,8 +525,8 @@
       spawnP(W()*.5,H()*.5,{vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,decay:.022,size:2.8,r:215,g:145,b:255});
     }
     tickP();
-    drawNarration(NAR.fall, t);
     drawBars(1);
+    drawNarration(NAR.fall, t);
     if (t>.72){_ctx.fillStyle=`rgba(0,0,0,${(t-.72)/.28})`;_ctx.fillRect(0,0,W(),H());}
   }
 
@@ -539,8 +548,8 @@
     if (t>.60&&t<.76) for (let i=0;i<2;i++) spawnP(W()*.5+(Math.random()-.5)*28,charY,{vx:(Math.random()-.5)*3.8,vy:-Math.random()*2.8,decay:.025,size:2.8,r:130,g:75,b:195});
     tickP();
 
-    drawNarration(NAR.lobby, t);
     drawBars(1);
+    drawNarration(NAR.lobby, t);
     const ov=1-fadeCurve(t,.07,.90); if(ov>0){_ctx.fillStyle=`rgba(0,0,0,${ov})`;_ctx.fillRect(0,0,W(),H());}
   }
 
@@ -555,8 +564,8 @@
     drawWizard(W()*.5,charY,wS,staffOn,false);
     if (staffOn&&Math.random()<.32) spawnP(W()*.5-22*wS,charY-102*wS,{vx:(Math.random()-.5)*1.8,vy:-Math.random()*2.4,decay:.022,size:2.1,r:205,g:140,b:255});
     tickP();
-    drawNarration(NAR.staff, t);
     drawBars(1);
+    drawNarration(NAR.staff, t);
     const ov=1-fadeCurve(t,.12,.80); if(ov>0){_ctx.fillStyle=`rgba(0,0,0,${ov})`;_ctx.fillRect(0,0,W(),H());}
   }
 
@@ -580,6 +589,8 @@
     _ctx.fillStyle='#6a5a90';
     _ctx.fillText('T H E   V E I L',W()*.5,H()*.595);
     _ctx.restore();
+    drawBars(1);
+    drawNarration(NAR.title, t);
   }
 
   // ── Scene 8: Pan Down into lobby ─────────────────────────────────────────────
@@ -605,6 +616,7 @@
     _ctx.restore(); // un-translate so bars/fade are screen-aligned
 
     drawBars(1);
+    drawNarration(NAR.panDown, t);
 
     // Fade out at the very end
     if (t>.78) {

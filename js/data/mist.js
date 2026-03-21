@@ -30,7 +30,7 @@ const MIST_MODIFIERS = [
     id: 'shop_prices',
     label: 'Premium Market',
     emoji: '💰',
-    desc: t => `Shop prices +${[15,30][t-1]}%`,
+    desc: t => `Shop prices +${[30,60][t-1]}%`,
     tiers: 2,
     mistCost: [1, 2],
   },
@@ -73,6 +73,14 @@ const MIST_MODIFIERS = [
     desc: t => `${[25,50,75,100][t-1]}% chance each enemy action is hidden`,
     tiers: 4,
     mistCost: [1, 2, 3, 4],
+  },
+  {
+    id: 'blind_damage',
+    label: 'Fog of War',
+    emoji: '🌫',
+    desc: () => 'Damage previews are hidden — you cannot see estimated damage values',
+    tiers: 1,
+    mistCost: [2],
   },
 ];
 
@@ -122,7 +130,7 @@ function applyMistModifiers() {
   if (pass > 0) player._mistExtraPassives = pass;
 
   const shop = getMistTier('shop_prices');
-  if (shop > 0) player._mistShopPriceMult = [1.15, 1.30][shop - 1];
+  if (shop > 0) player._mistShopPriceMult = [1.30, 1.60][shop - 1];
 
   const pp = getMistTier('pp_reduction');
   if (pp > 0) player._mistPPMult = [0.80, 0.60][pp - 1];
@@ -137,4 +145,5 @@ function applyMistModifiers() {
   if (boss > 0) player._mistBossLegendaries = boss;
 
   // hidden_intentions is read live via getMistTier() in _intentHidden() — no player prop needed
+  player._mistBlindDamage = getMistTier('blind_damage') > 0;
 }

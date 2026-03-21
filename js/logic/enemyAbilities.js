@@ -28,7 +28,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   // ═══ UNIVERSAL ═══
   brace: { id:'brace', name:'Brace', emoji:'🛡️', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i];
-      const armor = 15 + Math.floor(e.scaledPower/5);
+      const armor = 5 + Math.floor(e.scaledPower/5);
       e.status.block = (e.status.block||0) + armor;
       log(`🛡️ ${e.name} braces! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -504,6 +504,86 @@ function pickEnemyAbility(e, gymIdx){
 
   // Random ability with 50% overall chance
   if(Math.random()<0.5) return ready[Math.floor(Math.random()*ready.length)];
+  return null;
+}
+
+// ── ENEMY ITEM CATALOGUE ──────────────────────────────────────────────────────
+const ENEMY_ITEM_CATALOGUE = [
+  { id:'enemy_healing_draught', name:'Healing Draught', emoji:'🧪',
+    fn(i){ const e=combat.enemies[i];
+      const heal = Math.round(e.enemyMaxHP * 0.20);
+      e.hp = Math.min(e.enemyMaxHP, e.hp + heal);
+      log(`🧪 ${e.name} drinks a Healing Draught! (+${heal} HP)`, 'enemy');
+      updateHPBars();
+    }},
+  { id:'enemy_iron_flask', name:'Iron Flask', emoji:'⚗️',
+    fn(i){ const e=combat.enemies[i];
+      const armor = 15;
+      e.status.block = (e.status.block||0) + armor;
+      log(`⚗️ ${e.name} uses an Iron Flask! (+${armor} Block)`, 'enemy');
+      renderStatusTags();
+    }},
+];
+
+// Hint strings shown under each intent label
+const ENEMY_ABILITY_HINTS = {
+  brace:                  '+5 Block',
+  fire_ignite:            '8 dmg · +6 🔥 Burn',
+  fire_flame_burst:       '18 dmg · +4 🔥 Burn',
+  fire_combustion_strike: '14+ dmg · +3 🔥 Burn',
+  fire_wildfire:          'Doubles Burn stacks',
+  fire_magma_armor:       '20+ Block',
+  fire_inferno:           '30 dmg · +21 🔥 Burn',
+  water_foam_burst:       '10 dmg · +3 🫧 Foam',
+  water_tidal_shield:     '20+ Block',
+  water_riptide:          '8 dmg ×3 · +1 Foam each',
+  water_healing_surge:    'Heals 25+ HP',
+  water_drown:            'Stuns if ≥4 Foam · else +2 Foam',
+  water_tsunami:          '10 dmg × Foam stacks',
+  ice_frost_bolt:         '12 dmg · Stun 1t · +1 ❄️ Frost',
+  ice_glacial_armor:      '25+ Block',
+  ice_flash_freeze:       '+6 ❄️ Frost',
+  ice_shatter_strike:     'Up to 40+ dmg (scales with Frost)',
+  ice_cryostasis:         '+35 Block · Heals 30 · self Stun 1t',
+  lightning_zap:          '12 dmg',
+  lightning_chain:        '6 dmg ×4',
+  lightning_overcharge:   '20 dmg · +3 ⚡ Shock',
+  lightning_blitz:        'Detonates Shock stacks for big dmg',
+  lightning_static_field: '+Power for 2 turns',
+  lightning_charge_shot:  'Charges — massive hit next action',
+  earth_fortify:          '20+ Block',
+  earth_boulder:          '22 dmg',
+  earth_seismic:          '16 dmg · cracks 15 Armor',
+  earth_stone_stance:     '30+ Block · +3 Stone stacks',
+  earth_petrify:          '18 dmg · Stun 2t',
+  earth_cataclysm:        '50+ dmg or Stone ×25',
+  nature_entangle:        '10 dmg · +2 🌿 Root',
+  nature_thornwall:       '25+ Block · Thorns on hit',
+  nature_wild_growth:     'Heals 20+ HP · +15 Block',
+  nature_vine_lash:       '8 dmg ×3 · +1 Root each',
+  nature_spore_cloud:     '8 dmg · Stun 1t · +3 🌿 Root',
+  nature_wrath:           'Root stacks × 20 dmg',
+  plasma_phase_strike:    '14 dmg',
+  plasma_phase_shift:     'Dodges next hit',
+  plasma_void_pulse:      '20 dmg · gains Phase',
+  plasma_evasion_boost:   '+15% dodge · gains Phase',
+  plasma_singularity:     '35 dmg · Stun 1t · +20% dodge',
+  air_twin_gust:          '10 dmg ×2',
+  air_gale_force:         '22 dmg',
+  air_cyclone:            '10 dmg ×3',
+  air_wind_shield:        '+20% dodge · +15 Block',
+  air_sky_slam:           '20 dmg · Stun 1t',
+  air_tempest:            '10 dmg ×5',
+};
+
+// Pick an item for the enemy to use (returns item or null)
+function pickEnemyItem(e){
+  if(!e.items || e.items.length===0) return null;
+  const hpPct = e.hp / e.enemyMaxHP;
+  const heal = e.items.find(it=>it.id==='enemy_healing_draught');
+  if(heal && hpPct < 0.40 && Math.random() < 0.75) return heal;
+  const flask = e.items.find(it=>it.id==='enemy_iron_flask');
+  if(flask && (e.status.block||0)===0 && Math.random() < 0.45) return flask;
   return null;
 }
 

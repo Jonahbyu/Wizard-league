@@ -169,6 +169,7 @@ function hubPlay() {
   const isFirstRun = !meta.totalRuns || meta.totalRuns === 0;
   if (isFirstRun && typeof playCutscene === 'function') {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    musicStopAll();
     playCutscene(() => showBetweenRuns());
   } else {
     showBetweenRuns();
@@ -401,7 +402,17 @@ function _offerRunBookThenBattle() {
         }
       }
     }
-    loadBattle(ENCOUNTER_POOL[0]);
+    // First time entering the castle — play throne room intro
+    const meta = getMeta();
+    if (!meta.seenThroneRoom && typeof playThroneRoomCutscene === 'function') {
+      meta.seenThroneRoom = true;
+      saveMeta();
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      musicStopAll();
+      playThroneRoomCutscene(() => loadBattle(ENCOUNTER_POOL[0]));
+    } else {
+      loadBattle(ENCOUNTER_POOL[0]);
+    }
   });
 }
 

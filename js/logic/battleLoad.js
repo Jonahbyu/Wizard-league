@@ -19,7 +19,7 @@ function makeEnemyObj(enc){
   const mistHPMult  = player._mistEnemyHPMult  || 1.0;
   const mistDmgMult = player._mistEnemyDmgMult || 1.0;
   const finalMaxHP  = Math.round((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * mistHPMult * 1.25);
-  const finalDmg    = Math.round((zoneScaled.enemyDmg   || enc.enemyDmg)   * mistDmgMult);
+  const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult) - 5);
 
   // Build ability list based on element + zone depth
   // Derive difficulty from base HP if not specified: tankier enemies get more abilities
@@ -38,12 +38,17 @@ function makeEnemyObj(enc){
     extraPassives = [...extraPassives, ...pickRandom(legPool, player._mistBossLegendaries).map(p => p.id)];
   }
 
+  // Give enemies consumable items (gym bosses get both, regular enemies get healing draught)
+  const items = enc.isTargetDummy ? [] : enc.isGym
+    ? ENEMY_ITEM_CATALOGUE.map(it=>({...it}))
+    : [{ ...ENEMY_ITEM_CATALOGUE[0] }];
+
   return {
     ...enc,
     enemyMaxHP: finalMaxHP, enemyDmg: finalDmg,
     hp: finalMaxHP, alive:true, basicCD:0,
     passive, extraPassives, scaledPower, status:freshEnemyStatus(),
-    abilities,
+    abilities, items,
     gymHitCounter:enc.gymHitCounter||0, gymPhase2:enc.gymPhase2||false,
   };
 }

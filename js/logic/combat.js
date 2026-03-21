@@ -313,6 +313,18 @@ function startRound(){
   }
   combat._echoReady = true;  // reset echo for this turn
 
+  // Pre-build enemy queues now so intents are visible during player planning
+  combat.prebuiltEnemyQueues = combat.enemies.map((e, i) => {
+    if (!e.alive) return [];
+    let actions = actionsPerTurnFor('enemy');
+    const penalty = e.status.nextTurnActionPenalty || 0;
+    if (penalty > 0) {
+      actions = Math.max(0, actions - penalty);
+      e.status.nextTurnActionPenalty = 0;
+      log(`🧊 ${e.name} frozen! −${penalty} action${penalty>1?'s':''} this turn.`, 'status');
+    }
+    return buildEnemyQueueFor(i, actions);
+  });
   renderEnemyCards();
   renderQueue();
   updateActionUI();
@@ -339,6 +351,7 @@ function queueAction(label, fn, opts){
     isSpellAction:      !!(opts && opts.isSpellAction),
     bookCatalogueId:    (opts && opts.bookCatalogueId) || null,
     spellObj:           (opts && opts.spellObj) || null,
+    hintFn:             (opts && opts.hintFn) || null,
   });
   renderQueue();
   updateActionUI();
@@ -391,11 +404,13 @@ function renderQueue(){
     combat.actionQueue.forEach((a,i)=>{
       const s=document.createElement("div"); s.className="queue-slot";
       const tname = combat.enemies[a.targetIdx]?` → ${combat.enemies[a.targetIdx].name}`:'';
-      s.innerHTML=`${a.label}${tname} <span class="qs-x">✕</span>`;
+      const dmgHint = a.hintFn ? a.hintFn() : '';
+      s.innerHTML=`${a.label}${tname}${dmgHint?`<div style="font-size:.48rem;color:#8aaa88;opacity:.85;margin-top:1px;">${dmgHint}</div>`:''} <span class="qs-x">✕</span>`;
       s.onclick=()=>removeFromQueue(i);
       slots.appendChild(s);
     });
   }
+  if(typeof renderEnemyCards === 'function') renderEnemyCards();
   if(endBtn){
     const hasActions=combat.actionQueue&&combat.actionQueue.length>0;
     endBtn.disabled=!combat.playerTurn||combat.over||!hasActions;
@@ -488,18 +503,10 @@ function commitEndTurn(){
   const normalPlayerActions = allPlayerActions.filter(a => !a.isPlasma);
   const plasmaPlayerActions = allPlayerActions.filter(a => a.isPlasma);
 
-  // Each enemy builds its own independent queue (same count as normal player actions)
-  const allEnemyQueues = combat.enemies.map((e,i) => {
-    if(!e.alive) return [];
-    let actions = actionsPerTurnFor('enemy');
-    const penalty = e.status.nextTurnActionPenalty || 0;
-    if(penalty > 0){
-      actions = Math.max(0, actions - penalty);
-      e.status.nextTurnActionPenalty = 0;
-      log(`🧊 ${e.name} frozen! −${penalty} action${penalty>1?'s':''} this turn.`, 'status');
-    }
-    return buildEnemyQueueFor(i, actions);
-  });
+  // Use pre-built enemy queues (built at round start so intents were visible during planning)
+  const allEnemyQueues = combat.prebuiltEnemyQueues ||
+    combat.enemies.map((e,i) => e.alive ? buildEnemyQueueFor(i, actionsPerTurnFor('enemy')) : []);
+  combat.prebuiltEnemyQueues = null;
 
   // Show enemy intents before resolution
   renderEnemyCards();
@@ -515,8 +522,10 @@ function commitEndTurn(){
 
   participants.sort((a,b) => {
     if(b.queue.length !== a.queue.length) return b.queue.length - a.queue.length;
-    if(a.hp !== b.hp) return a.hp - b.hp;
-    return a.power - b.power;
+    // Equal queue length: player always goes first
+    if(a.id==='player') return -1;
+    if(b.id==='player') return 1;
+    return 0;
   });
 
   // Log initiative order
@@ -602,6 +611,42 @@ function _intentHidden(){
   return Math.random() < chance;
 }
 
+function _liveAttackHint(idx, baseDmg, el){
+  if(player._mistBlindDamage) return '';
+  const e = combat.enemies[idx];
+  if(!e || !e.alive) return '';
+  const es = e.status || {};
+  const ps = status.player || {};
+  // Read AP with this enemy as active so attackPowerFor uses its status
+  const prevIdx = combat.activeEnemyIdx;
+  combat.activeEnemyIdx = idx;
+  const ap = attackPowerFor('enemy', 'player');
+  combat.activeEnemyIdx = prevIdx;
+  let dmg = Math.max(0, Math.round(baseDmg + ap));
+  // Zone bonus
+  if(combat.activeZoneElement && dmg > 0 && primaryElement(e.element||'') === combat.activeZoneElement){
+    dmg = Math.round(dmg * 1.20);
+  }
+  // Enemy shock reduces their outgoing damage
+  const shockStacks = es.shockStacks || 0;
+  if(shockStacks > 0 && dmg > 0){
+    const reduction = Math.min(0.75, shockStacks * 0.03);
+    dmg = Math.max(0, Math.round(dmg * (1 - reduction)));
+  }
+  // Player block absorbs
+  const block = ps.block || 0;
+  const afterBlock = Math.max(0, dmg - block);
+  const procs = {
+    Fire:'· +3 🔥 Burn', Ice:'· +2 ❄️ Frost', Water:'· +1 🫧 Foam',
+    Earth:'· cracks Armor', Lightning:'· +⚡ Shock', Nature:'· +1 🌿 Root',
+  };
+  let hint = `~${afterBlock} dmg`;
+  if(block > 0 && afterBlock !== dmg) hint += ` (${dmg}−${block} blk)`;
+  if(shockStacks > 0) hint += ` [⚡×${shockStacks} reduces]`;
+  if(procs[el]) hint += ' ' + procs[el];
+  return hint.trim();
+}
+
 function buildEnemyQueueFor(idx, count){
   const e=combat.enemies[idx];
   const q=[];
@@ -623,6 +668,24 @@ function buildEnemyQueueFor(idx, count){
   for(let j=0;j<count;j++){
     if(cd<=0){
       const snapIdx=idx;
+
+      // Try to use an item first (one-time consumable, fires on conditions)
+      const item = pickEnemyItem(e);
+      if(item){
+        e.items = e.items.filter(it=>it.id!==item.id);
+        const snapItem = item;
+        const snapHint = snapItem.id==='enemy_healing_draught'?'Heals 20% max HP':'+15 Block';
+        const intentEntry = {label:snapItem.emoji+' '+snapItem.name, hidden:false, hint:snapHint};
+        e.intentQueue.push(intentEntry);
+        q.push({label:snapItem.emoji+' '+snapItem.name, intentIdx:e.intentQueue.length-1, fn:()=>{
+          if(combat.over||!combat.enemies[snapIdx].alive) return;
+          snapItem.fn(snapIdx);
+          updateHPBars(); renderStatusTags(); updateStatsUI();
+        }});
+        cd=cdPenalty;
+        continue;
+      }
+
       const isGymEnemy = !!combat.enemies[idx].isGym;
       if(isGymEnemy){
         const gymE = combat.enemies[idx];
@@ -642,7 +705,10 @@ function buildEnemyQueueFor(idx, count){
         gymE.gymHitCounter = (gymE.gymHitCounter||0) + 1;
         const isCharge = gymE.gymChargeInterval && (gymE.gymHitCounter % gymE.gymChargeInterval === 0);
         const chargeLabel = isCharge ? '⚡ Charge' : '⚔ Attack';
-        const intentEntry = {label:chargeLabel, hidden:_intentHidden()};
+        const _gymEl = primaryElement(gymE.element||'');
+        const _gymDmg = isCharge ? Math.round(gymE.enemyDmg * 2.5) : gymE.enemyDmg;
+        const _snapGymDmg = _gymDmg; const _snapGymEl = _gymEl;
+        const intentEntry = {label:chargeLabel, hidden:_intentHidden(), hintFn:()=>_liveAttackHint(snapIdx, _snapGymDmg, _snapGymEl)};
         e.intentQueue.push(intentEntry);
         q.push({label:chargeLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
           setActiveEnemy(snapIdx);
@@ -660,7 +726,7 @@ function buildEnemyQueueFor(idx, count){
           ability.cd = ability.baseCd;
           const snapAbility = ability;
           const abilLabel = snapAbility.emoji+' '+snapAbility.name;
-          const intentEntry = {label:abilLabel, hidden:_intentHidden()};
+          const intentEntry = {label:abilLabel, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility.id]||''};
           e.intentQueue.push(intentEntry);
           q.push({label:abilLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
             if(combat.over) return;
@@ -670,8 +736,10 @@ function buildEnemyQueueFor(idx, count){
             updateHPBars(); renderStatusTags(); updateStatsUI();
           }});
         } else {
-          // Basic attack
-          const intentEntry = {label:'⚔ Attack', hidden:_intentHidden()};
+          // Basic attack — 1-turn CD so it can't fire twice in one turn
+          const _el2 = primaryElement(e.element||'');
+          const _snapDmg2 = e.enemyDmg; const _snapEl2 = _el2;
+          const intentEntry = {label:'⚔ Attack', hidden:_intentHidden(), hintFn:()=>_liveAttackHint(snapIdx, _snapDmg2, _snapEl2)};
           e.intentQueue.push(intentEntry);
           q.push({label:'⚔ Attack', intentIdx:e.intentQueue.length-1, fn:()=>{
             setActiveEnemy(snapIdx);
@@ -685,9 +753,11 @@ function buildEnemyQueueFor(idx, count){
               updateHPBars(); renderStatusTags();
             }
           }});
+          cd = 1 + cdPenalty; // basic attack puts itself on CD — second slot uses ability or waits
+          continue;
         }
       }
-      cd=1+cdPenalty;
+      cd=cdPenalty;
     } else {
       const snapIdx=idx;
       const intentEntry = {label:'⏳ Wait', hidden:false};

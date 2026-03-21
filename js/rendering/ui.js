@@ -53,7 +53,7 @@ function renderEnemyCards(){
     const el = primaryElement(e.element||'');
     const passivePool = PASSIVE_CHOICES[el]||[];
     const allPassiveIds = [e.passive, ...(e.extraPassives||[])].filter(Boolean);
-    const passiveLabels = allPassiveIds.map(id => passivePool.find(p=>p.id===id)?.title||id);
+    const passiveObjs = allPassiveIds.map(id => passivePool.find(p=>p.id===id) || {id, title:id, desc:''});
 
     // Build intent HTML
     let intentHtml = '';
@@ -75,6 +75,7 @@ function renderEnemyCards(){
             background:${bg};border:1px solid ${border};border-radius:3px;padding:2px 5px;
             ${isCurrent?'font-weight:bold;':'opacity:.75;'}">
             ${isCurrent?'▶':'·'} ${intent.label}
+            ${(!player._mistBlindDamage && (intent.hintFn||intent.hint)) ? `<div style="font-size:.46rem;color:#998aaa;margin-top:1px;padding-left:9px;opacity:.9;">${intent.hintFn ? intent.hintFn() : intent.hint}</div>` : ''}
           </div>`;
         }
       });
@@ -85,7 +86,9 @@ function renderEnemyCards(){
       <div class="arena-hud-name" style="display:flex;align-items:center;gap:4px;">${elemHatSVG(e.element||'Neutral',14)} <span>${e.name}</span></div>
       <div class="arena-hud-hp-wrap"><div class="arena-hud-hp-fill" style="width:${pct}%;background:${hpColor(pct)}"></div></div>
       <div class="arena-hud-hp-text">${e.hp}/${e.enemyMaxHP}</div>
-      ${passiveLabels.length > 0 ? `<div style="font-size:.42rem;color:#7a5a30;font-family:'Cinzel',serif;margin-top:1px;">${passiveLabels.map(l=>'✦ '+l).join(' ')}</div>` : ''}
+      <div style="font-size:.42rem;color:#7a6040;font-family:'Cinzel',serif;margin-top:2px;">⚔ ${e.enemyDmg} dmg &nbsp;·&nbsp; PWR ${e.scaledPower}</div>
+      ${passiveObjs.length > 0 ? `<div style="font-size:.42rem;color:#7a5a30;font-family:'Cinzel',serif;margin-top:2px;display:flex;flex-wrap:wrap;gap:2px;">${passiveObjs.map(p=>`<span style="cursor:help;padding:1px 4px;border-radius:2px;background:#1a0e00;border:1px solid #3a2010;" title="${((p.desc||'')+' '+(p.detail||'')).trim().replace(/"/g,"'")}">${p.emoji||'✦'} ${p.title||p.id}</span>`).join('')}</div>` : ''}
+      ${e.items && e.items.length > 0 ? `<div style="font-size:.42rem;color:#5a8a40;font-family:'Cinzel',serif;margin-top:1px;">${e.items.map(it=>`<span style="cursor:help;padding:1px 4px;border-radius:2px;background:#0a1400;border:1px solid #2a4010;" title="${it.name}">${it.emoji} ${it.name}</span>`).join(' ')}</div>` : ''}
       <div class="arena-hud-status" id="estatus-${i}"></div>
       ${intentHtml}
     `;
@@ -295,7 +298,10 @@ function doBasicAttack(ctx){
   const dmg = Math.round((BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasicActive ? 10 : 0)) * (player.basicDmgMult||1.0));
   // Elemental basic talent: add burn to effects array for Fire; others handled post-hit
   const elemEffects = (hasElemBasicActive && playerElement==='Fire') ? [{type:'burn', stacks:2}] : [];
-  ctx.hit({ baseDamage: dmg, effects: elemEffects, isBasic: true, abilityElement: playerElement });
+  const _basicNames = {Fire:'Ember Strike',Water:'Tidal Jab',Ice:'Frost Jab',Earth:'Stone Fist',Nature:'Vine Whip',Lightning:'Spark Strike',Plasma:'Surge Bolt',Air:'Gust Slash'};
+  const _basicIcons = {Fire:'🔥',Water:'💧',Ice:'❄️',Earth:'🪨',Nature:'🌿',Lightning:'⚡',Plasma:'🔮',Air:'💨'};
+  const _basicLabel = hasElemBasicActive ? `${_basicIcons[playerElement]||'⚔'} ${_basicNames[playerElement]||'Basic Attack'}` : '⚔ Basic Attack';
+  ctx.hit({ baseDamage: dmg, effects: elemEffects, isBasic: true, abilityElement: playerElement, label: _basicLabel });
   if(combat.over || !hasElemBasicActive) return;
   // Post-hit elemental procs (non-Fire elements)
   if(playerElement==='Water')     { applyFoam('player','enemy',1); }
@@ -629,7 +635,10 @@ function renderSpellButtons(){
       const cell = document.createElement('button');
       cell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'') + (basicOutOfPP?' no-pp':'');
       cell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued || basicOutOfPP;
-      const basicDmgEst = Math.max(1, player.attackPower + (player.basicDmgFlat||0) + (hasElemBasic ? 10 : 0));
+      const basicDmgEst = Math.max(1, Math.round(
+        (BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasic ? 10 : 0)) * (player.basicDmgMult||1.0)
+        + attackPowerFor('player')));
+
       const basicPPLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
       cell.innerHTML =
         `<div class="sb-spell-icon">${basicIcon}</div>` +
@@ -645,13 +654,29 @@ function renderSpellButtons(){
         if(!isMyTurn||queueFull||basicOnCD||basicQueued||basicOutOfPP) return;
         const snapTgt=combat.targetIdx;
         const snapCD=adjustedCooldownFor('player',1)||1;
+        const _bSnapTgt = snapTgt; const _bHasElem = hasElemBasic;
         queueAction(`${basicIcon} ${basicName}`,()=>{
           combat.basicCD=snapCD;
           if((basicSpellRef.currentPP||0) > 0) basicSpellRef.currentPP--;
-          setActiveEnemy(snapTgt);
+          setActiveEnemy(_bSnapTgt);
           const ctx=makeSpellCtx('player','enemy',-1);
           doBasicAttack(ctx);
           updateHPBars();renderStatusTags();updateStatsUI();
+        },{
+          hintFn:()=>{
+            if(player._mistBlindDamage) return '';
+            const tgt = combat.enemies[_bSnapTgt];
+            if(!tgt||!tgt.alive) return '';
+            const prevActive = combat.activeEnemyIdx;
+            combat.activeEnemyIdx = _bSnapTgt;
+            const ap = attackPowerFor('player','enemy');
+            combat.activeEnemyIdx = prevActive;
+            const base = (player.basicDmgFlat||0) + (_bHasElem ? 10 : 0);
+            let dmg = Math.max(0, base + ap);
+            const block = tgt.status.block||0;
+            const after = Math.max(0, dmg - block);
+            return block>0&&after!==dmg ? `~${after} dmg (${dmg}−${block} blk)` : `~${after} dmg`;
+          }
         });
         renderSpellButtons();
       };
@@ -731,10 +756,19 @@ function renderSpellButtons(){
       const snapCD=(!spell.multiUse) ? (adjustedCooldownFor('player',spell.baseCooldown)||1) : 0;
       // Tag as stormRushDependent if it's only queueable due to the CD preview
       const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
+      const _sSnapTgt = snapTgt; const _sSpellRef = spellRef;
       const opts = {isFree, stormRushDependent: isStormRushDependent,
         isSpellAction: true,
         bookCatalogueId: (activeBook() && activeBook().catalogueId) ? activeBook().catalogueId : null,
         spellObj: spell,
+        hintFn: ()=>{
+          if(player._mistBlindDamage) return '';
+          const preview = _spellDmgPreview(_sSpellRef);
+          if(!preview) return '';
+          const tgt = combat.enemies[_sSnapTgt];
+          const block = tgt ? (tgt.status.block||0) : 0;
+          return block > 0 ? `${preview} (−${block} blk)` : preview;
+        },
       };
       if(spell.onQueue) opts.onQueue = ()=>spell.onQueue();
       if(spell.undoOnQueue) opts.undoOnQueue = ()=>spell.undoOnQueue();
