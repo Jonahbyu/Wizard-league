@@ -105,8 +105,10 @@ function grantRandomLegendary() {
 
   const pick = combined[Math.floor(Math.random() * combined.length)];
   if (pick.type === 'spell') {
-    addSpellById(pick.def.id);
-    log('✦ Legendary spell unlocked: ' + pick.def.emoji + ' ' + pick.def.name + '!', 'win');
+    const gymRarity = (typeof rollSpellRarity === 'function') ? rollSpellRarity() : 'dim';
+    addSpellById(pick.def.id, false, gymRarity);
+    const rarityLabel = gymRarity !== 'dim' ? ` (${gymRarity.charAt(0).toUpperCase()+gymRarity.slice(1)})` : '';
+    log('✦ Legendary spell unlocked: ' + pick.def.emoji + ' ' + pick.def.name + rarityLabel + '!', 'win');
   } else {
     addPassiveToBook(pick.def.id);
     log('✦ Legendary passive unlocked: ' + pick.def.emoji + ' ' + pick.def.title + '!', 'win');
@@ -150,6 +152,12 @@ function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
   if (rewardType === 'gym') { _doGymRewardFlow(); return; }
   if (rewardType === 'rival') { showPassiveChoiceScreen('rival'); return; }
 
+  if (rewardType === 'incantation') {
+    if (title) title.textContent = '✦ Incantation ✦';
+    if (sub) sub.textContent = 'Choose a spell to upgrade.';
+    showIncantationChoiceScreen(battleNumber);
+    return;
+  }
   if (rewardType === 'primary_spell') {
     if (title) title.textContent = '✦ Starting Spell ✦';
     if (sub) sub.textContent = 'Choose your primary spell.';
@@ -194,6 +202,7 @@ function getZoneRewardType(battleSlot, gymIdx) {
     // Zone 1: rival card appears at count 8
     if (battleSlot === 1)  return 'primary_spell';
     if (battleSlot === 4)  return 'secondary_spell';
+    if (battleSlot === 6)  return 'incantation';    // one incantation per zone 1
     if (battleSlot === 8)  return 'minor';          // before rival (rival now on map)
     if (battleSlot === 9)  return 'minor';          // after rival (skipped rival or extra battle)
     if (battleSlot === 10) return 'secondary_spell';
@@ -202,6 +211,7 @@ function getZoneRewardType(battleSlot, gymIdx) {
   } else {
     // Zone 2+: rival card appears at count 6
     if (battleSlot === 3)  return 'secondary_spell';
+    if (battleSlot === 4)  return 'incantation';    // one incantation per zone 2+
     if (battleSlot === 6)  return 'minor';          // before rival
     if (battleSlot === 7)  return 'minor';          // after rival
     if (battleSlot === 10) return 'secondary_spell';
@@ -444,6 +454,63 @@ function buildSkillPointPool(){
   return opts;
 }
 
+// ── INCANTATION CHOICE ──
+function showIncantationChoiceScreen(level) {
+  const badge = document.getElementById('inc-level-badge');
+  if (badge) badge.textContent = typeof level === 'number' ? 'Battle ' + level : String(level);
+
+  const cont = document.getElementById('inc-choices');
+  if (!cont) { showMap(); return; }
+  cont.innerHTML = '';
+
+  // Collect all owned non-builtin spells that have an incantation config
+  const upgradeable = [];
+  (player.spellbooks || []).forEach(book => {
+    book.spells.forEach(s => {
+      if (s.isBuiltin) return;
+      if (typeof SPELL_INCANTATION_CONFIG !== 'undefined' && SPELL_INCANTATION_CONFIG[s.id]) {
+        upgradeable.push(s);
+      }
+    });
+  });
+
+  if (upgradeable.length === 0) {
+    // No spells to upgrade yet — fall back to minor reward
+    _currentRewardTier = 'minor';
+    _renderUpgradeChoices('minor');
+    showScreen('battle-reward-screen');
+    return;
+  }
+
+  const _statLabels = (typeof _STAT_LABELS !== 'undefined') ? _STAT_LABELS : {};
+
+  upgradeable.forEach(spell => {
+    const display = (typeof incantationUpgradeDisplay === 'function') ? incantationUpgradeDisplay(spell) : null;
+    const rarityInfo = (typeof SPELL_RARITY !== 'undefined') ? (SPELL_RARITY[spell.rarity || 'dim'] || SPELL_RARITY.dim) : { label: 'Dim', color: null };
+    const rarityColor = rarityInfo.color || '#8a6a30';
+    const nextLevel = (spell.incantationLevel || 1) + 1;
+    const statLabel = display ? (_statLabels[display.stat] || display.stat) : '';
+    const upgradeStr = display ? `${statLabel}: ${display.prev} → ${display.next}` : `Level ${spell.incantationLevel || 1} → ${nextLevel}`;
+
+    const btn = document.createElement('button');
+    btn.className = 'prog-choice-btn spell-btn-el';
+    btn.style.borderColor = rarityColor;
+    btn.innerHTML =
+      `<div class="pc-tag" style="color:${rarityColor};">${rarityInfo.label} · Level ${spell.incantationLevel || 1} → ${nextLevel}</div>` +
+      `<div class="pc-name">${spell.emoji} ${spell.name}</div>` +
+      `<div class="pc-desc">${spell.desc || ''}</div>` +
+      `<div class="pc-desc" style="color:#c8e0ff;margin-top:2px;">${upgradeStr}</div>`;
+    btn.onclick = () => {
+      spell.incantationLevel = (spell.incantationLevel || 1) + 1;
+      log(`✦ Incantation: ${spell.emoji} ${spell.name} upgraded to level ${spell.incantationLevel}!`, 'win');
+      showMap();
+    };
+    cont.appendChild(btn);
+  });
+
+  showScreen('incantation-screen');
+}
+
 // ── SPELL CHOICE ──
 function showSpellChoiceScreen(level, tier='secondary', forElement=null){
   const tierLabel = tier==='primary'?'Primary Spell' : tier==='legendary'?'✦ Legendary Spell' : 'Spell';
@@ -459,13 +526,39 @@ function showSpellChoiceScreen(level, tier='secondary', forElement=null){
   const pool=buildSpellChoicePool(tier, forElement);
   if(pool.length===0){ processNextLevelUp(); return; }
   const chosen=pickRandom(pool, Math.min(3, pool.length));
+  // Rarity label/color helpers
+  const _RARITY_BADGE_CONFIG = {
+    kindled: { label:'KINDLED', textColor:'#c06010', bg:'rgba(0,0,0,.98)',   border:'#c06010' },
+    blazing: { label:'BLAZING', textColor:'#bb1200', bg:'rgba(0,0,0,.98)',   border:'#bb1200' },
+    radiant: { label:'RADIANT', textColor:'#ffe880', bg:'rgba(50,42,0,.92)', border:'#d4aa20' },
+  };
   chosen.forEach(opt=>{
     const isAOE=opt.desc&&opt.desc.toLowerCase().includes('all');
     const el=opt.element||'Neutral';
+    const rarity=(typeof rollSpellRarity==='function')?rollSpellRarity():'dim';
+    const rarityInfo=(typeof SPELL_RARITY!=='undefined')?SPELL_RARITY[rarity]:null;
+    const rarityColor=rarityInfo?rarityInfo.color:null;
+    const badgeCfg=_RARITY_BADGE_CONFIG[rarity]||null;
+    const rarityBanner=badgeCfg
+      ? `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:56px;padding:4px 7px;background:${badgeCfg.bg};border-left:2px solid ${badgeCfg.border};border-radius:0 4px 4px 0;flex-shrink:0;gap:1px;">
+          <div style="font-size:.5rem;color:${badgeCfg.textColor};opacity:.85;letter-spacing:.08em;">✦</div>
+          <div style="font-size:.72rem;color:${badgeCfg.textColor};font-family:'Cinzel',serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;line-height:1.1;">${badgeCfg.label}</div>
+         </div>`
+      : '';
     const btn=document.createElement("button");
     btn.className=`prog-choice-btn ${el==='Neutral'?'neutral-btn':'spell-btn-el'}`;
-    btn.innerHTML=`<div class="pc-tag">${tierLabel} · ${el}${isAOE?' · AOE':''}</div><div class="pc-name">${opt.emoji} ${opt.name}</div><div class="pc-desc">${opt.desc} · CD:${opt.baseCooldown}</div>`;
-    btn.onclick=()=>{ addSpellById(opt.id); processNextLevelUp(); };
+    btn.style.padding='0';
+    btn.style.display='flex';
+    btn.style.alignItems='stretch';
+    btn.style.overflow='hidden';
+    if(rarityColor) btn.style.borderColor=rarityColor;
+    const inner=`<div style="flex:1;padding:.55rem .65rem;text-align:left;">
+      <div class="pc-tag">${tierLabel} · ${el}${isAOE?' · AOE':''}</div>
+      <div class="pc-name">${opt.emoji} ${opt.name}</div>
+      <div class="pc-desc">${opt.desc} · CD:${opt.baseCooldown}</div>
+    </div>${rarityBanner}`;
+    btn.innerHTML=inner;
+    btn.onclick=()=>{ addSpellById(opt.id, false, rarity); processNextLevelUp(); };
     cont.appendChild(btn);
   });
   showScreen("spellchoice-screen");

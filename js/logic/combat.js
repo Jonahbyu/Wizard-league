@@ -898,10 +898,12 @@ function endBattle(won){
       battleNumber++;
       _runRoomsCompleted++;
       // Do NOT increment zoneBattleCount for rival fights
+      if(typeof checkBattleRecord === 'function') checkBattleRecord();
     } else {
       battleNumber++;
       _runRoomsCompleted++;
       zoneBattleCount++; // track progress through this gym's zone
+      if(typeof checkBattleRecord === 'function') checkBattleRecord();
     }
     // Warlord's Banner reward on every win
     applyBannerReward();

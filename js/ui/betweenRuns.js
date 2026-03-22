@@ -428,3 +428,107 @@ function buyTalent(nodeId) {
     }
   }
 }
+
+// ── Incantation Rarity Preview Overlay ────────────────────────────────────────
+function showIncantationPreview() {
+  const existing = document.getElementById('inc-preview-overlay');
+  if (existing) { existing.remove(); return; }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'inc-preview-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:1rem;';
+  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+
+  const panel = document.createElement('div');
+  panel.style.cssText = 'background:#0e0a04;border:2px solid #3a2410;border-radius:8px;padding:1.2rem 1.4rem;width:100%;max-width:460px;cursor:default;';
+  panel.onclick = e => e.stopPropagation();
+
+  const tiers = [
+    { label:'Dim',     stars:1, bg:'rgba(0,0,0,.98)',                                                    border:'#2a1a08', tagColor:'#887766', nameColor:'#e8e8e8', subColor:'rgba(220,220,220,.7)' },
+    { label:'Kindled', stars:2, bg:'rgba(0,0,0,.98)',                                                    border:'#c06010', tagColor:'#c06010', nameColor:'#ffffff',  subColor:'rgba(255,255,255,.75)' },
+    { label:'Blazing', stars:3, bg:'rgba(0,0,0,.98)',                                                    border:'#bb1200', tagColor:'#bb1200', nameColor:'#ffffff',  subColor:'rgba(255,255,255,.75)' },
+    { label:'Radiant', stars:4, bg:'linear-gradient(to right, rgba(0,0,0,.98) 50%, #f0e8c0 100%)',        border:'#d4aa20', tagColor:'#8a6a10', nameColor:'#7a5208', subColor:'#9a7820', leftNameColor:'#ffffff', leftSubColor:'rgba(255,255,255,.75)' },
+    { label:'Merged',  stars:5, bg:'linear-gradient(to right, rgba(0,0,0,.98) 50%, rgba(0,80,75,1) 100%)',border:'#00d4c8', tagColor:'#00d4c8', nameColor:'#ffffff',  subColor:'rgba(255,255,255,.75)', note:'(Coming Soon)' },
+  ];
+
+  // Inject animation keyframes once
+  if (!document.getElementById('inc-preview-styles')) {
+    const s = document.createElement('style');
+    s.id = 'inc-preview-styles';
+    s.textContent = `
+      @keyframes incStarPulse {
+        0%,100% { opacity:1; filter:brightness(1) drop-shadow(0 0 2px currentColor); transform:scale(1); }
+        50%      { opacity:.5; filter:brightness(2.5) drop-shadow(0 0 6px currentColor); transform:scale(1.4); }
+      }
+      @keyframes incShimmer {
+        0%   { left:-80%; }
+        100% { left:160%; }
+      }
+      @keyframes incFireGlow {
+        0%,100% { opacity:.7; transform:scaleY(1);   filter:blur(2px); }
+        33%     { opacity:1;   transform:scaleY(1.15); filter:blur(1px); }
+        66%     { opacity:.6;  transform:scaleY(.9);   filter:blur(3px); }
+      }
+      @keyframes incBorderPulse {
+        0%,100% { opacity:1; }
+        50%     { opacity:.6; }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function cardHTML(t) {
+    const isGradient = t.bg.includes('gradient');
+    const isFire = t.label === 'Kindled' || t.label === 'Blazing';
+    const borderGrad = `linear-gradient(to right, #1a1a1a 50%, ${t.border} 100%)`;
+
+    // Staggered sparkling stars
+    const starSpans = Array.from('✦'.repeat(t.stars)).map((s, i) =>
+      `<span style="display:inline-block;animation:incStarPulse ${5.5 + i * 0.7}s ease-in-out ${i * 1.0}s infinite;">${s}</span>`
+    ).join('');
+
+    // Shimmer overlay for gradient cards
+    const shimmer = isGradient
+      ? `<div style="position:absolute;top:0;left:-80%;width:45%;height:100%;pointer-events:none;z-index:2;
+           background:linear-gradient(to right,transparent,rgba(255,255,255,.09),transparent);
+           animation:incShimmer 3.5s linear infinite;"></div>`
+      : '';
+
+    // Fire flicker overlay for Kindled / Blazing
+    const fireColor = t.label === 'Kindled' ? 'rgba(255,120,0,.18)' : 'rgba(255,30,0,.18)';
+    const fire = isFire
+      ? `<div style="position:absolute;bottom:0;right:0;width:55%;height:100%;pointer-events:none;z-index:2;
+           background:linear-gradient(to left,${fireColor},transparent);
+           animation:incFireGlow 1.6s ease-in-out infinite;"></div>`
+      : '';
+
+    // Border pulse for fire cards
+    const wrapperAnim = isFire ? `animation:incBorderPulse 1.8s ease-in-out infinite;` : '';
+
+    return `<div style="padding:3px;background:${borderGrad};border-radius:7px;margin-bottom:.5rem;${wrapperAnim}">
+      <div style="display:flex;align-items:stretch;border-radius:5px;overflow:hidden;background:${t.bg};position:relative;">
+        ${shimmer}${fire}
+        <div style="flex:1;padding:.4rem .55rem;position:relative;z-index:3;">
+          <div style="font-size:.72rem;font-family:'Cinzel',serif;color:${t.leftNameColor||t.nameColor};margin-bottom:.2rem;">🔮 Example Spell${t.note?` <span style="font-size:.45rem;opacity:.65;">${t.note}</span>`:''}</div>
+          <div style="font-size:.48rem;color:${t.leftSubColor||t.subColor};">${t.note?'Two spells fused into one.':'Deals damage and applies a status effect.'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:58px;padding:3px 8px;gap:1px;position:relative;z-index:3;">
+          <div style="font-size:.45rem;font-family:'Cinzel',serif;color:${t.tagColor};letter-spacing:.1em;">${starSpans}</div>
+          <div style="font-size:.72rem;font-family:'Cinzel',serif;color:${t.nameColor};font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1.1;">${t.label}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  let html = `<div style="font-family:'Cinzel',serif;font-size:.9rem;letter-spacing:.1em;color:#c8a060;text-align:center;margin-bottom:.8rem;border-bottom:1px solid #2a1a08;padding-bottom:.6rem;">
+    📜 Incantation Rarity Tiers
+  </div>`;
+
+  tiers.forEach(t => { html += cardHTML(t); });
+
+  html += `<div style="font-size:.48rem;color:#554433;text-align:center;margin-top:.4rem;font-family:'Cinzel',serif;letter-spacing:.06em;">Click outside to close</div>`;
+
+  panel.innerHTML = html;
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}

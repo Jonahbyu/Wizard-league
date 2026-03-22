@@ -303,17 +303,6 @@ function performHit(attackerSide, defenderSide, pkg){
       if(combat.over) return;
     }
 
-    // ── Lightning: queue Shock stacks ──
-    if(pkg.abilityElement==='Lightning'){
-      let stacksToAdd = 1;
-      if(attackerSide==='player' && hasPassive('lightning_conduction')) stacksToAdd += 1;
-      if(attackerSide==='player') stacksToAdd += (player._talentShockBonus || 0);
-      if(attackerSide==='enemy'  && enemyHasPassive('lightning_conduction')) stacksToAdd += 1;
-      status[defenderSide].shockStacks = (status[defenderSide].shockStacks||0) + stacksToAdd;
-      log(`⚡ Shock +${stacksToAdd} (×${status[defenderSide].shockStacks})`, 'status');
-      _plasmaChargeOnDebuff(defenderSide);
-    }
-
     // ── Lightning Double Strike ──
     if(pkg.abilityElement==='Lightning' && !pkg._isDblStrike){
       const hasDouble = (attackerSide==='player' && hasPassive('lightning_double')) ||

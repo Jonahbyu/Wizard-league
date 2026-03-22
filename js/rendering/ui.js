@@ -294,31 +294,37 @@ function basicSpellDamagePreview(){
 
 function doBasicAttack(ctx){
   const _elemBasicFlag = {Fire:'_elementalBasicFire',Water:'_elementalBasicWater',Ice:'_elementalBasicIce',Earth:'_elementalBasicEarth',Nature:'_elementalBasicNature',Lightning:'_elementalBasicLightning',Plasma:'_elementalBasicPlasma',Air:'_elementalBasicAir'};
-  const hasElemBasicActive = player[_elemBasicFlag[playerElement]||''];
-  const dmg = Math.round((BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasicActive ? 10 : 0)) * (player.basicDmgMult||1.0));
-  // Elemental basic talent: add burn to effects array for Fire; others handled post-hit
-  const elemEffects = (hasElemBasicActive && playerElement==='Fire') ? [{type:'burn', stacks:2}] : [];
+  const basicLevel = player[_elemBasicFlag[playerElement]||''] || 0; // 0=off, 1-5=tier
+  const hasElemBasicActive = basicLevel > 0;
+  // Damage scales with level: +10 base, +3 per level above 1
+  const elemDmgBonus = hasElemBasicActive ? (10 + _incantationBonus(basicLevel, 3, 0.95)) : 0;
+  const dmg = Math.round((BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + elemDmgBonus) * (player.basicDmgMult||1.0));
+  // Burn stacks for Fire scale with level
+  const burnStacks = hasElemBasicActive ? Math.round(2 + _incantationBonus(basicLevel, 1, 0.90)) : 0;
+  const elemEffects = (hasElemBasicActive && playerElement==='Fire') ? [{type:'burn', stacks:burnStacks}] : [];
   const _basicNames = {Fire:'Ember Strike',Water:'Tidal Jab',Ice:'Frost Jab',Earth:'Stone Fist',Nature:'Vine Whip',Lightning:'Spark Strike',Plasma:'Surge Bolt',Air:'Gust Slash'};
   const _basicIcons = {Fire:'🔥',Water:'💧',Ice:'❄️',Earth:'🪨',Nature:'🌿',Lightning:'⚡',Plasma:'🔮',Air:'💨'};
   const _basicLabel = hasElemBasicActive ? `${_basicIcons[playerElement]||'⚔'} ${_basicNames[playerElement]||'Basic Attack'}` : '⚔ Basic Attack';
   ctx.hit({ baseDamage: dmg, effects: elemEffects, isBasic: true, abilityElement: playerElement, label: _basicLabel });
   if(combat.over || !hasElemBasicActive) return;
-  // Post-hit elemental procs (non-Fire elements)
-  if(playerElement==='Water')     { applyFoam('player','enemy',1); }
-  if(playerElement==='Ice')       { applyFrost('player','enemy',1); }
-  if(playerElement==='Earth')     { addStoneStacks('player',1); }
-  if(playerElement==='Nature')    { applyRoot('player','enemy',1); }
+  // Post-hit elemental procs — all scale with basicLevel via _incantationBonus
+  const _ib = (base, scale, decay) => base + _incantationBonus(basicLevel, scale, decay);
+  if(playerElement==='Water')     { applyFoam('player','enemy', Math.round(_ib(1, 0.5, 0.90))); }
+  if(playerElement==='Ice')       { applyFrost('player','enemy', _ib(1, 0.5, 0.90)); }
+  if(playerElement==='Earth')     { addStoneStacks('player', Math.round(_ib(1, 0.5, 0.90))); }
+  if(playerElement==='Nature')    { applyRoot('player','enemy', Math.round(_ib(1, 0.5, 0.90))); }
   if(playerElement==='Lightning') {
-    const extraShock = Math.round(1 * (1 + effectPowerFor('player')/50));
+    const extraShock = Math.round(_ib(1, 0.5, 0.90) * (1 + effectPowerFor('player')/50));
     status.enemy.shockStacks = (status.enemy.shockStacks||0) + extraShock;
     log(`⚡ Spark Strike: +${extraShock} extra Shock (×${status.enemy.shockStacks})`, 'status');
   }
   if(playerElement==='Plasma') {
-    status.player.plasmaCharge = Math.min((status.player.plasmaCharge||0)+2, 20);
+    const charge = Math.round(_ib(2, 1, 1.00));
+    status.player.plasmaCharge = Math.min((status.player.plasmaCharge||0)+charge, 20);
     if(typeof updateChargeUI==='function') updateChargeUI();
-    log(`🔮 Surge Bolt: +2 Charge (${status.player.plasmaCharge} total)`, 'player');
+    log(`🔮 Surge Bolt: +${charge} Charge (${status.player.plasmaCharge} total)`, 'player');
   }
-  if(playerElement==='Air') { addMomentumStacks(1); }
+  if(playerElement==='Air') { addMomentumStacks(Math.round(_ib(1, 1, 1.00))); }
 }
 
 // ── Spell damage preview for tooltips ────────────────────────────────────────
@@ -626,19 +632,44 @@ function renderSpellButtons(){
       const _elemBasicNames = {Fire:'Ember Strike',Water:'Tidal Jab',Ice:'Frost Jab',Earth:'Stone Fist',Nature:'Vine Whip',Lightning:'Spark Strike',Plasma:'Surge Bolt',Air:'Gust Slash'};
       const _elemBasicIcons = {Fire:'🔥',Water:'💧',Ice:'❄️',Earth:'🪨',Nature:'🌿',Lightning:'⚡',Plasma:'🔮',Air:'💨'};
       const _elemBasicFlags = {Fire:'_elementalBasicFire',Water:'_elementalBasicWater',Ice:'_elementalBasicIce',Earth:'_elementalBasicEarth',Nature:'_elementalBasicNature',Lightning:'_elementalBasicLightning',Plasma:'_elementalBasicPlasma',Air:'_elementalBasicAir'};
-      const hasElemBasic = player[_elemBasicFlags[playerElement]||''];
+      const basicLevel = player[_elemBasicFlags[playerElement]||''] || 0;
+      const hasElemBasic = basicLevel > 0;
       const basicName = hasElemBasic ? (_elemBasicNames[playerElement]||'Basic Attack') : 'Basic Attack';
       const basicIcon = hasElemBasic ? (_elemBasicIcons[playerElement]||'⚔') : '⚔';
       const basicOnCD = combat.basicCD > 0;
       const basicQueued = (combat.actionQueue||[]).some(a => a.label === `${basicIcon} ${basicName}`);
       const basicOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
+      // Rarity for basic: level maps to rarity tiers
+      const _basicRarityMap = [null,'dim','kindled','blazing','radiant','radiant'];
+      const _basicRarityKey = _basicRarityMap[basicLevel] || null;
+      const _basicRarityInfo = (hasElemBasic && typeof SPELL_RARITY!=='undefined') ? SPELL_RARITY[_basicRarityKey] : null;
+      const _basicRarityColor = _basicRarityInfo ? _basicRarityInfo.color : null;
       const cell = document.createElement('button');
       cell.className = 'sb-spell-cell' + (basicOnCD?' on-cd':'') + (basicOutOfPP?' no-pp':'');
+      if(_basicRarityColor) cell.style.borderColor = _basicRarityColor + '99';
       cell.disabled = !isMyTurn || queueFull || basicOnCD || basicQueued || basicOutOfPP;
+      const _elemDmgBonus = hasElemBasic ? (10 + _incantationBonus(basicLevel, 3, 0.95)) : 0;
       const basicDmgEst = Math.max(1, Math.round(
-        (BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasic ? 10 : 0)) * (player.basicDmgMult||1.0)
+        (BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + _elemDmgBonus) * (player.basicDmgMult||1.0)
         + attackPowerFor('player')));
-
+      const _basicRarityBadge = _basicRarityColor
+        ? `<div style="font-size:.5rem;color:${_basicRarityColor};letter-spacing:.04em;">✦${_basicRarityInfo.label}${basicLevel>=5?' II':''}</div>`
+        : '';
+      // Build elemental effect description line for the button
+      const _elemEffectDescs = {
+        Fire:      lvl => `🔥 +${Math.round(2 + _incantationBonus(lvl,1,0.90))} Burn`,
+        Water:     lvl => `🫧 +${Math.round(1 + _incantationBonus(lvl,0.5,0.90))} Foam`,
+        Ice:       lvl => `❄️ +${(1 + _incantationBonus(lvl,0.5,0.90)).toFixed(1)} Frost`,
+        Earth:     lvl => `🪨 +${Math.round(1 + _incantationBonus(lvl,0.5,0.90))} Stone`,
+        Nature:    lvl => `🌿 +${Math.round(1 + _incantationBonus(lvl,0.5,0.90))} Root`,
+        Lightning: lvl => `⚡ +${Math.round(1 + _incantationBonus(lvl,0.5,0.90))} Shock`,
+        Plasma:    lvl => `🔮 +${Math.round(2 + _incantationBonus(lvl,1,1.00))} Charge`,
+        Air:       lvl => `💨 +${Math.round(1 + _incantationBonus(lvl,1,1.00))} Momentum`,
+      };
+      const _elemEffectFn = hasElemBasic && _elemEffectDescs[playerElement];
+      const _elemEffectLine = _elemEffectFn
+        ? `<div style="font-size:.48rem;color:#a0c8a0;letter-spacing:.03em;margin-top:1px;">${_elemEffectFn(basicLevel)}</div>`
+        : '';
       const basicPPLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
       cell.innerHTML =
         `<div class="sb-spell-icon">${basicIcon}</div>` +
@@ -646,9 +677,12 @@ function renderSpellButtons(){
         '<div class="sb-spell-cd '+(basicOnCD?'on-cd':'ready')+'">'+
           (basicOutOfPP ? 'No PP' : basicOnCD ? 'CD:'+combat.basicCD : '~'+basicDmgEst+' dmg')+
         '</div>' +
+        _basicRarityBadge +
+        _elemEffectLine +
         basicPPLabel +
         (basicQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
-      cell.title = `${basicName} [${playerElement}]\nDeals ~${basicDmgEst} dmg (ATK: ${attackPowerFor('player')})${hasElemBasic?' + elemental effect':''}\nCooldown: 1 turn`;
+      const _elemEffectTooltip = _elemEffectFn ? ('\n' + _elemEffectFn(basicLevel) + ' on hit') : '';
+      cell.title = `${basicName} [${playerElement}]${_basicRarityInfo?' · '+_basicRarityInfo.label+(basicLevel>=5?' II':''):''}\nDeals ~${basicDmgEst} dmg (ATK: ${attackPowerFor('player')})${_elemEffectTooltip}\nCooldown: 1 turn`;
       const basicSpellRef = spell;
       cell.onclick = ()=>{
         if(!isMyTurn||queueFull||basicOnCD||basicQueued||basicOutOfPP) return;
@@ -721,6 +755,11 @@ function renderSpellButtons(){
     const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
     const cell = document.createElement('button');
     cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'') + (outOfPP?' no-pp':'') + (isFree?' free-action':'');
+    // Rarity: tint border color
+    if(spell.rarity && spell.rarity !== 'dim' && typeof SPELL_RARITY !== 'undefined'){
+      const rc = SPELL_RARITY[spell.rarity];
+      if(rc && rc.color) cell.style.borderColor = rc.color;
+    }
     const isChargeShot = spell.id === 'charge_shot';
     const slotsAvail = combat.actionsLeft - nonFreeQueued;
     const canQueue = isFree
@@ -732,10 +771,20 @@ function renderSpellButtons(){
     const cdLabel = outOfPP ? 'No PP' : spell.multiUse ? 'Free' : (onCD ? 'CD:'+effectiveCD : 'CD:'+spell.baseCooldown);
     const freeLabel = isFree ? ' ✦Free' : '';
     const ppLabel = spell.maxPP !== undefined ? '<div class="sb-spell-pp">'+(spell.currentPP||0)+'/'+spell.maxPP+' PP</div>' : '';
+    const incLevel = spell.incantationLevel || 1;
+    const rarityInfo = (typeof SPELL_RARITY !== 'undefined' && spell.rarity) ? SPELL_RARITY[spell.rarity] : null;
+    const rarityColor = rarityInfo && rarityInfo.color ? rarityInfo.color : null;
+    const incLabel = incLevel > 1 && rarityColor
+      ? `<div style="font-size:.52rem;color:${rarityColor};letter-spacing:.04em;">✦${rarityInfo.label} Lv${incLevel}</div>`
+      : (incLevel > 1 ? `<div style="font-size:.52rem;color:#8a6a30;">Lv${incLevel}</div>` : '');
+    const _incStat = (typeof incantationStatDisplay === 'function') ? incantationStatDisplay(spell) : null;
+    const incStatLabel = _incStat ? `<div style="font-size:.5rem;color:#88aacc;letter-spacing:.03em;">${_incStat}</div>` : '';
     cell.innerHTML =
       '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
       '<div class="sb-spell-name">'+spell.name+rankStr+freeLabel+'</div>' +
       '<div class="sb-spell-cd '+(onCD||outOfPP?'on-cd':'ready')+'">'+cdLabel+'</div>' +
+      incLabel +
+      incStatLabel +
       ppLabel +
       (alreadyQueued ? '<div class="sb-spell-queued-badge">✓</div>' : '');
     {
@@ -745,7 +794,9 @@ function renderSpellButtons(){
       const rankInfo = rankPct > 100 ? `Rank: +${rankPct-100}% damage` : '';
       const dmgPrev  = _spellDmgPreview(spell);
       const atkLine  = `ATK: ${attackPowerFor('player')}  EFX: ${effectPowerFor('player')}  DEF: ${defenseFor('player')}`;
-      const parts    = [spell.name+' '+elemInfo, spell.desc||'', dmgPrev, cdInfo, ppInfo, rankInfo, atkLine].filter(Boolean);
+      const _iRar    = (typeof SPELL_RARITY !== 'undefined' && spell.rarity) ? SPELL_RARITY[spell.rarity] : null;
+      const incInfo  = `${_iRar ? _iRar.label : 'Dim'} · Incantation Level ${spell.incantationLevel || 1}`;
+      const parts    = [spell.name+' '+elemInfo, spell.desc||'', dmgPrev, cdInfo, ppInfo, rankInfo, incInfo, atkLine].filter(Boolean);
       cell.title = parts.join('\n');
     }
     cell.onclick = ()=>{

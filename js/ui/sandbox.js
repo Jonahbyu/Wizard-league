@@ -221,7 +221,7 @@ function sandboxToggleSpell(spellId){
     log(`📖 Sandbox: removed ${spell.emoji} ${spell.name}.`, 'system');
   } else {
     // Force-add (bypass slot limit in sandbox)
-    const entry = { ...spell, currentCD: 0, dmgMult: 1.0 };
+    const entry = { ...spell, currentCD: 0, dmgMult: 1.0, rarity: 'dim', incantationLevel: 1 };
     spells.push(entry);
     if(book && player.activeBookIdx === (player.spellbooks||[]).indexOf(book)) syncActiveBook();
     log(`📖 Sandbox: added ${spell.emoji} ${spell.name}.`, 'system');

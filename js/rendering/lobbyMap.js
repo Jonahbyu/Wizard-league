@@ -43,6 +43,11 @@ let _lobbyBgZones = null; // array of 3 element strings
 function _initLobbyBgZones() {
   const all = ['Fire','Water','Ice','Lightning','Earth','Nature','Plasma','Air','Camp'];
   _lobbyBgZones = [...all].sort(() => Math.random() - 0.5).slice(0, 3);
+  // Camp must never appear in the middle panel (index 1)
+  if (_lobbyBgZones[1] === 'Camp') {
+    const swap = Math.random() < 0.5 ? 0 : 2;
+    [_lobbyBgZones[1], _lobbyBgZones[swap]] = [_lobbyBgZones[swap], _lobbyBgZones[1]];
+  }
 }
 
 function _drawLobbyZonePanels(ctx, W, H) {

@@ -283,6 +283,21 @@ function incrementArtifactRooms() {
   return null;
 }
 
+// Called after each battle win — awards 10 phos per room cleared past the previous record.
+// Updates meta.bestLevel immediately so each new room in a run earns separately.
+function checkBattleRecord() {
+  if (typeof sandboxMode !== 'undefined' && sandboxMode) return;
+  const meta = getMeta();
+  const prev = meta.bestLevel || 0;
+  if (battleNumber > prev) {
+    meta.bestLevel = battleNumber;
+    meta.phos      = (meta.phos || 0) + 10;
+    meta.phosTotal = (meta.phosTotal || 0) + 10;
+    saveMeta();
+    if (typeof log === 'function') log(`✦ Room ${battleNumber} record! +10 Phos`, 'win');
+  }
+}
+
 // Called on run end — save stats
 function saveRunStats() {
   const meta = getMeta();
@@ -290,6 +305,7 @@ function saveRunStats() {
   meta.phos      = (meta.phos||0) + phosEarned;
   meta.phosTotal = (meta.phosTotal||0) + phosEarned;
   meta.totalRuns  = (meta.totalRuns||0) + 1;
+  meta.bestLevel  = Math.max(meta.bestLevel||0, battleNumber);
   if(!meta.runHistory) meta.runHistory = [];
   meta.runHistory.unshift({
     element:  playerElement || '?',

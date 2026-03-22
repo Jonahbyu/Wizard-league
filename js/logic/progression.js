@@ -255,12 +255,13 @@ function _drawNode(ctx, node, hovered, tick) {
   // Reward indicator below label
   if ((type === 'combat' || type === 'pack') && node.rewardType) {
     const rewardMeta = {
-      primary_spell:   { icon: '✦', label: 'Spell',  col: '#aa88ff' },
-      secondary_spell: { icon: '✦', label: 'Spell',  col: '#aa88ff' },
-      minor:           { icon: '📈', label: 'Minor',  col: '#88aacc' },
-      major:           { icon: '⚡', label: 'Major',  col: '#ffcc44' },
-      rival:           { icon: '🧢', label: 'Rival',  col: '#9a6aee' },
-      gym_available:   { icon: '🏛',  label: 'Gym',   col: '#c8a060' },
+      primary_spell:   { icon: '✨', label: 'Spell',       col: '#aa88ff' },
+      secondary_spell: { icon: '✨', label: 'Spell',       col: '#aa88ff' },
+      minor:           { icon: '📈', label: 'Minor',       col: '#88aacc' },
+      major:           { icon: '⚡', label: 'Major',       col: '#ffcc44' },
+      rival:           { icon: '🧢', label: 'Rival',       col: '#9a6aee' },
+      gym_available:   { icon: '🏛',  label: 'Gym',        col: '#c8a060' },
+      incantation:     { icon: '📜', label: 'Incantation', col: '#ff5500' },
     }[node.rewardType] || { icon: '?', label: '', col: '#666' };
     ctx.save();
     ctx.font = `${hovered ? 9 : 8}px monospace`;
