@@ -10,9 +10,13 @@ function sandboxSkipBattle(){
   player.gold += gold;
   battleNumber++;
   zoneBattleCount++;
-  log(`⚡ Sandbox: battle skipped. +${gold} gold.`, 'system');
+  _runRoomsCompleted = (_runRoomsCompleted || 0) + 1;
+  log(`⚡ Sandbox: battle skipped (treated as win). +${gold} gold.`, 'system');
+  if (typeof applyBannerReward === 'function') applyBannerReward();
+  if (typeof incrementArtifactRooms === 'function') incrementArtifactRooms();
   setTimeout(() => {
-    if (pendingLevelUps.length > 0) processNextLevelUp();
+    if (typeof showBattleRewardScreen === 'function') showBattleRewardScreen(false, combat._isSpellBattle || false, false);
+    else if (pendingLevelUps.length > 0) processNextLevelUp();
     else showMap();
   }, 400);
 }

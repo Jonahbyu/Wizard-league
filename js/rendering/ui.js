@@ -250,7 +250,7 @@ function restartToSelect(){
   });
   Object.assign(combat,{enemies:[],targetIdx:0,activeEnemyIdx:0,enemy:{},enemyHP:0,playerTurn:false,over:false,tempDmgBonus:0,actionsLeft:0,basicCD:0,playerAirToggle:false,enemyAirToggle:false,actionQueue:[],summons:[],totalGold:0});
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[];
-  _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = '';
+  _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = ''; _runKillsThisRun = 0;
   sandboxMode = false;
   GYM_ROSTER.length = 0;
   showHub();
@@ -774,9 +774,9 @@ function renderSpellButtons(){
     const incLevel = spell.incantationLevel || 1;
     const rarityInfo = (typeof SPELL_RARITY !== 'undefined' && spell.rarity) ? SPELL_RARITY[spell.rarity] : null;
     const rarityColor = rarityInfo && rarityInfo.color ? rarityInfo.color : null;
-    const incLabel = incLevel > 1 && rarityColor
-      ? `<div style="font-size:.52rem;color:${rarityColor};letter-spacing:.04em;">✦${rarityInfo.label} Lv${incLevel}</div>`
-      : (incLevel > 1 ? `<div style="font-size:.52rem;color:#8a6a30;">Lv${incLevel}</div>` : '');
+    const incLabel = rarityInfo && spell.rarity && spell.rarity !== 'dim'
+      ? `<div style="font-size:.52rem;color:${rarityColor};letter-spacing:.04em;">✦${rarityInfo.label}</div>`
+      : '';
     const _incStat = (typeof incantationStatDisplay === 'function') ? incantationStatDisplay(spell) : null;
     const incStatLabel = _incStat ? `<div style="font-size:.5rem;color:#88aacc;letter-spacing:.03em;">${_incStat}</div>` : '';
     cell.innerHTML =

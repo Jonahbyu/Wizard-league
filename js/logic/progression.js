@@ -137,21 +137,22 @@ function buildMapNodes(encounters, specials, canvasW, canvasH) {
       nodes.push({ x: nx, y: ny, type: enc._specialType, enc, color: spColor, sprites: [], label: spLabel });
       return;
     }
-    const members = enc.isPack ? enc.members : [enc];
-    const sprites = members.map(m => ({
-      rows: getEnemySprite(m),
-      pal:  getElemPal(m.element || 'Neutral'),
-    }));
     const nextSlot = zoneBattleCount + 1;
     const slotReward = enc._rewardType || getZoneRewardType(nextSlot, currentGymIdx);
+    const _rewardNodeCfg = {
+      primary_spell: { label:'Starting Spell', color:'#c080ff', icon:'✦'  },
+      spell:         { label:'Spell Reward',   color:'#a080ff', icon:'📜' },
+      incantation:   { label:'Incantation',    color:'#e08030', icon:'📜' },
+      minor:         { label:'Pick Up',        color:'#c8a060', icon:'💰' },
+      major:         { label:'Power Up',       color:'#e8d060', icon:'⚡' },
+    }[slotReward] || { label:'Battle', color:'#888888', icon:'⚔' };
     nodes.push({
       x: nx, y: ny,
       type: enc.isPack ? 'pack' : 'combat',
-      enc, sprites,
-      color: enc.isPack
-        ? getElemPal(enc.members[0]?.element || 'Neutral')[0]
-        : (EL_PAL[enc.element?.split(/[\/\s]/)[0]] || EL_PAL.Neutral)[0],
-      label: enc.isPack ? enc.packName : enc.name,
+      enc, sprites: [],
+      color: _rewardNodeCfg.color,
+      label: _rewardNodeCfg.label,
+      rewardIcon: _rewardNodeCfg.icon,
       rewardType: slotReward,
     });
   });
@@ -236,9 +237,18 @@ function _drawNode(ctx, node, hovered, tick) {
   ctx.stroke();
   ctx.restore();
 
-  // Content: enemy sprites or icon
+  // Content: reward icon (animated) or special icon
   if (type === 'combat' || type === 'pack') {
-    _drawNodeSprites(ctx, x, y, sprites, hovered, node);
+    // Float animation — different phase per x position so nodes don't sync
+    const floatY = Math.sin(tick * 0.003 + node.x * 0.012) * 5;
+    const scalePulse = type === 'major' ? 1 + 0.08 * Math.sin(tick * 0.005) : 1;
+    ctx.save();
+    ctx.font = `${Math.round((r - 6) * scalePulse)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = hovered ? 1.0 : 0.88;
+    ctx.fillText(node.rewardIcon || '⚔', x, y + floatY);
+    ctx.restore();
   } else {
     _drawNodeIcon(ctx, x, y, node, hovered, tick);
   }
@@ -251,26 +261,6 @@ function _drawNode(ctx, node, hovered, tick) {
   ctx.globalAlpha = hovered ? 0.95 : 0.7;
   ctx.fillText(node.label || '', x, y + r + 10);
   ctx.restore();
-
-  // Reward indicator below label
-  if ((type === 'combat' || type === 'pack') && node.rewardType) {
-    const rewardMeta = {
-      primary_spell:   { icon: '✨', label: 'Spell',       col: '#aa88ff' },
-      secondary_spell: { icon: '✨', label: 'Spell',       col: '#aa88ff' },
-      minor:           { icon: '📈', label: 'Minor',       col: '#88aacc' },
-      major:           { icon: '⚡', label: 'Major',       col: '#ffcc44' },
-      rival:           { icon: '🧢', label: 'Rival',       col: '#9a6aee' },
-      gym_available:   { icon: '🏛',  label: 'Gym',        col: '#c8a060' },
-      incantation:     { icon: '📜', label: 'Incantation', col: '#ff5500' },
-    }[node.rewardType] || { icon: '?', label: '', col: '#666' };
-    ctx.save();
-    ctx.font = `${hovered ? 9 : 8}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = rewardMeta.col;
-    ctx.globalAlpha = hovered ? 0.95 : 0.65;
-    ctx.fillText(rewardMeta.icon + ' ' + rewardMeta.label, x, y + r + 20);
-    ctx.restore();
-  }
 }
 
 

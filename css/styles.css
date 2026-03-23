@@ -1247,6 +1247,9 @@
       backdrop-filter: blur(2px);
       max-width: calc(100% - 24px);
     }
+    .map-topbar button {
+      pointer-events: auto;
+    }
     .map-zone-pill {
       font-family: 'Cinzel', serif;
       font-size: .65rem;

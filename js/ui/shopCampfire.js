@@ -88,48 +88,103 @@ function enterCampfire(){
 }
 function leaveCampfire(){ stopCampfireScene(); showMap(); }
 
-function enterShop(){
-  document.getElementById("shop-gold-display").textContent=player.gold;
-  const c=document.getElementById("shop-items"); c.innerHTML="";
-  const _pm = player._mistShopPriceMult || 1.0;
-  const addRow=(emoji,name,desc,cost,canBuy,onBuy)=>{
-    const row=document.createElement("div");
-    row.className="shop-item-row"+(canBuy?"":" cant-afford");
-    row.innerHTML=`<div><div class="shop-item-name">${emoji} ${name}</div><div class="shop-item-desc">${desc}</div></div><div class="shop-item-cost">${cost}g</div>`;
-    if(canBuy) row.onclick=onBuy;
-    c.appendChild(row);
-  };
-  SHOP_ITEMS.forEach(id=>{
-    const item=ITEM_CATALOGUE[id];
-    const cost=Math.ceil(item.shopCost*_pm);
-    addRow(item.emoji,item.name,item.desc,cost,player.gold>=cost,
-      ()=>{player.gold-=cost;addItem(id);enterShop();});
-  });
-  const revCost = Math.ceil(200*_pm);
-  const maxRevives = 6;
-  addRow('❤️','Extra Life',`Gain +1 life (${player.revives} now). Revives heal to 75% HP.`,
-    revCost, player.gold>=revCost && player.revives<maxRevives,
-    ()=>{player.gold-=revCost; player.revives++; enterShop();});
+let _shopStock = null;
 
-  const actionCost = Math.ceil(350*_pm);
-  const maxBonusActions = 2;
-  addRow('⚡','Extra Action',
-    `Gain +1 permanent action per turn (${player.bonusActions}/${maxBonusActions}). Cooldowns still apply.`,
-    actionCost, player.gold>=actionCost && (player.bonusActions||0)<maxBonusActions,
-    ()=>{player.gold-=actionCost; player.bonusActions=(player.bonusActions||0)+1; enterShop();});
-  const allPassives=Object.entries(PASSIVE_CHOICES).flatMap(([el,ps])=>ps.map(p=>({...p,element:el})));
-  const forSale=allPassives.filter(p=>!p.legendary&&!player.passives.includes(p.id));
-  pickRandom(forSale,2).forEach(p=>{
-    const pCost=Math.ceil(1000*_pm);
-    addRow(p.emoji,p.title,`[${p.element}] ${p.desc}`,pCost,player.gold>=pCost,
-      ()=>{player.gold-=pCost;addPassiveToBook(p.id);enterShop();});
+function _generateShopStock() {
+  const m = player._mistShopPriceMult || 1.0;
+  const c = n => Math.ceil(n * m);
+
+  // ── Category pools ──────────────────────────────────────────────────────
+  const itemPool = [
+    { id:'s_hp',    label:'Health Potion',  emoji:'💚', tag:'Consumable', desc:'Restore 40% HP during battle.',           cost:c(50),  buy(){ addItem('health_potion'); } },
+    { id:'s_pp',    label:'Mana Crystal',   emoji:'🔮', tag:'Consumable', desc:'Restore all spell PP during battle.',      cost:c(50),  buy(){ addItem('mana_crystal'); } },
+    { id:'s_dmg',   label:'Damage Crystal', emoji:'💎', tag:'Consumable', desc:'+20 damage this battle.',                  cost:c(50),  buy(){ addItem('dmg_booster'); } },
+    { id:'s_efx',   label:'EFX Crystal',    emoji:'✦',  tag:'Consumable', desc:'+20 Effect Power this battle.',            cost:c(50),  buy(){ addItem('efx_crystal'); } },
+    { id:'s_defc',  label:'Defense Crystal',emoji:'🛡️', tag:'Consumable', desc:'+20 Defense this battle.',                 cost:c(50),  buy(){ addItem('def_crystal'); } },
+    { id:'s_disp1', label:'Basic Dispel',   emoji:'🧹', tag:'Consumable', desc:'Halve debuff stacks; duration effects -1.',cost:c(50),  buy(){ addItem('basic_dispel'); } },
+    { id:'s_disp2', label:'Strong Dispel',  emoji:'✨', tag:'Consumable', desc:'Clear all negative status effects.',       cost:c(100), buy(){ addItem('strong_dispel'); } },
+  ];
+
+  const statPool = [
+    { id:'s_atk',  label:'+5 Attack Power', emoji:'⚔️', tag:'Stat', desc:'Permanently gain +5 Attack Power.', cost:c(100), buy(){ player.attackPower += 5; updateStatsUI(); log('⚔️ +5 Attack Power!','item'); } },
+    { id:'s_efxs', label:'+5 Effect Power', emoji:'✦',  tag:'Stat', desc:'Permanently gain +5 Effect Power.', cost:c(100), buy(){ player.effectPower += 5; updateStatsUI(); log('✦ +5 Effect Power!','item'); } },
+    { id:'s_def',  label:'+5 Defense',      emoji:'🛡️', tag:'Stat', desc:'Permanently gain +5 Defense.',      cost:c(100), buy(){ player.defense += 5; updateStatsUI(); log('🛡️ +5 Defense!','item'); } },
+    { id:'s_hp2',  label:'+25 Max HP',      emoji:'❤️', tag:'Stat', desc:'Permanently gain +25 Max HP.',      cost:c(100), buy(){ player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+25; player.hp=Math.min(maxHPFor('player'),player.hp+25); updateStatsUI(); log('❤️ +25 Max HP!','item'); } },
+  ];
+
+  const rewardPool = [
+    { id:'s_spell',  label:'Spell Reward', emoji:'📜', tag:'Reward', desc:'Choose a new spell to add to your spellbook.', cost:c(150), _modal:true, buy(){ _closeShopForReward(); showSpellChoiceScreen('Shop','secondary'); } },
+    { id:'s_incant', label:'Incantation',  emoji:'✦',  tag:'Reward', desc:'Choose a spell to upgrade.',                   cost:c(150), _modal:true, buy(){ _closeShopForReward(); showIncantationChoiceScreen('Shop'); } },
+  ];
+
+  const powerPool = [
+    { id:'s_action', label:'Extra Action',   emoji:'⚡', tag:'Power', desc:'Permanently gain +1 action per turn.',                    cost:c(250), buy(){ player.bonusActions=(player.bonusActions||0)+1; log('⚡ Extra action per turn!','item'); } },
+    { id:'s_life',   label:'Extra Life',     emoji:'❤️', tag:'Power', desc:'Survive one killing blow — revive at 75% HP.',            cost:c(200), buy(){ player.revives=(player.revives||0)+1; log('❤ Extra life gained!','item'); } },
+    { id:'s_rival',  label:"Rival's Secret", emoji:'⚔️', tag:'Power', desc:"Study your rival's techniques — choose from 3 passives.", cost:c(400), _modal:true, buy(){ _closeShopForReward(); showPassiveChoiceScreen('Shop'); } },
+  ];
+
+  // ── Pick one per slot ───────────────────────────────────────────────────
+  const item1  = pickRandom(itemPool, 1)[0];
+  const stat1  = pickRandom(statPool, 1)[0];
+  // 50/50: another item (different from item1) or another stat (different from stat1)
+  const mix    = Math.random() < 0.5
+    ? pickRandom(itemPool.filter(i => i.id !== item1.id), 1)[0]
+    : pickRandom(statPool.filter(s => s.id !== stat1.id), 1)[0];
+  const reward = pickRandom(rewardPool, 1)[0];
+  const power  = pickRandom(powerPool,  1)[0];
+
+  return [item1, stat1, mix, reward, power]
+    .filter(Boolean)
+    .sort((a, b) => a.cost - b.cost)
+    .map(item => ({ ...item, bought:false }));
+}
+
+function _closeShopForReward() {
+  _shopStock = null;
+  const canvas = document.getElementById('shop-canvas');
+  if (canvas && canvas._stop) canvas._stop();
+}
+
+function enterShop() {
+  if (!_shopStock) _shopStock = _generateShopStock();
+  _renderShop();
+}
+
+function _renderShop() {
+  document.getElementById('shop-gold-display').textContent = player.gold;
+  const c = document.getElementById('shop-items');
+  c.innerHTML = '';
+
+  (_shopStock || []).forEach(item => {
+    const affordable = player.gold >= item.cost;
+    const canBuy = !item.bought && affordable;
+    const row = document.createElement('div');
+    row.className = 'shop-item-row' + (item.bought ? ' cant-afford' : canBuy ? '' : ' cant-afford');
+
+    const statusLabel = item.bought
+      ? '<span style="font-size:.55rem;color:#555;margin-left:.4rem;">SOLD</span>'
+      : '';
+    row.innerHTML = `<div><div class="shop-item-name">${item.emoji} ${item.label}${statusLabel}</div><div class="shop-item-desc">[${item.tag}] ${item.desc}</div></div><div class="shop-item-cost">${item.cost}g</div>`;
+
+    if (canBuy) {
+      row.onclick = () => {
+        player.gold -= item.cost;
+        item.bought = true;
+        item.buy();
+        if (!item._modal) _renderShop();
+      };
+    }
+    c.appendChild(row);
   });
+
   updateStatsUI();
-  showScreen("shop-screen");
+  showScreen('shop-screen');
   startShopCanvas();
 }
-function leaveShop(){
-  const c = document.getElementById('shop-canvas');
-  if(c && c._stop) c._stop();
+
+function leaveShop() {
+  _shopStock = null;
+  const canvas = document.getElementById('shop-canvas');
+  if (canvas && canvas._stop) canvas._stop();
   showMap();
 }

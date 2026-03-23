@@ -240,6 +240,7 @@ function addPassiveToBook(passiveId, bookIdx) {
     return;
   }
   book.passives.push(passiveId);
+  if (typeof markPassiveSeen === 'function') markPassiveSeen(passiveId);
   if (passiveId === 'air_tailwind') player.attackPower += 15;
   if (targetIdx === player.activeBookIdx) syncActiveBook();
 }
@@ -440,7 +441,7 @@ const status = {
 };
 
 function freshEnemyStatus(){
-  return { ...STATUS_DEFAULTS };
+  return { ...STATUS_DEFAULTS, seeds: [], surgeActive: false, surgeValue: 0, surgeMeter: 0 };
 }
 
 function setActiveEnemy(idx){
@@ -456,6 +457,7 @@ let _runDmgDealt  = 0;          // total damage player dealt this run
 let _runDmgTaken  = 0;          // total damage player took this run
 let _runRoomsCompleted = 0;     // rooms cleared this run
 let _runZoneReached = '';       // last zone element entered
+let _runKillsThisRun = 0;       // total enemy kills this run (for Searing Verdict)
 let zoneBattleCount = 0;        // battles fought in current gym's zone (resets after each gym)
 let _zoneRivalDefeated = false; // rival fight doesn't count as a zone battle slot
 let gymSkips = 0;               // times player skipped gym this zone (resets per gym)

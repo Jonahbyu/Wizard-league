@@ -86,13 +86,14 @@ function grantRandomLegendary() {
     });
   });
 
-  // Build legendary passive pool
+  // Build legendary passive pool — deduplicate across ALL books
   const passivePool = [];
-  const currentPassives = activeBook() ? activeBook().passives : (player.passives||[]);
+  const allOwnedPassives = new Set();
+  (player.spellbooks||[]).forEach(b => b.passives.forEach(id => allOwnedPassives.add(id)));
   elements.forEach(el => {
     (PASSIVE_CHOICES[el]||[]).forEach(p => {
       if (!p.legendary) return;
-      if (currentPassives.includes(p.id)) return;
+      if (allOwnedPassives.has(p.id)) return;
       passivePool.push({type:'passive', def:p});
     });
   });
@@ -145,7 +146,7 @@ function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
 
   const rewardType = isGym ? 'gym'
                    : isRival ? 'rival'
-                   : getZoneRewardType(zoneBattleCount, currentGymIdx);
+                   : (combat._chosenRewardType || getZoneRewardType(zoneBattleCount, currentGymIdx));
 
   if (badge) badge.textContent = isGym ? 'Gym Clear' : isRival ? 'Rival Defeated' : 'Battle ' + battleNumber;
 
@@ -164,22 +165,22 @@ function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
     showSpellChoiceScreen(battleNumber, 'primary');
     return;
   }
-  if (rewardType === 'secondary_spell') {
+  if (rewardType === 'spell' || rewardType === 'secondary_spell') {
     if (title) title.textContent = '✦ Spell Reward ✦';
     if (sub) sub.textContent = 'Choose a spell to add to your spellbook.';
     showSpellChoiceScreen(battleNumber, 'secondary');
     return;
   }
   if (rewardType === 'minor') {
-    if (title) title.textContent = '✦ Minor Upgrade ✦';
-    if (sub) sub.textContent = 'Choose a stat upgrade.';
+    if (title) title.textContent = '✦ Pick Up ✦';
+    if (sub) sub.textContent = 'Choose a reward.';
     _currentRewardTier = 'minor';
     _renderUpgradeChoices('minor');
     showScreen('battle-reward-screen');
     return;
   }
   if (rewardType === 'major') {
-    if (title) title.textContent = '✦ Major Upgrade ✦';
+    if (title) title.textContent = '✦ Power Up ✦';
     if (sub) sub.textContent = 'Choose your reward.';
     _currentRewardTier = 'major';
     _renderUpgradeChoices('major');
@@ -194,76 +195,162 @@ function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
   showScreen('battle-reward-screen');
 }
 
-function getZoneRewardType(battleSlot, gymIdx) {
-  // Zone layout is 14 battles. Rival appears on the map at count 8 (zone 1) or 6 (zone 2+).
-  // Battles that make zoneBattleCount reach the rival slot give minor rewards ("before rival").
-  // Battles fought while rival is on the map (player picks a regular battle) also give minor ("after rival").
-  if (gymIdx === 0) {
-    // Zone 1: rival card appears at count 8
-    if (battleSlot === 1)  return 'primary_spell';
-    if (battleSlot === 4)  return 'secondary_spell';
-    if (battleSlot === 6)  return 'incantation';    // one incantation per zone 1
-    if (battleSlot === 8)  return 'minor';          // before rival (rival now on map)
-    if (battleSlot === 9)  return 'minor';          // after rival (skipped rival or extra battle)
-    if (battleSlot === 10) return 'secondary_spell';
-    if (battleSlot >= 12)  return 'gym_available';
-    return battleSlot % 2 === 0 ? 'minor' : 'major';
-  } else {
-    // Zone 2+: rival card appears at count 6
-    if (battleSlot === 3)  return 'secondary_spell';
-    if (battleSlot === 4)  return 'incantation';    // one incantation per zone 2+
-    if (battleSlot === 6)  return 'minor';          // before rival
-    if (battleSlot === 7)  return 'minor';          // after rival
-    if (battleSlot === 10) return 'secondary_spell';
-    if (battleSlot >= 12)  return 'gym_available';
-    return battleSlot % 2 === 1 ? 'major' : 'minor';
+// ── Dynamic zone reward sequence ──────────────────────────────────────────────
+// Generated fresh each zone so every run has a different reward layout.
+// _zoneRewardSequence[slot] gives the reward type for that battle slot (1-indexed).
+let _zoneRewardSequence = null;
+let _zoneRivalSlot = -1;
+
+function initZoneRewardSequence() {
+  const isZone1 = currentGymIdx === 0;
+
+  _zoneRivalSlot = isZone1
+    ? 6 + Math.floor(Math.random() * 4)
+    : 5 + Math.floor(Math.random() * 4);
+
+  // Weighted random reward type picker (20% spell, 30% incant, 30% minor, 20% major)
+  const _rewardTypes   = ['spell', 'incantation', 'minor', 'major'];
+  const _rewardWeights = [20, 30, 30, 20];
+  const _pickReward = (exclude = null) => {
+    const types   = _rewardTypes.filter(t => t !== exclude);
+    const weights = _rewardWeights.filter((_, i) => _rewardTypes[i] !== exclude);
+    const total   = weights.reduce((s, w) => s + w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < types.length; i++) { r -= weights[i]; if (r <= 0) return types[i]; }
+    return types[types.length - 1];
+  };
+
+  // Generate pairs for slots 2–14 (all regular battle slots before forced gym at 15)
+  // Each pair guaranteed different types; same type can recur across screens
+  _zoneRewardSequence = [null, isZone1 ? 'primary_spell' : 'spell'];
+  for (let i = 0; i < 13; i++) {
+    const typeA = _pickReward();
+    const typeB = _pickReward(typeA);
+    _zoneRewardSequence.push([typeA, typeB]);
   }
 }
 
+// encIdx: 0 = left encounter, 1 = right encounter
+function getZoneRewardType(battleSlot, gymIdx, encIdx = 0) {
+  if (_zoneRewardSequence && battleSlot >= 1 && battleSlot < _zoneRewardSequence.length) {
+    const entry = _zoneRewardSequence[battleSlot];
+    if (Array.isArray(entry)) return entry[encIdx] || entry[0] || 'minor';
+    return entry || 'minor';
+  }
+  return 'minor';
+}
+
 function buildMinorUpgradePool() {
-  return [
-    { label:'+5 Attack Power',    emoji:'⚔️', tag:'Minor', desc:'Permanently gain +5 Attack Power.',
-      apply(){ player.attackPower += 5; updateStatsUI(); } },
-    { label:'+5 Effect Power',    emoji:'✦',  tag:'Minor', desc:'Permanently gain +5 Effect Power.',
-      apply(){ player.effectPower += 5; updateStatsUI(); } },
-    { label:'+5 Defense',         emoji:'🛡️', tag:'Minor', desc:'Permanently gain +5 Defense.',
-      apply(){ player.defense += 5; updateStatsUI(); } },
-    { label:'+20 Max HP',         emoji:'❤️', tag:'Minor', desc:'Permanently increase max HP by 20.',
-      apply(){ player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+20; player.hp=Math.min(maxHPFor('player'),player.hp+20); } },
-    { label:'+60 Gold',           emoji:'💰', tag:'Minor', desc:'Gain 60 gold.',
-      apply(){ player.gold += 60; } },
-    { label:'Heal 30%',           emoji:'💚', tag:'Minor', desc:'Restore 30% of your max HP.',
-      apply(){ applyHeal('player', Math.floor(maxHPFor('player')*0.30), '✦ Minor Heal'); } },
-    { label:'+3 ATK & +3 EFX',   emoji:'⚡', tag:'Minor', desc:'Gain +3 Attack Power and +3 Effect Power.',
-      apply(){ player.attackPower += 3; player.effectPower += 3; updateStatsUI(); } },
-    { label:'Heal 20% + Restore PP', emoji:'🔮', tag:'Minor', desc:'Heal 20% HP and restore all spell PP.',
-      apply(){ applyHeal('player', Math.floor(maxHPFor('player')*0.20), '✦ Rest'); restoreAllPP(); } },
-    { label:'+3 DEF & +10 HP',    emoji:'🪨', tag:'Minor', desc:'Gain +3 Defense and +10 Max HP.',
-      apply(){ player.defense += 3; player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+10; player.hp=Math.min(maxHPFor('player'),player.hp+10); updateStatsUI(); } },
+  // Pick Ups — items, gold, utility. Small and consumable-feeling. No big stat upgrades.
+  const pool = [
+    { label:'Gold Pouch',            emoji:'💰', tag:'Pick Up', desc:'Find 100 gold on the ground.',
+      apply(){ player.gold += 100; log('💰 +100 gold!','win'); } },
+    { label:'Mana Crystal',          emoji:'🔮', tag:'Pick Up', desc:'Restore all spell PP to full.',
+      apply(){ restoreAllPP(); log('🔮 All spell PP restored!','win'); } },
+    { label:'Healing Potion',        emoji:'💚', tag:'Pick Up', desc:'Drink up — restore 40% of your max HP.',
+      apply(){ applyHeal('player', Math.floor(maxHPFor('player')*0.40), '💚 Potion'); } },
+    { label:'Reroll Cache',          emoji:'🎲', tag:'Pick Up', desc:'Gain 3 reroll tokens for any future reward screen.',
+      apply(){ player._rerolls=(player._rerolls||0)+3; log('🎲 +3 Reroll tokens!','win'); } },
+    { label:'Sharpening Stone',      emoji:'⚔️', tag:'Pick Up', desc:'Quick maintenance — gain +6 Attack Power.',
+      apply(){ player.attackPower += 6; updateStatsUI(); } },
+    { label:'Focus Charm',           emoji:'✦',  tag:'Pick Up', desc:'Attune your magic — gain +6 Effect Power.',
+      apply(){ player.effectPower += 6; updateStatsUI(); } },
+    { label:'Leather Brace',         emoji:'🛡️', tag:'Pick Up', desc:'Strap it on — gain +6 Defense.',
+      apply(){ player.defense += 6; updateStatsUI(); } },
+    { label:'Vitality Tonic',        emoji:'❤️', tag:'Pick Up', desc:'A fortifying brew — permanently gain +18 max HP.',
+      apply(){ player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+18; player.hp=Math.min(maxHPFor('player'),player.hp+18); } },
   ];
+  return pool;
 }
 
 function buildMajorUpgradePool() {
-  return [
-    { label:'Extra Action',       emoji:'⚡', tag:'Major', desc:'Permanently gain +1 action per turn in combat.',
-      apply(){ player.bonusActions=(player.bonusActions||0)+1; log('⚡ Extra action per turn!','win'); } },
-    { label:'Extra Life',         emoji:'❤️', tag:'Major', desc:'Gain one extra life — survive a killing blow at 75% HP.',
-      apply(){ player.revives=(player.revives||0)+1; log('❤ Extra life gained!','win'); } },
-    { label:'Extra Spell Slot',   emoji:'📖', tag:'Major', desc:'+1 spell slot in your active spellbook.',
+  // Power Ups — structural upgrades only. Always show 3.
+  // Spell Slot and Passive Slot are near-guaranteed anchors (high weight).
+  // Extra Action appears ~40% of the time. Extra Life has reduced/capped odds.
+  const revives = player.revives || 0;
+  const lifeWeight = revives >= 3 ? 0 : [45, 30, 15][revives] ?? 0;
+
+  const bookWeight = (player.spellbooks||[]).length < 3 ? 75 : 0;
+
+  const candidates = [
+    { w:90, label:'Extra Spell Slot',  emoji:'📖', tag:'Power Up', desc:'+1 spell slot in your active spellbook.',
       apply(){ const b=activeBook(); if(b){ b.spellSlots++; log('📖 Spell slot added!','win'); } } },
-    { label:'Extra Passive Slot', emoji:'📿', tag:'Major', desc:'+1 passive slot in your active spellbook.',
+    { w:90, label:'Extra Passive Slot',emoji:'📿', tag:'Power Up', desc:'+1 passive slot in your active spellbook.',
       apply(){ const b=activeBook(); if(b){ b.passiveSlots=(b.passiveSlots||2)+1; log('📿 Passive slot added!','win'); } } },
-    { label:'+12 ATK',            emoji:'⚔️', tag:'Major', desc:'Permanently gain +12 Attack Power.',
-      apply(){ player.attackPower += 12; updateStatsUI(); log('⚔️ +12 Attack Power!','win'); } },
-    { label:'+12 EFX',            emoji:'✦',  tag:'Major', desc:'Permanently gain +12 Effect Power.',
-      apply(){ player.effectPower += 12; updateStatsUI(); log('✦ +12 Effect Power!','win'); } },
-    { label:'+30 Max HP',         emoji:'💪', tag:'Major', desc:'Permanently gain +30 max HP.',
-      apply(){ player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+30; player.hp=Math.min(maxHPFor('player'),player.hp+30); } },
-    { label:'Full Heal',          emoji:'✨', tag:'Major', desc:'Fully restore HP and all spell PP.',
-      apply(){ applyHeal('player', maxHPFor('player'), '✨ Major Heal'); restoreAllPP(); } },
-    { label:'Reroll Token',       emoji:'🎲', tag:'Major', desc:'Gain 1 reroll — re-draw choices on any future reward screen.',
-      apply(){ player._rerolls=(player._rerolls||0)+1; log('🎲 Reroll token!','win'); } },
-  ];
+    { w:Math.max(20, 60 - (player.bonusActions||0)*20), label:'Extra Action', emoji:'⚡', tag:'Power Up', desc:'Permanently gain +1 action per turn in combat.',
+      apply(){ player.bonusActions=(player.bonusActions||0)+1; log('⚡ Extra action per turn!','win'); } },
+    { w:lifeWeight, label:'Extra Life',emoji:'❤️', tag:'Power Up', desc:'Survive one killing blow — revive at 75% HP.',
+      apply(){ player.revives=(player.revives||0)+1; log('❤ Extra life gained!','win'); } },
+    { w:bookWeight, label:'New Spellbook', emoji:'📚', tag:'Power Up', desc:'Add a new spellbook to your arsenal. Choose from 3 options.',
+      _modal:true, apply(){ _showPickupBookChoice(); } },
+  ].filter(c => c.w > 0);
+
+  // Weighted pick without replacement — return exactly 3
+  const chosen = [];
+  const remaining = [...candidates];
+  while (chosen.length < Math.min(3, remaining.length)) {
+    const total = remaining.reduce((s, c) => s + c.w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < remaining.length; i++) {
+      r -= remaining[i].w;
+      if (r <= 0) { chosen.push(remaining.splice(i, 1)[0]); break; }
+    }
+  }
+  return chosen;
+}
+
+function _showPickupBookChoice() {
+  const choices = _buildBookDiscoveryChoices(3);
+  const cont = document.getElementById('br-choices');
+  if (!cont || choices.length === 0) { showMap(); return; }
+
+  const title = document.getElementById('br-title');
+  const sub   = document.getElementById('br-sub');
+  if (title) title.textContent = '📖 New Spellbook';
+  if (sub)   sub.textContent   = 'Choose a spellbook to add to your arsenal.';
+
+  cont.innerHTML = '';
+  const meta = getMeta();
+
+  choices.forEach(id => {
+    const cat = SPELLBOOK_CATALOGUE[id];
+    if (!cat) return;
+    const isOwned    = (meta.ownedBookIds || []).includes(id);
+    const lvl        = (meta.bookUpgradeLevels || {})[id] || 0;
+    const rarityColor = cat.rarity === 'legendary' ? '#d4a0ff' : cat.rarity === 'generic' ? '#80c8ff' : '#c8a060';
+    const rarityLabel = cat.rarity === 'legendary' ? '✦ Legendary' : cat.rarity === 'generic' ? '⚡ Generic' : (cat.element || 'Element') + ' Book';
+    const newBadge    = isOwned ? '' : '<span style="font-size:.55rem;background:#1a2a0a;border:1px solid #5a8a20;color:#90c040;padding:.1rem .4rem;border-radius:3px;margin-left:.4rem;">NEW</span>';
+
+    const btn = document.createElement('button');
+    btn.className = 'prog-choice-btn';
+    btn.innerHTML = `
+      <div class="pc-tag">${rarityLabel}</div>
+      <div class="pc-name" style="color:${rarityColor};">${cat.emoji} ${cat.name}${newBadge}</div>
+      <div class="pc-desc">${cat.levelDescs ? cat.levelDescs[lvl] : cat.desc}</div>
+      <div class="pc-desc" style="color:#7a4a30;margin-top:2px;">⚠ ${cat.negative}</div>`;
+    btn.onclick = () => {
+      if (!isOwned) {
+        if (!meta.ownedBookIds)  meta.ownedBookIds  = [];
+        if (!meta.unseenBookIds) meta.unseenBookIds = [];
+        meta.ownedBookIds.push(id);
+        meta.unseenBookIds.push(id);
+        saveMeta();
+      }
+      if ((player.spellbooks||[]).length < 3 && typeof makeBookInstance !== 'undefined') {
+        const instance = makeBookInstance(id);
+        if (instance) {
+          instance.spells.push(
+            { id:'_basic', emoji:'⚔', name:'Basic Attack', baseCooldown:1, currentCD:0, isBuiltin:true },
+            { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true }
+          );
+          player.spellbooks.push(instance);
+          log(`📖 ${cat.emoji} ${cat.name} added as book ${player.spellbooks.length}!`, 'win');
+        }
+      }
+      showMap();
+    };
+    cont.appendChild(btn);
+  });
 }
 
 function _renderUpgradeChoices(tier) {
@@ -271,12 +358,13 @@ function _renderUpgradeChoices(tier) {
   if (!cont) return;
   cont.innerHTML = '';
   const pool = tier === 'major' ? buildMajorUpgradePool() : buildMinorUpgradePool();
-  const chosen = pickRandom(pool, Math.min(3, pool.length));
+  // Major pool already returns exactly 3 weighted picks; minor pool needs random sampling
+  const chosen = tier === 'major' ? pool : pickRandom(pool, Math.min(4, pool.length));
   chosen.forEach(opt => {
     const btn = document.createElement('button');
     btn.className = 'prog-choice-btn';
     btn.innerHTML = `<div class="pc-tag">${opt.tag}</div><div class="pc-name">${opt.emoji} ${opt.label}</div><div class="pc-desc">${opt.desc}</div>`;
-    btn.onclick = () => { opt.apply(); updateStatsUI(); showMap(); };
+    btn.onclick = () => { opt.apply(); updateStatsUI(); if (!opt._modal) showMap(); };
     cont.appendChild(btn);
   });
   const rerollBtn = document.getElementById('br-reroll-btn');
@@ -413,7 +501,7 @@ function processNextLevelUp(){
   } else if(ev.type === 'spellchoice'){
     showSpellChoiceScreen(ev.level, ev.tier || 'secondary', ev.forElement || null);
   } else if(ev.type === 'passivechoice'){
-    showPassiveChoiceScreen(ev.level);
+    showPassiveChoiceScreen(ev.level, ev.forElement || null);
   } else {
     showMap();
   }
@@ -483,8 +571,9 @@ function showIncantationChoiceScreen(level) {
   }
 
   const _statLabels = (typeof _STAT_LABELS !== 'undefined') ? _STAT_LABELS : {};
+  const picks = pickRandom(upgradeable, Math.min(3, upgradeable.length));
 
-  upgradeable.forEach(spell => {
+  picks.forEach(spell => {
     const display = (typeof incantationUpgradeDisplay === 'function') ? incantationUpgradeDisplay(spell) : null;
     const rarityInfo = (typeof SPELL_RARITY !== 'undefined') ? (SPELL_RARITY[spell.rarity || 'dim'] || SPELL_RARITY.dim) : { label: 'Dim', color: null };
     const rarityColor = rarityInfo.color || '#8a6a30';
@@ -526,41 +615,136 @@ function showSpellChoiceScreen(level, tier='secondary', forElement=null){
   const pool=buildSpellChoicePool(tier, forElement);
   if(pool.length===0){ processNextLevelUp(); return; }
   const chosen=pickRandom(pool, Math.min(3, pool.length));
-  // Rarity label/color helpers
-  const _RARITY_BADGE_CONFIG = {
-    kindled: { label:'KINDLED', textColor:'#c06010', bg:'rgba(0,0,0,.98)',   border:'#c06010' },
-    blazing: { label:'BLAZING', textColor:'#bb1200', bg:'rgba(0,0,0,.98)',   border:'#bb1200' },
-    radiant: { label:'RADIANT', textColor:'#ffe880', bg:'rgba(50,42,0,.92)', border:'#d4aa20' },
+  // Mark offered spells as seen in the library
+  if(typeof markSpellSeen === 'function') chosen.forEach(s => markSpellSeen(s.id));
+
+  // ── Duo spell: bonus 4th option (10% per eligible spell, pick one winner) ──
+  let duoSpell = null;
+  if(tier === 'secondary' && typeof _eligibleDuoSpells === 'function'){
+    const eligible = _eligibleDuoSpells().filter(s => !chosen.find(c => c.id === s.id));
+    const winners = eligible.filter(() => Math.random() < 0.10);
+    if(winners.length > 0) {
+      duoSpell = winners[Math.floor(Math.random() * winners.length)];
+      if(typeof markSpellSeen === 'function') markSpellSeen(duoSpell.id);
+    }
+  }
+  // Inject shared rarity animation keyframes once
+  if (!document.getElementById('inc-preview-styles')) {
+    const s = document.createElement('style');
+    s.id = 'inc-preview-styles';
+    s.textContent = `
+      @keyframes incStarPulse {
+        0%,100% { opacity:1; filter:brightness(1) drop-shadow(0 0 2px currentColor); transform:scale(1); }
+        50%      { opacity:.5; filter:brightness(2.5) drop-shadow(0 0 6px currentColor); transform:scale(1.4); }
+      }
+      @keyframes incShimmer {
+        0%   { left:-80%; }
+        100% { left:160%; }
+      }
+      @keyframes incFireGlow {
+        0%,100% { opacity:.7; transform:scaleY(1);   filter:blur(2px); }
+        33%     { opacity:1;   transform:scaleY(1.15); filter:blur(1px); }
+        66%     { opacity:.6;  transform:scaleY(.9);   filter:blur(3px); }
+      }
+      @keyframes incBorderPulse {
+        0%,100% { opacity:1; }
+        50%     { opacity:.6; }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // Rarity card config — mirrors the preview panel exactly
+  const _RARITY_CARD_CONFIG = {
+    dim:     { label:'DIM',     stars:1, textColor:'#887766', tagColor:'#887766', cardBg:'rgba(0,0,0,.98)',                                                      borderGrad:'linear-gradient(to right, #1a1a1a 50%, #2a1a08 100%)' },
+    kindled: { label:'KINDLED', stars:2, textColor:'#c06010', tagColor:'#c06010', cardBg:'rgba(0,0,0,.98)',                                                      borderGrad:'linear-gradient(to right, #1a1a1a 50%, #c06010 100%)' },
+    blazing: { label:'BLAZING', stars:3, textColor:'#bb1200', tagColor:'#bb1200', cardBg:'rgba(0,0,0,.98)',                                                      borderGrad:'linear-gradient(to right, #1a1a1a 50%, #bb1200 100%)' },
+    radiant: { label:'RADIANT', stars:4, textColor:'#7a5208', tagColor:'#8a6a10', cardBg:'linear-gradient(to right, rgba(0,0,0,.98) 50%, #f0e8c0 100%)',         borderGrad:'linear-gradient(to right, #1a1a1a 50%, #d4aa20 100%)', leftTextColor:'#ffffff' },
+    merged:  { label:'MERGED',  stars:5, textColor:'#ffffff', tagColor:'#00d4c8', cardBg:'linear-gradient(to right, rgba(0,0,0,.98) 50%, rgba(0,80,75,1) 100%)', borderGrad:'linear-gradient(to right, #1a1a1a 50%, #00d4c8 100%)',  leftTextColor:'#ffffff' },
   };
   chosen.forEach(opt=>{
     const isAOE=opt.desc&&opt.desc.toLowerCase().includes('all');
     const el=opt.element||'Neutral';
     const rarity=(typeof rollSpellRarity==='function')?rollSpellRarity():'dim';
-    const rarityInfo=(typeof SPELL_RARITY!=='undefined')?SPELL_RARITY[rarity]:null;
-    const rarityColor=rarityInfo?rarityInfo.color:null;
-    const badgeCfg=_RARITY_BADGE_CONFIG[rarity]||null;
-    const rarityBanner=badgeCfg
-      ? `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:56px;padding:4px 7px;background:${badgeCfg.bg};border-left:2px solid ${badgeCfg.border};border-radius:0 4px 4px 0;flex-shrink:0;gap:1px;">
-          <div style="font-size:.5rem;color:${badgeCfg.textColor};opacity:.85;letter-spacing:.08em;">✦</div>
-          <div style="font-size:.72rem;color:${badgeCfg.textColor};font-family:'Cinzel',serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;line-height:1.1;">${badgeCfg.label}</div>
-         </div>`
-      : '';
+    const cfg=_RARITY_CARD_CONFIG[rarity]||_RARITY_CARD_CONFIG.dim;
+
     const btn=document.createElement("button");
     btn.className=`prog-choice-btn ${el==='Neutral'?'neutral-btn':'spell-btn-el'}`;
-    btn.style.padding='0';
-    btn.style.display='flex';
-    btn.style.alignItems='stretch';
-    btn.style.overflow='hidden';
-    if(rarityColor) btn.style.borderColor=rarityColor;
-    const inner=`<div style="flex:1;padding:.55rem .65rem;text-align:left;">
-      <div class="pc-tag">${tierLabel} · ${el}${isAOE?' · AOE':''}</div>
-      <div class="pc-name">${opt.emoji} ${opt.name}</div>
-      <div class="pc-desc">${opt.desc} · CD:${opt.baseCooldown}</div>
-    </div>${rarityBanner}`;
-    btn.innerHTML=inner;
-    btn.onclick=()=>{ addSpellById(opt.id, false, rarity); processNextLevelUp(); };
-    cont.appendChild(btn);
+    btn.onclick=()=>{
+      const doAdd = bIdx => { addSpellById(opt.id, false, rarity, bIdx); processNextLevelUp(); };
+      if(typeof _pickBookDest === 'function') _pickBookDest('spell', opt, doAdd); else doAdd(undefined);
+    };
+
+    {
+      // Kindled / Blazing / Radiant — gradient border wrapper + matching card bg
+      const isFire = rarity === 'kindled' || rarity === 'blazing';
+      const isGradient = cfg.cardBg.includes('gradient');
+      const fireColor = rarity === 'kindled' ? 'rgba(255,120,0,.10)' : 'rgba(255,30,0,.22)';
+      const fire = isFire
+        ? `<div style="position:absolute;bottom:0;right:0;width:55%;height:100%;pointer-events:none;z-index:2;
+             background:linear-gradient(to left,${fireColor},transparent);
+             animation:incFireGlow 1.6s ease-in-out infinite;"></div>`
+        : '';
+      const shimmer = isGradient
+        ? `<div style="position:absolute;top:0;left:-80%;width:45%;height:100%;pointer-events:none;z-index:2;
+             background:linear-gradient(to right,transparent,rgba(255,255,255,.09),transparent);
+             animation:incShimmer 3.5s linear infinite;"></div>`
+        : '';
+      const nameColor = cfg.leftTextColor || cfg.textColor;
+      const descColor = cfg.leftTextColor ? 'rgba(255,255,255,.75)' : 'rgba(220,200,180,.75)';
+      const wrapperAnim = isFire ? 'animation:incBorderPulse 1.8s ease-in-out infinite;' : '';
+      btn.style.cssText='padding:0;display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;overflow:hidden;gap:0;border:none;border-radius:5px;width:100%;position:relative;';
+      btn.innerHTML=`
+        ${fire}${shimmer}
+        <div style="flex:1;min-width:0;padding:.55rem .65rem;text-align:left;position:relative;z-index:3;">
+          <div class="pc-tag">${tierLabel} · ${el}${isAOE?' · AOE':''}</div>
+          <div class="pc-name" style="color:${nameColor};">${opt.emoji} ${opt.name}</div>
+          <div class="pc-desc" style="white-space:normal;color:${descColor};">${opt.desc} · CD:${opt.baseCooldown}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:72px;width:72px;padding:4px 6px;flex-shrink:0;align-self:stretch;gap:2px;position:relative;z-index:3;">
+          <div style="display:flex;gap:1px;">${Array.from({length:cfg.stars},(_,i)=>`<span style="font-size:.45rem;color:${cfg.tagColor};display:inline-block;animation:incStarPulse ${5.5+i*0.7}s ease-in-out ${i*1.0}s infinite;">✦</span>`).join('')}</div>
+          <div style="font-size:.62rem;color:${cfg.textColor};font-family:'Cinzel',serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:1.1;text-align:center;">${cfg.label}</div>
+        </div>`;
+      // Wrapper provides the gradient border (padding trick)
+      const wrapper=document.createElement('div');
+      wrapper.style.cssText=`padding:3px;background:${cfg.borderGrad};border-radius:7px;${wrapperAnim}`;
+      btn.style.background=cfg.cardBg;
+      wrapper.appendChild(btn);
+      cont.appendChild(wrapper);
+    }
   });
+
+  // ── Render duo spell as bonus 4th option (always 'merged' rarity) ──
+  if(duoSpell){
+    const cfg = _RARITY_CARD_CONFIG['merged'];
+    const el  = duoSpell.element || 'Duo';
+    const shimmer = `<div style="position:absolute;top:0;left:-80%;width:45%;height:100%;pointer-events:none;z-index:2;
+        background:linear-gradient(to right,transparent,rgba(255,255,255,.09),transparent);
+        animation:incShimmer 3.5s linear infinite;"></div>`;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `padding:3px;background:${cfg.borderGrad};border-radius:7px;`;
+    const btn = document.createElement('button');
+    btn.className = 'prog-choice-btn spell-btn-el';
+    btn.style.cssText = 'padding:0;display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;overflow:hidden;gap:0;border:none;border-radius:5px;width:100%;position:relative;';
+    btn.style.background = cfg.cardBg;
+    btn.onclick = () => {
+      const doAdd = bIdx => { addSpellById(duoSpell.id, false, 'merged', bIdx); processNextLevelUp(); };
+      if(typeof _pickBookDest === 'function') _pickBookDest('spell', duoSpell, doAdd); else doAdd(undefined);
+    };
+    btn.innerHTML = `${shimmer}
+      <div style="flex:1;min-width:0;padding:.55rem .65rem;text-align:left;position:relative;z-index:3;">
+        <div class="pc-tag" style="color:${cfg.tagColor};">Merged · ${el}</div>
+        <div class="pc-name" style="color:${cfg.leftTextColor};">${duoSpell.emoji} ${duoSpell.name}</div>
+        <div class="pc-desc" style="white-space:normal;color:rgba(255,255,255,.75);">${duoSpell.desc} · CD:${duoSpell.baseCooldown}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:72px;width:72px;padding:4px 6px;flex-shrink:0;align-self:stretch;gap:2px;position:relative;z-index:3;">
+        <div style="display:flex;gap:1px;">${Array.from({length:5},(_,i)=>`<span style="font-size:.45rem;color:${cfg.tagColor};display:inline-block;animation:incStarPulse ${5.5+i*0.7}s ease-in-out ${i*1.0}s infinite;">✦</span>`).join('')}</div>
+        <div style="font-size:.62rem;color:${cfg.textColor};font-family:'Cinzel',serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:1.1;text-align:center;">${cfg.label}</div>
+      </div>`;
+    wrapper.appendChild(btn);
+    cont.appendChild(wrapper);
+  }
+
   showScreen("spellchoice-screen");
 }
 
@@ -617,8 +801,9 @@ function showElementUnlockScreen(level){
       // Plasma always gets its own dedicated spellbook
       if (el === 'Plasma') ensurePlasmaBook();
       addSpellById(STARTER_SPELL[el]);
-      // Queue: spell choice in new element, then legendary
+      // Queue: passive choice for new element, spell choice in new element, then legendary
       pendingLevelUps = [
+        { type:'passivechoice', level:'gym', forElement: el },
         { type:'spellchoice', level:'gym', tier:'secondary', forElement: el },
         { type:'gym_legendary' }
       ];
@@ -630,27 +815,35 @@ function showElementUnlockScreen(level){
 }
 
 // ── PASSIVE CHOICE ──
-function showPassiveChoiceScreen(level){
-  document.getElementById("pc-level-badge").textContent=`Level ${level} — New Passive`;
+function showPassiveChoiceScreen(level, forElement=null){
+  const badgeText = level === 'rival' ? 'Rival Defeated'
+                  : level === 'gym'   ? 'Gym Clear — New Passive'
+                  : `Level ${level} — New Passive`;
+  document.getElementById("pc-level-badge").textContent = badgeText;
   const c=document.getElementById("pc-choices"); c.innerHTML="";
-  const pool=buildPassiveChoicePool();
+  const pool=buildPassiveChoicePool(forElement);
   if(pool.length===0){
     processNextLevelUp(); return;
   }
   const chosen=pickRandom(pool,Math.min(3,pool.length));
+  // Mark offered passives as seen in the library
+  if(typeof markPassiveSeen === 'function') chosen.forEach(p => markPassiveSeen(p.id));
   chosen.forEach(p=>{
     const btn=document.createElement("button");
     btn.className="prog-choice-btn passive-btn";
     const infoIcon = p.detail ? `<span class="pc-info-icon" title="${p.detail}" onclick="event.stopPropagation()">ℹ</span>` : '';
     btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name">${p.emoji} ${p.title}${infoIcon}</div><div class="pc-desc">${p.desc}</div>`;
-    btn.onclick=()=>{ addPassiveToBook(p.id); processNextLevelUp(); };
+    btn.onclick=()=>{
+      const doAdd = bIdx => { addPassiveToBook(p.id, bIdx); processNextLevelUp(); };
+      if(typeof _pickBookDest === 'function') _pickBookDest('passive', p.id, doAdd); else doAdd(undefined);
+    };
     c.appendChild(btn);
   });
   showScreen("passivechoice-screen");
 }
 
-function buildPassiveChoicePool(){
-  const elements=[playerElement, ...player.unlockedElements];
+function buildPassiveChoicePool(forElement=null){
+  const elements = forElement ? [forElement] : [playerElement, ...player.unlockedElements];
   // Collect all owned passives across every book
   const allOwnedPassives = new Set();
   (player.spellbooks||[]).forEach(b => b.passives.forEach(id => allOwnedPassives.add(id)));
@@ -661,6 +854,10 @@ function buildPassiveChoicePool(){
       if(!allOwnedPassives.has(p.id)) pool.push({...p, element:el});
     });
   });
+  // Add eligible duo passives — compete equally with normal passives (not on element-specific screens)
+  if(!forElement && typeof _eligibleDuoPassives === 'function'){
+    _eligibleDuoPassives().forEach(p => pool.push(p));
+  }
   return pool;
 }
 

@@ -116,6 +116,9 @@ function effectPowerFor(side){
   // Foam on self: -1.5 flat EFX per stack
   pow -= Math.floor((s.foamStacks||0) * 1.5);
 
+  // Battle-scoped EFX bonus (from EFX Crystal consumable)
+  if(side==='player') pow += (s.battleEfxBonus||0);
+
   // Enemy EFX reduced by player's Defense
   if(side==='enemy') pow -= defenseFor('player');
 
@@ -132,6 +135,9 @@ function defenseFor(side){
 
   // Frost weakens defense too
   def -= Math.floor((s.frostStacks||0) * 0.5);
+
+  // Battle-scoped DEF bonus (from Defense Crystal consumable)
+  if(side==='player') def += (s.battleDefBonus||0);
 
   // Mutual book aura — enemy shares DEF aura
   if(side==='enemy') def += (player._mutualEnemyAura ? (player._mutualEnemyAura.def||0) : 0);
@@ -342,6 +348,9 @@ function applyRoot(attackerSide, defenderSide, stacks){
   status[defenderSide].rootStacks = (status[defenderSide].rootStacks||0) + total;
   log(`🌿 Root +${total} (×${status[defenderSide].rootStacks})`, 'status');
   _plasmaChargeOnDebuff(defenderSide);
+  // Deep Roots: every 3rd Root applied to an enemy reduces Seed timers by 1
+  if(attackerSide === 'player' && defenderSide === 'enemy' && typeof _deepRootsCheck === 'function')
+    _deepRootsCheck();
 }
 
 function addStoneStacks(side, stacks){
@@ -454,7 +463,7 @@ function resetStatusForBattle(){
     debuffImmune:0, overchargePowerPending:0,
     chargeShotCharging:false, rageBoostPow:0, rageBoostTurns:0,
     nextTurnPowerBonus:0,
-    battlePowerBonus:0,
+    battlePowerBonus:0, battleEfxBonus:0, battleDefBonus:0,
     fortifyPending:0,
     // Plasma
     plasmaCharge:3, plasmaChargeHalf:0, plasmaShieldReduction:0,
@@ -463,6 +472,11 @@ function resetStatusForBattle(){
     momentumStacks:0, momentumNoDecayNext:false,
     windWallActive:false, windWallPending:0,
     tornadoAoENext:false, nextTurnBonusActions:0,
+    // Seeds
+    seeds: [],
+    _silencedBookIdx: -1, _silenceTurns: 0,
+    // Surge
+    surgeActive: false, surgeValue: 0, surgeMeter: 0,
   });
   if(hasPassive('lightning_overload')) status.player.lightningMult = 2.0;
 }

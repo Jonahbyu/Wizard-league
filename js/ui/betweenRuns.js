@@ -112,85 +112,7 @@ function switchBrunTab(tab, btnEl) {
     renderTalentTab(content, meta);
   } else if (tab === 'books') {
     renderBookUpgradesTab(content, meta);
-  } else if (tab === 'wizards') {
-    _renderWizardUnlockTab(content, meta);
-  } else if (tab === 'skins_old_unused') {
   }
-}
-
-// ── WIZARD UNLOCK TAB ─────────────────────────────────────────────────────────
-// Unlock conditions: Battlemage always available.
-// Hexblade: complete 3 runs. Arcanist: complete 6 runs or beat 2 gyms.
-function _getWizardUnlockStatus(meta) {
-  const runs    = meta.totalRuns  || 0;
-  const gyms    = meta.gymsBeaten || 0;
-  return {
-    battlemage: { unlocked: true,         condition: 'Default wizard — always available' },
-    hexblade:   { unlocked: runs >= 3,    condition: `Complete 3 runs (${runs}/3)` },
-    arcanist:   { unlocked: runs >= 6 || gyms >= 2, condition: `Complete 6 runs or defeat 2 Gym Leaders (${runs} runs, ${gyms} gyms)` },
-  };
-}
-
-function _renderWizardUnlockTab(content, meta) {
-  const status = _getWizardUnlockStatus(meta);
-  const slotData = getActiveSlotData();
-  const savedChar = slotData.savedCharId || playerCharId || '';
-
-  const cards = CHARACTER_ROSTER.map(ch => {
-    const s = status[ch.id];
-    const locked = !s.unlocked;
-    const active = savedChar === ch.id;
-    const ps = CHAR_PORTRAIT_STYLES[ch.id] || CHAR_PORTRAIT_STYLES.arcanist;
-
-    return `<div style="
-      background:${locked ? '#0a0805' : (active ? 'linear-gradient(175deg,#1a1205,#0e0c06)' : 'linear-gradient(175deg,#14100a,#0c0a06)')};
-      border:1px solid ${active ? '#8a6a20' : (locked ? '#1a1208' : '#2a1e0e')};
-      border-radius:8px;padding:.8rem;width:200px;flex-shrink:0;
-      box-shadow:${active ? '0 0 12px rgba(200,160,40,.15)' : 'none'};
-      opacity:${locked ? '0.5' : '1'};
-      display:flex;flex-direction:column;align-items:center;gap:.4rem;
-      ">
-      <div style="font-family:'Cinzel',serif;font-size:.85rem;color:${active?'#e8c060':(locked?'#3a2a10':'#c8a060')};letter-spacing:.08em;">
-        ${locked ? '🔒 ' : ''}${ch.name}
-      </div>
-      <div style="font-size:.56rem;color:#4a3820;letter-spacing:.12em;text-transform:uppercase;font-family:'Cinzel',serif;">
-        ${ch.title}
-      </div>
-      <div style="font-size:.58rem;color:${locked?'#3a2a10':'#705840'};text-align:center;line-height:1.5;padding:0 .3rem;">
-        ${locked ? s.condition : ch.desc}
-      </div>
-      ${active ? '<div style="font-size:.5rem;color:#8a6a20;letter-spacing:.12em;font-family:Cinzel,serif;text-transform:uppercase;">✦ Selected ✦</div>' : ''}
-      ${!locked && !active ? `<button onclick="_lobbySelectWizard('${ch.id}')" style="
-        margin-top:.2rem;background:#1a1205;border:1px solid #3a2810;color:#c8a060;
-        font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .7rem;border-radius:3px;
-        cursor:pointer;letter-spacing:.08em;
-        ">Select</button>` : ''}
-      ${active ? `<button onclick="_lobbySelectWizard('')" style="
-        margin-top:.2rem;background:#0e0c06;border:1px solid #2a1e08;color:#5a4820;
-        font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .7rem;border-radius:3px;
-        cursor:pointer;letter-spacing:.08em;
-        ">Deselect</button>` : ''}
-    </div>`;
-  }).join('');
-
-  content.innerHTML = `
-    <div style="padding:.6rem .2rem .4rem;">
-      <div style="font-size:.62rem;color:#4a3820;text-align:center;margin-bottom:.8rem;line-height:1.5;">
-        Your chosen wizard carries over into every run. Unlock new wizards by completing runs.
-      </div>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-        ${cards}
-      </div>
-    </div>`;
-}
-
-function _lobbySelectWizard(charId) {
-  playerCharId = charId;
-  patchActiveSlot({ savedCharId: charId });
-  // Re-render tab
-  const content = document.getElementById('brun-tab-content');
-  const meta = getMeta();
-  if (content) _renderWizardUnlockTab(content, meta);
 }
 
 function _bookSlotPips(current, max) {
@@ -495,7 +417,7 @@ function showIncantationPreview() {
       : '';
 
     // Fire flicker overlay for Kindled / Blazing
-    const fireColor = t.label === 'Kindled' ? 'rgba(255,120,0,.18)' : 'rgba(255,30,0,.18)';
+    const fireColor = t.label === 'Kindled' ? 'rgba(255,120,0,.10)' : 'rgba(255,30,0,.22)';
     const fire = isFire
       ? `<div style="position:absolute;bottom:0;right:0;width:55%;height:100%;pointer-events:none;z-index:2;
            background:linear-gradient(to left,${fireColor},transparent);
@@ -521,7 +443,7 @@ function showIncantationPreview() {
   }
 
   let html = `<div style="font-family:'Cinzel',serif;font-size:.9rem;letter-spacing:.1em;color:#c8a060;text-align:center;margin-bottom:.8rem;border-bottom:1px solid #2a1a08;padding-bottom:.6rem;">
-    📜 Incantation Rarity Tiers
+    📜 Spell Rarity Tiers
   </div>`;
 
   tiers.forEach(t => { html += cardHTML(t); });

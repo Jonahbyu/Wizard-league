@@ -31,6 +31,19 @@ const SPELL_INCANTATION_CONFIG = {
   flame_wave:      { scaledStat: 'burnStacks',      baseScale: 1,    decay: 0.90 },
   firewall:        { scaledStat: 'firewallStacks',  baseScale: 1,    decay: 0.90 },
   grease_fire:     { scaledStat: 'burnAdded',       baseScale: 1,    decay: 0.90 },
+  // Melt spells
+  melt_strike:     { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
+  forge_blast:     { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
+  crucible:        { scaledStat: 'meltBonus',       baseScale: 2,    decay: 0.90 },
+  scorch_through:  { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
+  slag:            { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
+  heat_surge:      { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
+  smelt:           { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
+  overheat:        { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
+  crucible_burst:  { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
+  melt_down:       { scaledStat: 'meltBonus',       baseScale: 2,    decay: 0.90 },
+  white_heat:      { scaledStat: 'meltPoints',      baseScale: 5,    decay: 0.90 },
+  searing_verdict: { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
 
   // ── WATER ────────────────────────────────────────────────────────────────────
   tidal_surge:     { scaledStat: 'healBase',        baseScale: 3,    decay: 0.90 },
@@ -55,6 +68,19 @@ const SPELL_INCANTATION_CONFIG = {
   overcharge:      { scaledStat: 'shockStacks',     baseScale: 1,    decay: 0.90 },
   feedback:        { scaledStat: 'shockStacks',     baseScale: 1,    decay: 0.90 },
   short_circuit:   { scaledStat: 'shockApplied',    baseScale: 1,    decay: 1.00 },
+  // Surge spells
+  bolt:              { scaledStat: 'surgeValue',      baseScale: 4,    decay: 0.90 },
+  thunder_strike:    { scaledStat: 'shockStacks',     baseScale: 0.5,  decay: 0.90 },
+  ball_lightning:    { scaledStat: 'surgeValue',      baseScale: 3,    decay: 0.90 },
+  static_charge:     { scaledStat: 'surgeValue',      baseScale: 8,    decay: 0.90 },
+  megavolt:          { scaledStat: 'baseDamage',      baseScale: 8,    decay: 0.90 },
+  supercharge:       { scaledStat: 'surgeBonus',      baseScale: 5,    decay: 0.90 },
+  overclock:         { scaledStat: 'multiplier',      baseScale: 0.25, decay: 0.90 },
+  residual_current:  { scaledStat: 'surgeValue',      baseScale: 4,    decay: 0.90 },
+  detonator:         { scaledStat: 'surgeValue',      baseScale: 0,    decay: 1.00 },
+  grounded:          { scaledStat: 'surgePerDebuff',  baseScale: 1,    decay: 0.90 },
+  thunderclap:       { scaledStat: 'surgeValue',      baseScale: 10,   decay: 0.90 },
+  fulgurite:         { scaledStat: 'baseDamage',      baseScale: 5,    decay: 0.90 },
 
   // ── EARTH ────────────────────────────────────────────────────────────────────
   seismic_wave:    { scaledStat: 'armorStrip',      baseScale: 1,    decay: 1.00 },
@@ -66,6 +92,13 @@ const SPELL_INCANTATION_CONFIG = {
 
   // ── NATURE ───────────────────────────────────────────────────────────────────
   vine_strike:     { scaledStat: 'rootChance',      baseScale: 0.05, decay: 0.90 },
+  // Seed spells
+  damage_seed:     { scaledStat: 'dmgPerStack',     baseScale: 5,    decay: 0.90 },
+  root_seed:       { scaledStat: 'rootPerStack',    baseScale: 1,    decay: 1.00 },
+  silence_seed:    { scaledStat: 'silenceTurns',    baseScale: 1,    decay: 1.00 },
+  healing_seed:    { scaledStat: 'healPerStack',    baseScale: 8,    decay: 0.95 },
+  reap:            { scaledStat: 'dmgPerStack',     baseScale: 2,    decay: 0.90 },
+  world_tree:      { scaledStat: 'stacksPerType',   baseScale: 1,    decay: 1.00 },
   thornwall:       { scaledStat: 'rootStacks',      baseScale: 1,    decay: 1.00 },
   natures_call:    { scaledStat: 'treantHP',        baseScale: 5,    decay: 0.95 },
   bramble_burst:   { scaledStat: 'rootChance',      baseScale: 0.05, decay: 0.90 },
@@ -82,6 +115,14 @@ const SPELL_INCANTATION_CONFIG = {
   tornado:         { scaledStat: 'baseDamage',      baseScale: 3,    decay: 0.95 },
   twin_strike:     { scaledStat: 'hits',            baseScale: 1,    decay: 1.00 },
   windy_takedown:  { scaledStat: 'baseDamage',      baseScale: 5,    decay: 0.95 },
+
+  // ── DUO / MERGED ─────────────────────────────────────────────────────────────
+  plasma_arc:    { scaledStat: 'meltPoints',    baseScale: 3,  decay: 0.90 },
+  superheated:   { scaledStat: 'burnMult',      baseScale: 0,  decay: 1.00 },
+  thunderroot:   { scaledStat: 'surgeValue',    baseScale: 4,  decay: 0.90 },
+  static_bloom:  { scaledStat: 'shockPerStack', baseScale: 1,  decay: 1.00 },
+  burning_grove: { scaledStat: 'burnAdded',     baseScale: 2,  decay: 0.90 },
+  char_bloom:    { scaledStat: 'seedBonus',     baseScale: 1,  decay: 1.00 },
 
   // ── NEUTRAL ──────────────────────────────────────────────────────────────────
   power_strike:    { scaledStat: 'baseDamage',      baseScale: 10,   decay: 0.95 },
@@ -185,6 +226,28 @@ const _INCANTATION_BASE_VALUES = {
   vampiric_strike: 0.40,
   war_cry:         10,
 
+  // Duo / merged spells
+  plasma_arc:    20,
+  superheated:   2,
+  thunderroot:   25,
+  static_bloom:  1,
+  burning_grove: 10,
+  char_bloom:    1,
+
+  // Lightning surge spells
+  bolt:              25,
+  thunder_strike:    2,
+  ball_lightning:    20,
+  static_charge:     60,
+  megavolt:          50,
+  supercharge:       40,
+  overclock:         2.0,
+  residual_current:  30,
+  detonator:         0,
+  grounded:          5,
+  thunderclap:       100,
+  fulgurite:         30,
+
   // Auto-generated, unreviewed
   extinguish:      2,
   fire_heal:       1,
@@ -253,6 +316,8 @@ const _STAT_LABELS = {
   dmgPerStack:'Dmg/Stack',   dmgPerEnemy:'Dmg/Enemy',dmgPerFoam:'Dmg/Foam',   dmgPerCharge:'Dmg/Charge',
   baseAmount:'Amount',       momentumGained:'Momentum', powerBonus:'Power',   lifeStealPct:'Life Steal',
   rageTurns:'Rage Turns',    immuneTurns:'Immunity',  resetBonus:'Overload',
+  surgeValue:'Surge Dmg',   surgeBonus:'Surge+',     surgePerDebuff:'Surge/Debuff',
+  shockPerStack:'Shock/Stack', seedBonus:'Seed Stacks', burnMult:'Burn×',
   powPerCharge:'Pow/Charge', pctPerCharge:'Shield%',  hitsPerCharge:'Hits/Charge',
   borrowAmount:'Charge',     powerGained:'Power',     bonusCharge:'Charge',
   actionsGained:'Actions',   attackCount:'Attacks',

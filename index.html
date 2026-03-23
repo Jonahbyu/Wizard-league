@@ -103,6 +103,10 @@
       </div>
       <span class="map-topbar-sep">·</span>
       <div id="map-lives-inline" style="color:#e84a4a;font-size:.7rem;"></div>
+      <span class="map-topbar-sep">·</span>
+      <button onclick="showBookEditor()" style="background:none;border:none;color:#8a6a40;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Manage spellbooks">📚 Books</button>
+      <span class="map-topbar-sep">·</span>
+      <button onclick="showLibrary()" style="background:none;border:none;color:#6a5a8a;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Spell Library">📖 Library</button>
     </div>
     <div id="gym-warning-banner" style="display:none;" class="gym-warning"></div>
     <div id="map-hint" class="map-hint">Click a path to travel</div>
@@ -202,6 +206,41 @@
     </div>
     <div style="font-size:.65rem;color:#6a4a20;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.4rem;">Choose a spell to remove:</div>
     <div id="boo-spell-list" style="display:flex;flex-direction:column;gap:.4rem;"></div>
+  </div>
+</div>
+
+<!-- BOOK DESTINATION PICKER (reward screens) -->
+<div class="modal-overlay" id="book-dest-overlay">
+  <div class="modal-box" style="max-width:380px;">
+    <div style="font-family:'Cinzel',serif;font-size:.85rem;color:#c8a060;margin-bottom:.3rem;">📖 Choose Spellbook</div>
+    <div style="font-size:.72rem;color:#aaa;margin-bottom:.8rem;">Send <span id="bd-item-preview" style="color:#e8c060;"></span> to:</div>
+    <div id="bd-book-list" style="display:flex;flex-direction:column;gap:.4rem;"></div>
+  </div>
+</div>
+
+<!-- SPELL LIBRARY OVERLAY -->
+<div id="spell-library-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;">
+  <div style="width:100%;max-width:720px;background:#0d0b09;border:1px solid #3a2a10;border-radius:8px;padding:.9rem;margin:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;">
+      <span style="font-family:'Cinzel',serif;color:#c8a060;font-size:.88rem;">📖 Library</span>
+      <button onclick="closeLibrary()" style="background:none;border:none;color:#666;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 .2rem;">✕</button>
+    </div>
+    <div id="lib-tabs" style="display:flex;gap:.25rem;margin-bottom:.7rem;"></div>
+    <div id="lib-content" style="display:flex;flex-direction:column;max-height:72vh;overflow-y:auto;"></div>
+  </div>
+  <!-- Floating tooltip -->
+  <div id="lib-tooltip" style="display:none;position:fixed;z-index:500;max-width:280px;background:#100e0c;border:1px solid #5a3a10;border-radius:5px;padding:.5rem .65rem;pointer-events:none;"></div>
+</div>
+
+<!-- BOOK EDITOR (map screen) -->
+<div id="book-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:300;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;">
+  <div style="width:100%;max-width:420px;background:#0d0b09;border:1px solid #3a2a10;border-radius:8px;padding:.9rem;margin:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;">
+      <span style="font-family:'Cinzel',serif;color:#c8a060;font-size:.88rem;">📚 Manage Spellbooks</span>
+      <button onclick="closeBookEditor()" style="background:none;border:none;color:#666;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 .2rem;">✕</button>
+    </div>
+    <div id="be-tabs" style="display:flex;gap:.3rem;margin-bottom:.7rem;"></div>
+    <div id="be-content" style="display:flex;flex-direction:column;gap:0;"></div>
   </div>
 </div>
 
@@ -305,6 +344,7 @@
       <button class="ctab active" id="ctab-actions" onclick="switchCombatTab('actions')">⚔ Actions</button>
       <button class="ctab" id="ctab-log" onclick="switchCombatTab('log')">📜 Log</button>
       <button class="ctab" id="ctab-runinfo" onclick="switchCombatTab('runinfo')">📋 Run Info</button>
+      <button class="ctab" onclick="showLibrary()" style="opacity:.75;">📖 Library</button>
     </div>
 
     <!-- ACTIONS tab -->
@@ -493,6 +533,9 @@
 <!-- Logic -->
 <script src="js/logic/state.js"></script>
 <script src="js/logic/helpers.js"></script>
+<script src="js/logic/seeds.js"></script>
+<script src="js/logic/surge.js"></script>
+<script src="js/data/duos.js"></script>
 <script src="js/logic/enemyAbilities.js"></script>
 <script src="js/data/mist.js"></script>
 <script src="js/logic/hit.js"></script>
@@ -511,6 +554,8 @@
 <script src="js/logic/battleReward.js"></script>
 <script src="js/ui/betweenRuns.js"></script>
 <script src="js/ui/sandbox.js"></script>
+<script src="js/ui/bookEditor.js"></script>
+<script src="js/ui/library.js"></script>
 <script src="js/main.js"></script>
 
 </body>

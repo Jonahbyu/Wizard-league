@@ -57,6 +57,13 @@ function _applyBookSpellEffect(action) {
 function startRound(){
   if(combat.over) return;
 
+  // Reset per-turn flags
+  combat.meltDoubleTurn         = false;
+  combat._seedSurgePending      = false; // Seed Surge expires if unused
+  combat._surgeTriggeredThisTurn  = false;
+  combat._residualCurrentPending  = false;
+  combat._residualCurrentValue    = 0;
+
   // ── Apply pending 1-turn power bonuses (Overcharge/Feedback) ──
   // Clear last round's bonus first, then promote pending to this-turn bonus.
   status.player.nextTurnPowerBonus = 0;
@@ -78,6 +85,19 @@ function startRound(){
     log(`🎯⚡ Charge Shot FIRES! ${csDmg} dmg to all`, 'player');
     if(combat.over) return;
   }
+
+  // ── Seed System: Verdant Patience check, then tick ──
+  if(typeof _checkVerdantPatience === 'function') _checkVerdantPatience();
+  if(!combat.over && typeof _tickSeeds === 'function') _tickSeeds();
+  if(combat.over) return;
+
+  // ── Surge System: Static Build + Conductivity tick ──
+  if(typeof _tickSurgeBuilds === 'function') _tickSurgeBuilds();
+  if(combat.over) return;
+
+  // ── Duo passive ticks (Scorched Earth etc.) ──
+  if(typeof _tickDuoEffects === 'function') _tickDuoEffects();
+  if(combat.over) return;
 
   // ── Per-enemy round ticks ──
   combat.enemies.forEach((e,i)=>{
@@ -104,7 +124,10 @@ function startRound(){
     if(e.status.foamStacks>0) e.status.foamStacks--;
 
     // Root decay
-    if(e.status.rootStacks>0) e.status.rootStacks--;
+    if(e.status.rootStacks>0){
+      e.status.rootStacks--;
+      if(typeof _rootedBloomDecay === 'function') _rootedBloomDecay('enemy');
+    }
 
     // Stone stance reset + decay (25%, skip if Living Mountain enemy)
     e.status.stoneStanceThisTurn = false;
@@ -165,7 +188,10 @@ function startRound(){
   // Shock: decay 25% each round
   status.player.shockStacks = Math.floor((status.player.shockStacks||0) * 0.75);
   if(status.player.foamStacks>0) status.player.foamStacks--;
-  if(status.player.rootStacks>0) status.player.rootStacks--;
+  if(status.player.rootStacks>0){
+    status.player.rootStacks--;
+    if(typeof _rootedBloomDecay === 'function') _rootedBloomDecay('player');
+  }
   status.player.stoneStanceThisTurn = false;
   if(status.player.stoneStacks>0 && !hasPassive('earth_living_mountain')){
     const decay = Math.max(1, Math.floor(status.player.stoneStacks*0.25));
@@ -720,8 +746,8 @@ function buildEnemyQueueFor(idx, count){
           if(!combat.over) applyEnemyElementalProc(gemEl, snapIdx);
         }});
       } else {
-        // Try to use an ability this action
-        const ability = pickEnemyAbility(e, currentGymIdx);
+        // Try to use an ability this action (blocked if silenced)
+        const ability = (e._silenced > 0) ? null : pickEnemyAbility(e, currentGymIdx);
         if(ability){
           ability.cd = ability.baseCd;
           const snapAbility = ability;

@@ -63,9 +63,19 @@ function loadBattle(enc){
   combat.over=false; combat.tempDmgBonus=0; combat.playerTurn=false;
   combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
   combat.totalGold=0; combat.hitFlashes=[]; combat.turnInBattle=0;
+  combat._chosenRewardType = enc._rewardType || null;
   combat.activeZoneElement=(inGymZone()&&!enc.isGym)?(currentGymDef()||{}).element:null;
   combat._echoReady = false;    // will be set true in startRound
   combat._swiftbladeSwitch = 0; // reset per-battle swiftblade switch counter
+  combat.nextMeltDouble    = false; // Temper: next melt hit doubled
+  combat.meltDoubleTurn    = false; // Molten Surge: all melt this turn doubled
+  combat._seedSurgePending = false; // Seed Surge: next Seed costs no CD
+  // Surge system
+  combat._surgeThreshold        = 60;  // base threshold (unused directly — _getSurgeThreshold() computes it)
+  combat._surgeFulguriteMinus   = 0;   // cumulative threshold reduction from Fulgurite casts
+  combat._stormCoreBonus        = 0;   // cumulative threshold increase from Storm Core triggers
+  combat._surgeTriggeredThisTurn = false;
+  combat._residualCurrentPending = false;
 
   // Zone background = the map zone you are fighting in, never the enemy element
   const _gymDef = currentGymDef();
@@ -75,10 +85,11 @@ function loadBattle(enc){
   (player.spellbooks||[]).forEach(book => {
     book.spells.forEach(s=>{
       s.currentCD = 0;
-      const rawPP = Math.ceil(16 / Math.max(1, s.baseCooldown || 0));
+      const rawPP = Math.ceil(32 / Math.max(1, s.baseCooldown || 0));
       const maxPP = Math.max(1, Math.floor(rawPP * (player._mistPPMult || 1.0)));
       s.maxPP = maxPP;
-      s.currentPP = maxPP;
+      // Carry PP over between battles — only reset if uninitialized or above new max
+      if (s.currentPP === undefined || s.currentPP > maxPP) s.currentPP = maxPP;
     });
   });
   // Apply per-battle character buff effects

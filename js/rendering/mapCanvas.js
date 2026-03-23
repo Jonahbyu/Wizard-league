@@ -117,8 +117,8 @@ function showMap(){
   const specials = [];
   if(gym && gymShouldAppear()) specials.push({ type:'gym', enc:{} });
 
-  // Rival timing: battle 8 in first gym (zone 1 is longer), battle 6 in all others
-  const rivalSlot = currentGymIdx === 0 ? 8 : 6;
+  // Rival timing: randomised per zone via _zoneRivalSlot (set in initZoneRewardSequence)
+  const rivalSlot = (typeof _zoneRivalSlot !== 'undefined' && _zoneRivalSlot > 0) ? _zoneRivalSlot : (currentGymIdx === 0 ? 8 : 6);
   if(zoneBattleCount === rivalSlot && !_zoneRivalDefeated) specials.push({ type:'rival', enc:{} });
 
   // Campfire / shop: replace ONE encounter slot (keeps total at 2 unless gym present)
@@ -128,70 +128,64 @@ function showMap(){
     encounters[0] = { _specialType: zoneSpecial, _isSpecial: true };
   }
 
-  // Determine reward tier for the NEXT battle slot (after zoneBattleCount increments)
+  // Tag each encounter with its own reward type (left and right differ)
   const nextSlot = zoneBattleCount + 1;
-  const nextReward = getZoneRewardType(nextSlot, currentGymIdx);
-  const isMajorBattle = (nextReward === 'major');
-
-  // Tag second encounter as spell reward battle when applicable
-  const isSpellTurn = (battleNumber % SPELL_REWARD_EVERY === 0);
-  if (isSpellTurn && encounters.length > 0) {
-    const spellIdx = encounters.length > 1 ? 1 : 0;
-    if (!encounters[spellIdx]._isSpecial) {
-      encounters[spellIdx] = { ...encounters[spellIdx], _isSpellBattle: true,
-        enemyMaxHP: Math.round((encounters[spellIdx].enemyMaxHP || 100) * 1.35),
-        enemyDmg:   Math.round((encounters[spellIdx].enemyDmg   ||  15) * 1.2) };
-    }
-  }
-
-  // Tag major-reward battles — tougher enemies, bigger indicator on card
-  if (isMajorBattle) {
-    encounters.forEach((enc, i) => {
-      if (!enc._isSpecial && !enc._isSpellBattle) {
-        encounters[i] = { ...enc, _isMajorBattle: true,
-          enemyMaxHP: Math.round((enc.enemyMaxHP || 100) * 1.20),
-          enemyDmg:   Math.round((enc.enemyDmg   ||  15) * 1.12) };
-      }
-    });
-  }
+  encounters.forEach((enc, i) => {
+    if (enc._isSpecial) return;
+    const reward = getZoneRewardType(nextSlot, currentGymIdx, i);
+    encounters[i] = { ...enc, _rewardType: reward };
+  });
 
   _buildAndShowCanvas(encounters, specials);
 }
 
 // ── Zone special scheduling ────────────────────────────────────────────────
-// Campfire and shop each appear once per zone as a CHOICE vs a battle (battle 5+).
-// They replace one encounter slot, keeping the map to 2 choices (unless gym present).
-let _zoneShopBattle     = -1;
-let _zoneCampfireBattle = -1;
+// 2 shops + 2 campfires per zone, in two pairs:
+//   Mid pair  — slots 7–10, after the rival window
+//   End pair  — slots 11–13, once the gym is showing (guaranteed if gym is skipped)
+let _zoneShopMid      = -1;
+let _zoneCampfireMid  = -1;
+let _zoneShopEnd      = -1;
+let _zoneCampfireEnd  = -1;
 
 function initZoneSpecial(){
-  // Both appear at battle 5 or later, separated by at least 2 battles (zone is 14 battles)
-  const latest = Math.max(9, GYM_ZONE_FORCE - 3);
-  const earlyPos = 5 + Math.floor(Math.random() * 2);           // 5 or 6
-  const latePos  = earlyPos + 2 + Math.floor(Math.random() * 2); // 2-3 after early
-  const clampedLate = Math.min(latePos, latest);
-  if(Math.random() < 0.5){
-    _zoneCampfireBattle = earlyPos;
-    _zoneShopBattle     = clampedLate;
-  } else {
-    _zoneShopBattle     = earlyPos;
-    _zoneCampfireBattle = clampedLate;
-  }
+  // Generate the dynamic reward sequence and rival slot for this zone
+  if (typeof initZoneRewardSequence === 'function') initZoneRewardSequence();
+
+  // Mid pair: two consecutive-ish slots in range 7-10
+  const midFirst  = 7 + Math.floor(Math.random() * 3);          // 7, 8, or 9
+  const midSecond = Math.min(midFirst + 1 + Math.floor(Math.random() * 2), 10); // +1 or +2, cap 10
+
+  // End pair: slots 11-12 or 12-13 (always in the gym-open window)
+  const endFirst  = 11 + Math.floor(Math.random() * 2);         // 11 or 12
+  const endSecond = endFirst + 1;                                 // always +1
+
+  // Randomly assign shop/campfire within each pair
+  if(Math.random() < 0.5){ _zoneCampfireMid = midFirst;  _zoneShopMid     = midSecond; }
+  else                    { _zoneShopMid     = midFirst;  _zoneCampfireMid = midSecond; }
+
+  if(Math.random() < 0.5){ _zoneCampfireEnd = endFirst;  _zoneShopEnd     = endSecond; }
+  else                    { _zoneShopEnd     = endFirst;  _zoneCampfireEnd = endSecond; }
 }
 
-// Returns 'campfire' | 'shop' | null — signals that this battle slot should
-// offer the special as an alternative to one of the two combat encounters.
+// Returns 'campfire' | 'shop' | null
 function _pickZoneSpecial(){
-  if(zoneBattleCount < 5) return null;
-  if(zoneBattleCount === _zoneCampfireBattle){
-    _zoneCampfireBattle = -1;
-    // Mist campfire reduction: suppress this campfire if reduction active
-    const campRed = (player._mistCampfireReduction || 0);
-    if(campRed >= 1) return null;
+  if(zoneBattleCount === _zoneCampfireMid){
+    _zoneCampfireMid = -1;
+    if((player._mistCampfireReduction||0) >= 1) return null;
     return 'campfire';
   }
-  if(zoneBattleCount === _zoneShopBattle){
-    _zoneShopBattle = -1;
+  if(zoneBattleCount === _zoneShopMid){
+    _zoneShopMid = -1;
+    return 'shop';
+  }
+  if(zoneBattleCount === _zoneCampfireEnd){
+    _zoneCampfireEnd = -1;
+    if((player._mistCampfireReduction||0) >= 1) return null;
+    return 'campfire';
+  }
+  if(zoneBattleCount === _zoneShopEnd){
+    _zoneShopEnd = -1;
     return 'shop';
   }
   return null;
@@ -212,52 +206,64 @@ function _buildAndShowCanvas(encounters, specials){
 }
 
 // ── Encounter cards ────────────────────────────────────────────────────────────
+const _MAP_REWARD_CFG = {
+  primary_spell: { emoji:'✦',  label:'Starting Spell', color:'#c080ff', sub:'#7050b0', anim:'mapSpellGlow 2.2s ease-in-out infinite' },
+  spell:         { emoji:'📜', label:'Spell Reward',   color:'#a080ff', sub:'#6040a0', anim:'mapSpellGlow 2.8s ease-in-out infinite' },
+  incantation:   { emoji:'📜', label:'Incantation',    color:'#e08030', sub:'#905020', anim:'mapScrollFloat 2.6s ease-in-out infinite' },
+  minor:         { emoji:'💰', label:'Pick Up',        color:'#c8a060', sub:'#887040', anim:'mapPickupFloat 2.6s ease-in-out infinite' },
+  major:         { emoji:'⚡', label:'Power Up',       color:'#e8d060', sub:'#a08040', anim:'mapPowerPulse 2.2s ease-in-out infinite' },
+};
+
+function _injectMapRewardStyles() {
+  if (document.getElementById('map-reward-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'map-reward-styles';
+  s.textContent = `
+    @keyframes mapSpellGlow {
+      0%,100% { filter:drop-shadow(0 0 6px #8060c0);transform:scale(1); }
+      50%     { filter:drop-shadow(0 0 18px #a080ff);transform:scale(1.18); }
+    }
+    @keyframes mapScrollFloat {
+      0%,100% { transform:translateY(0);filter:drop-shadow(0 0 5px #c06010); }
+      50%     { transform:translateY(-7px);filter:drop-shadow(0 0 13px #e08020); }
+    }
+    @keyframes mapPickupFloat {
+      0%,100% { transform:translateY(0);filter:drop-shadow(0 0 4px #c89040); }
+      50%     { transform:translateY(-7px);filter:drop-shadow(0 0 12px #e8b060); }
+    }
+    @keyframes mapPowerPulse {
+      0%,100% { filter:drop-shadow(0 0 8px #c8a020);transform:scale(1); }
+      50%     { filter:drop-shadow(0 0 22px #ffd040);transform:scale(1.20); }
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 function makeCombatCard(enc){
   // Special encounter slots (campfire / shop replacing a battle)
   if(enc._isSpecial) return makeSpecialCard(enc._specialType);
 
-  const card=document.createElement("div"); card.className="encounter-card";
-  const gym=currentGymDef();
-  const zone=(gym&&inGymZone()) ? ZONE_EFFECTS[gym.element] : null;
-  // Check if this encounter's element matches the zone (gets the +20% damage buff)
-  const encElement = enc.isPack
-    ? primaryElement(enc.members[0]?.element||'')
-    : primaryElement(enc.element||'');
-  const zoneMatches = zone && gym && encElement === gym.element;
-  const zoneLine = zone
-    ? `<div style="font-size:.57rem;color:${gym.color};margin-top:2px;">${zone.desc}${zoneMatches?' · <b>+20% dmg (zone buffed)</b>':''}</div>`
-    : '';
+  _injectMapRewardStyles();
 
-  if(enc.isPack){
-    const meta=CAMP_META['Pack'];
-    const totalHP=enc.members.reduce((s,m)=>s+m.enemyMaxHP,0);
-    const maxDmg=enc.members.reduce((s,m)=>Math.max(s,m.enemyDmg),0);
-    const packReward = enc._isSpellBattle
-      ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>'
-      : enc._isMajorBattle
-        ? '<div class="enc-reward-tag" style="color:#e8c060;">★ MAJOR</div>'
-        : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
-    const packHat = elemHatSVG(enc.element||'Neutral', 20);
-    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${packHat} ${enc.packName}</div><div class="enc-desc" style="color:${meta.color};opacity:.7;">${enc.members.length} wizards · HP:${totalHP} · Dmg:${maxDmg}</div>${zoneLine}</div><div class="enc-right">${packReward}<div class="enc-stats">Gold:${enc.gold}</div></div>`;
-    card.onclick=()=>loadBattle(enc);
-  } else {
-    const meta=CAMP_META[enc.campType]||{color:enc.color||'#888',icon:'⚔',label:enc.campType};
-    const isSpellBattle = enc._isSpellBattle || false;
-    const isMajor = enc._isMajorBattle || false;
-    const rewardTag = isSpellBattle
-      ? '<div class="enc-reward-tag" style="color:#a080ff;">✦ SPELL</div>'
-      : isMajor
-        ? '<div class="enc-reward-tag" style="color:#e8c060;">★ MAJOR</div>'
-        : '<div class="enc-reward-tag" style="color:#c8a060;">✦ REWARD</div>';
-    const enemyNote = isSpellBattle
-      ? `<span style="color:#6a4a80;font-size:.58rem;"> · ⚠ Elite</span>`
-      : isMajor
-        ? `<span style="color:#7a6a20;font-size:.58rem;"> · ★ Major</span>`
-        : '';
-    const hatIcon = elemHatSVG(enc.element||'Neutral', 20);
-    card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${meta.color}">${meta.icon} ${meta.label}</div><div class="enc-desc" style="color:#777;display:flex;align-items:center;gap:5px;">${hatIcon}<span style="color:${meta.color};font-family:'Cinzel',serif;font-size:.72rem;">${enc.name}</span><span style="color:#555;"> · HP:${enc.enemyMaxHP} · Dmg:${enc.enemyDmg}/turn${enemyNote}</span></div>${zoneLine}</div><div class="enc-right">${rewardTag}<div class="enc-stats">Gold:${enc.gold}</div></div>`;
-    card.onclick=()=>loadBattle(enc);
-  }
+  const card = document.createElement('div');
+  card.className = 'encounter-card';
+  card.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1.1rem .8rem;gap:.5rem;';
+
+  const nextSlot = zoneBattleCount + 1;
+  const rewardType = getZoneRewardType(nextSlot, currentGymIdx);
+  const cfg = _MAP_REWARD_CFG[rewardType] || _MAP_REWARD_CFG.minor;
+
+  const gold = enc.isPack
+    ? enc.gold
+    : (enc.gold || 0);
+
+  card.innerHTML = `
+    <div style="font-size:2.2rem;line-height:1;animation:${cfg.anim};">${cfg.emoji}</div>
+    <div style="font-family:'Cinzel',serif;font-size:.78rem;color:${cfg.color};letter-spacing:.08em;margin-top:.1rem;">${cfg.label}</div>
+    <div style="font-size:.58rem;color:#444;margin-top:.1rem;">⚔ Battle · ${gold}g</div>
+  `;
+
+  card.onclick = () => loadBattle(enc);
   return card;
 }
 

@@ -198,6 +198,9 @@ function performHit(attackerSide, defenderSide, pkg){
         // Only consume real block (Stone/Frost don't deplete)
         const blockConsumed = Math.min(status[defenderSide].block||0, absorbed);
         const blockBefore = status[defenderSide].block||0;
+        // Track armor peak for Meltdown legendary
+        if(defenderSide === 'enemy' && blockBefore > 0)
+          status[defenderSide]._armorPeak = Math.max(status[defenderSide]._armorPeak||0, blockBefore);
         status[defenderSide].block = Math.max(0, blockBefore - blockConsumed);
         if(absorbed > 0) log(`🛡️ Armor absorbs ${absorbed}. (${status[defenderSide].block} block left)`, 'status');
 
@@ -206,6 +209,17 @@ function performHit(attackerSide, defenderSide, pkg){
            hasPassive('earth_earthen_bulwark')){
           addStoneStacks('player', 2);
           log('🪨 Earthen Bulwark! +2 Stone', 'status');
+        }
+
+        // Meltdown legendary: when enemy armor fully breaks via any hit
+        if(attackerSide==='player' && defenderSide==='enemy' && blockBefore > 0 &&
+           status[defenderSide].block === 0 && hasPassive('fire_meltdown')){
+          const peak = status[defenderSide]._armorPeak || blockBefore;
+          const _mdownDmg = Math.round(peak);
+          log(`🌋 Meltdown! +${_mdownDmg} from peak armor ${peak}!`, 'status');
+          status[defenderSide]._armorPeak = 0;
+          applyDirectDamage('player','enemy', _mdownDmg, '🌋 Meltdown');
+          if(combat.over) return;
         }
 
         // Tidal Shield reactive: Foam attacker + heal per block consumed
@@ -420,7 +434,7 @@ function performHit(attackerSide, defenderSide, pkg){
 
 function applyEffectDamage(attackerSide, defenderSide, dmg, label){
   // Effect damage (burn, frost ticks, zone pressure, etc.)
-  // Armor reduces it; block does NOT.
+  // Armor reduces it; block does NOT. Does NOT count toward Surge meter.
   if(dmg <= 0) return;
   const armor = armorReductionFor(defenderSide);
   if(armor > 0){
@@ -429,10 +443,10 @@ function applyEffectDamage(attackerSide, defenderSide, dmg, label){
     dmg = reduced;
     if(dmg <= 0) return;
   }
-  applyDirectDamage(attackerSide, defenderSide, dmg, label);
+  applyDirectDamage(attackerSide, defenderSide, dmg, label, {noSurge: true});
 }
 
-function applyDirectDamage(attackerSide, defenderSide, dmg, label){
+function applyDirectDamage(attackerSide, defenderSide, dmg, label, opts){
   if(dmg <= 0){ if(label) log(`${label}: 0 dmg.`, 'status'); return; }
 
   if(defenderSide==='enemy'){
@@ -442,8 +456,14 @@ function applyDirectDamage(attackerSide, defenderSide, dmg, label){
     if(attackerSide === 'player') _runDmgDealt += dmg;
     log(`${label} deals ${dmg} to ${e.name}. (${e.hp}/${e.enemyMaxHP})`, attackerSide==='player'?'player':'enemy');
     triggerHitFlash('enemy', combat.activeEnemyIdx);
+    // Surge meter: direct player damage feeds the meter (effect/DOT damage skipped via opts.noSurge)
+    if(attackerSide === 'player' && !(opts && opts.noSurge) && typeof _addToSurgeMeter === 'function'){
+      _addToSurgeMeter('enemy', dmg);
+      if(combat.over) return; // Surge may have triggered and ended battle
+    }
     if(e.hp <= 0){
       e.alive = false;
+      _runKillsThisRun++;
       log(`💀 ${e.name} defeated!`, 'win');
       renderEnemyCards();
       if(aliveEnemies().length === 0){ endBattle(true); return; }
@@ -519,6 +539,137 @@ function _plasmaChargeOnDebuff(defenderSide){
     log(`⚡ Charge +2 from debuff → ${status.player.plasmaCharge}`, 'status');
     updateChargeUI();
   }
+}
+
+// ─── MELT DAMAGE ─────────────────────────────────────────────────────────────
+// Melt is a Fire damage type that hits armor at 3:1 efficiency (ceil(armor/3) points
+// to destroy all armor), then remaining points deal direct HP damage at 1:1.
+// Bypasses shock damage reduction and all shield effects — armor still applies normally.
+function applyMelt(attackerSide, targetSide, meltPoints, label){
+  if(meltPoints <= 0) return;
+  label = label || '🔥 Melt';
+
+  // ── Temper: consume flag to double this melt hit ──
+  if(attackerSide === 'player' && combat.nextMeltDouble){
+    meltPoints = meltPoints * 2;
+    combat.nextMeltDouble = false;
+    log(`⚔️ Temper: Melt doubled! (${meltPoints} pts)`, 'status');
+  }
+
+  // ── Molten Surge: all melt this turn doubled ──
+  if(attackerSide === 'player' && combat.meltDoubleTurn){
+    meltPoints = meltPoints * 2;
+    log(`🌋 Molten Surge: Melt doubled! (${meltPoints} pts)`, 'status');
+  }
+
+  // ── Forge Master: +30% melt points ──
+  if(attackerSide === 'player' && hasPassive('fire_forge_master')){
+    meltPoints = Math.round(meltPoints * 1.30);
+  }
+
+  // ── Deep Heat: +EFX/5 bonus melt points ──
+  if(attackerSide === 'player' && hasPassive('fire_deep_heat')){
+    const deepBonus = Math.floor(effectPowerFor('player') / 5);
+    if(deepBonus > 0) meltPoints += deepBonus;
+  }
+
+  // Get target object + status
+  let targetStatus;
+  let targetObj = null;
+  if(targetSide === 'enemy'){
+    targetObj = combat.enemies[combat.activeEnemyIdx];
+    if(!targetObj || !targetObj.alive) return;
+    targetStatus = targetObj.status;
+  } else {
+    targetStatus = status.player;
+  }
+
+  const currentArmor = targetStatus.block || 0;
+
+  // ── Update armor peak for Meltdown ──
+  if(currentArmor > 0)
+    targetStatus._armorPeak = Math.max(targetStatus._armorPeak || 0, currentArmor);
+
+  let remaining = meltPoints;
+  let armorDestroyed = 0;
+
+  if(currentArmor > 0){
+    const breakCost = Math.ceil(currentArmor / 3);
+    if(remaining >= breakCost){
+      // Full armor break: costs ceil(armor/3) melt points
+      armorDestroyed = currentArmor;
+      remaining -= breakCost;
+      targetStatus.block = 0;
+      log(`⚒️ ${label}: ${armorDestroyed} armor melted! (${breakCost} pts used, ${remaining} pts remain)`, 'status');
+
+      // ── Meltdown legendary ──
+      const hasMeltdown = (attackerSide==='player' && hasPassive('fire_meltdown')) ||
+                          (attackerSide==='enemy'  && enemyHasPassive('fire_meltdown'));
+      if(hasMeltdown){
+        const peak = targetStatus._armorPeak || armorDestroyed;
+        const meltdownBonus = Math.round(peak);
+        log(`🌋 Meltdown! +${meltdownBonus} bonus Melt (peak armor: ${peak})`, 'status');
+        remaining += meltdownBonus;
+      }
+      targetStatus._armorPeak = 0;
+
+      // ── Slag Trail: armor destroyed → burn stacks on target ──
+      if(attackerSide === 'player' && hasPassive('fire_slag_trail') && armorDestroyed > 0 && targetObj){
+        targetStatus.burnStacks = (targetStatus.burnStacks||0) + armorDestroyed;
+        log(`🔥 Slag Trail: +${armorDestroyed} Burn from melted armor!`, 'status');
+      }
+
+      // ── Deep Heat: 50% of armor stripped as bonus melt ──
+      if(attackerSide === 'player' && hasPassive('fire_deep_heat') && armorDestroyed > 0){
+        const dhBonus = Math.floor(armorDestroyed * 0.5);
+        if(dhBonus > 0){
+          remaining += dhBonus;
+          log(`🔥 Deep Heat: +${dhBonus} bonus Melt from stripped armor!`, 'status');
+        }
+      }
+    } else {
+      // Partial: each melt point chips 3 armor points
+      const armorChipped = remaining * 3;
+      targetStatus.block = Math.max(0, currentArmor - armorChipped);
+      log(`⚒️ ${label}: chips ${armorChipped} armor. (${targetStatus.block} remain)`, 'status');
+      remaining = 0;
+    }
+  }
+
+  // ── HP damage portion ──
+  if(remaining > 0){
+    // Iron Burn: +1 bonus melt per 3 enemy burn stacks
+    if(attackerSide === 'player' && hasPassive('fire_iron_burn') && targetSide === 'enemy'){
+      const ibBonus = Math.floor((targetStatus.burnStacks||0) / 3);
+      if(ibBonus > 0){
+        remaining += ibBonus;
+        log(`🔥 Iron Burn: +${ibBonus} from ${targetStatus.burnStacks} burn stacks`, 'status');
+      }
+    }
+
+    // Armor Eater: +2 HP damage per armor point consumed by this melt
+    if(attackerSide === 'player' && hasPassive('fire_armor_eater') && armorDestroyed > 0){
+      const aeBonus = armorDestroyed * 2;
+      remaining += aeBonus;
+      log(`⚔️ Armor Eater: +${aeBonus} from ${armorDestroyed} armor consumed!`, 'status');
+    }
+
+    applyDirectDamage(attackerSide, targetSide, remaining, label);
+    if(combat.over) return;
+
+    // Eternal Flame: melt HP damage applies Burn (50% of HP damage dealt)
+    if(attackerSide === 'player' && hasPassive('fire_eternal_flame') && targetSide === 'enemy'
+       && targetObj && targetObj.alive){
+      const flameBurn = Math.floor(remaining * 0.5);
+      if(flameBurn > 0){
+        targetStatus.burnStacks = (targetStatus.burnStacks||0) + flameBurn;
+        log(`🔥 Eternal Flame: +${flameBurn} Burn from Melt!`, 'status');
+      }
+    }
+  }
+
+  updateHPBars();
+  renderStatusTags();
 }
 
 function _plasmaBackfeed(attackerSide, triggeringDmg){

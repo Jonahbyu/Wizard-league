@@ -10,6 +10,15 @@ const PASSIVE_CHOICES = {
       detail:'+1 Attack Power per 2 Burn stacks across all enemies.' },
     { id:'fire_wildfire',    title:'Wildfire',    emoji:'🌪️', desc:'At the start of each round, all Burn stacks have a 33% chance to double.' },
     { id:'fire_roaring_heat', legendary:true,title:'Roaring Heat',emoji:'🔥', desc:'LEGENDARY: Burn deals 1.5 damage per stack instead of 1.' },
+    // ── Melt passives ──
+    { id:'fire_forge_master', title:'Forge Master', emoji:'⚒️', desc:'All Melt points are increased by 30%.' },
+    { id:'fire_iron_burn',    title:'Iron Burn',    emoji:'🔩', desc:'Melt HP damage gains +1 bonus for every 3 enemy Burn stacks on the target.' },
+    { id:'fire_slag_trail',   title:'Slag Trail',   emoji:'🔶', desc:'When Melt fully destroys armor, the target gains Burn equal to the armor destroyed.' },
+    { id:'fire_armor_eater',  title:'Armor Eater',  emoji:'⚙️', desc:'When Melt breaks armor, deal +2 bonus HP damage per armor point consumed.',
+      detail:'Bonus applies to the HP-damage phase after full armor destruction.' },
+    { id:'fire_deep_heat',    title:'Deep Heat',    emoji:'♨️', desc:'Melt gains +1 point per 5 Effect Power. After stripping armor, deal 50% of armor stripped as bonus Melt.' },
+    { id:'fire_eternal_flame', legendary:true, title:'Eternal Flame', emoji:'🕯️', desc:'LEGENDARY: Melt HP hits apply Burn to the target equal to 50% of the HP damage dealt.' },
+    { id:'fire_meltdown',      legendary:true, title:'Meltdown',      emoji:'🌋', desc:'LEGENDARY: When any source fully breaks armor, deal Melt equal to 100% of the peak armor held during that armor stack\'s lifetime.' },
   ],
   Water: [
     { id:'water_restoration',title:'Restoration', emoji:'💧', desc:'Max HP is cut in half, but all healing you receive is 50% stronger.' },
@@ -40,7 +49,14 @@ const PASSIVE_CHOICES = {
     { id:'nature_stay_rooted',     title:'Stay Rooted',     emoji:'🌱', desc:'When you apply Root, apply 1 extra stack.' },
     { id:'nature_thorned_strikes', title:'Thorned Strikes', emoji:'🌵', desc:'Each Root or Overgrowth stack on an enemy adds 5 bonus damage per hit.' },
     { id:'nature_bramble_guard',   title:'Bramble Guard',   emoji:'🌿', desc:'When you gain Armor, apply 1 Root to all enemies.' },
-    { id:'nature_verdant_legion', legendary:true,  title:'Verdant Legion',  emoji:'🌳', desc:'LEGENDARY: Treants gain +25 HP, +10 damage, and always apply Root on hit.' },
+    { id:'nature_verdant_legion', legendary:true, title:'Verdant Legion', emoji:'🌳', desc:'LEGENDARY: Treants gain +25 HP, +10 damage, and always apply Root on hit.' },
+    // ── Seed passives ──
+    { id:'nature_perennial',        title:'Perennial',        emoji:'🌸', desc:'When a Seed blooms, automatically replant a new Seed of the same type with a 4-turn timer.' },
+    { id:'nature_deep_roots',       title:'Deep Roots',       emoji:'🌳', desc:'Every 3rd Root stack applied to a target reduces that target\'s Seed timers by 1.' },
+    { id:'nature_thorn_bloom',      title:'Thorn Bloom',      emoji:'🌹', desc:'When a Seed blooms on a Rooted target, apply 2 additional Root stacks.' },
+    { id:'nature_verdant_patience', title:'Verdant Patience', emoji:'🛡️', desc:'At the start of each turn, if any Seed has been active 3+ turns without blooming, gain 15 Armor and all Seed timers reduce by 1.' },
+    { id:'nature_eternal_garden', legendary:true, title:'Eternal Garden', emoji:'🌻', desc:'LEGENDARY: Each Seed stack has its own independent germination timer and blooms individually. Works with Perennial.' },
+    { id:'nature_rooted_bloom',   legendary:true, title:'Rooted Bloom',   emoji:'🌺', desc:'LEGENDARY: When a Seed blooms, apply Root equal to the stacks that bloomed. When Root decays, reduce the nearest Seed timer by 1.' },
   ],
   Lightning: [
     { id:'lightning_conduction',    title:'Conduction',    emoji:'⚡', desc:'Lightning hits apply 1 extra Shock stack. Each Shock stack reduces enemy damage by 5%.' },
@@ -51,6 +67,16 @@ const PASSIVE_CHOICES = {
     { id:'lightning_overload',      title:'Overload',      emoji:'💥', desc:'Lightning damage starts very high but drops each time you attack, then recovers next turn.',
       detail:'Starts at 200% damage, drops 25% per offensive action, minimum 25%.' },
     { id:'lightning_superconductor', legendary:true,title:'Superconductor',emoji:'🔋', desc:'LEGENDARY: Damage you deal to yourself is tripled and redirected to the enemy instead.' },
+    // ── Surge passives ──
+    { id:'lightning_hair_trigger',  title:'Hair Trigger',  emoji:'🎯', desc:'Surge triggers 10 earlier — threshold reduced from 60 to 50.' },
+    { id:'lightning_overcharged',   title:'Overcharged',   emoji:'⚡', desc:'When Surge triggers, apply +3 Shock to the target.' },
+    { id:'lightning_chain_surge',   title:'Chain Surge',   emoji:'🔗', desc:'When Surge triggers, automatically reapply a new Surge with the same damage value.' },
+    { id:'lightning_static_build',  title:'Static Build',  emoji:'📈', desc:'Each turn a Surge is active without triggering, its damage value grows by +20.' },
+    { id:'lightning_live_wire',     title:'Live Wire',     emoji:'🌐', desc:'When Surge triggers, the damage hits all alive enemies instead of just the target.' },
+    { id:'lightning_conductivity',  title:'Conductivity',  emoji:'🔋', desc:'Each Shock stack on the target contributes 2 damage toward the Surge meter each turn.' },
+    { id:'lightning_cascade',       legendary:true, title:'Cascade',    emoji:'⚡⚡', desc:'LEGENDARY: When Surge triggers, reduce all your cooldowns by 1.' },
+    { id:'lightning_storm_core',    legendary:true, title:'Storm Core',  emoji:'🌩️', desc:'LEGENDARY: Each time Surge triggers this battle, the threshold permanently increases by +15.' },
+    { id:'lightning_amplified',     legendary:true, title:'Amplified',   emoji:'🔊', desc:'LEGENDARY: Applying Surge to an already-Surged target adds 25% of the new value to the current Surge.' },
   ],
   Plasma: [
     { id:'plasma_energy_feedback',  title:'Energy Feedback',  emoji:'⚡',
@@ -77,6 +103,24 @@ const PASSIVE_CHOICES = {
     { id:'air_eye_of_the_storm', legendary:true, title:'Eye of the Storm', emoji:'👁️',
       desc:'LEGENDARY: Each Momentum stack gives a small chance per strike to repeat that strike once.',
       detail:'Repeat chance per strike: Momentum stacks x 3%, max 95%. Can trigger once per strike.' },
+  ],
+  // ── Duo passives (shared across two elements) ─────────────────────────────
+  Duo: [
+    // Lightning + Fire
+    { id:'duo_flashfire',      title:'Flashfire',      emoji:'⚡🔥', elements:['Lightning','Fire'],
+      desc:'When Surge triggers, apply Burn stacks equal to 25% of the Surge damage dealt.' },
+    { id:'duo_molten_current', title:'Molten Current',  emoji:'🌊🔥', elements:['Lightning','Fire'],
+      desc:'Each round, Burn stacks on the target count toward the Surge meter at 1 per stack.' },
+    // Lightning + Nature
+    { id:'duo_stormseed',      title:'Stormseed',       emoji:'⚡🌱', elements:['Lightning','Nature'],
+      desc:'When Surge triggers, reduce all active Seed timers by 1.' },
+    { id:'duo_charged_roots',  title:'Charged Roots',   emoji:'⚡🌿', elements:['Lightning','Nature'],
+      desc:'Each round, Root stacks on the target count toward the Surge meter at 3 per stack.' },
+    // Fire + Nature
+    { id:'duo_wildfire_seeds', title:'Wildfire Seeds',  emoji:'🔥🌱', elements:['Fire','Nature'],
+      desc:'When a Damage Seed blooms, apply Burn equal to the damage dealt.' },
+    { id:'duo_scorched_earth', title:'Scorched Earth',  emoji:'🔥🌍', elements:['Fire','Nature'],
+      desc:'Each round, every 5 Burn stacks on the target reduce all their Seed timers by 1.' },
   ],
 };
 

@@ -35,6 +35,7 @@ function showSaveSelect() {
   const container = document.getElementById('save-slots');
   container.innerHTML = '';
 
+  // Slots 0-2: normal save slots
   for (let i = 0; i < 3; i++) {
     const data = loadSlot(i);
     const meta = (() => {
@@ -78,6 +79,25 @@ function showSaveSelect() {
     container.appendChild(card);
   }
 
+  // Slot 3: always-unlocked full master save
+  const masterCard = document.createElement('div');
+  masterCard.className = 'save-slot-card has-data';
+  masterCard.style.cssText = 'border-color:#5a4010;background:linear-gradient(160deg,#14100a,#0c0805);';
+  masterCard.innerHTML = `
+    <div class="save-slot-left">
+      <div class="save-slot-name" style="color:#e8c060;">✦ Full Unlock</div>
+      <div class="save-slot-stats" style="color:#6a5020;">All spells · All books · All talents · All artifacts</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem;">
+      <div class="save-slot-right has-data" style="color:#c8a060;border-color:#5a4010;">MASTER</div>
+    </div>
+    <div style="margin-top:.5rem;border-top:1px solid #2a1a08;padding-top:.45rem;display:flex;gap:.4rem;">
+      <button onclick="event.stopPropagation();selectFullUnlockSlot(false)" style="flex:1;background:#1a1005;border:1px solid #5a3a0a;color:#e8c060;font-family:Cinzel,serif;font-size:.52rem;letter-spacing:.08em;padding:.3rem .4rem;border-radius:4px;cursor:pointer;">⚔ Play</button>
+      <button onclick="event.stopPropagation();selectFullUnlockSlot(true)" style="flex:1;background:#0a0614;border:1px solid #3a1a5a;color:#c080ff;font-family:Cinzel,serif;font-size:.52rem;letter-spacing:.08em;padding:.3rem .4rem;border-radius:4px;cursor:pointer;">🔬 Sandbox</button>
+    </div>`;
+  masterCard.onclick = () => selectFullUnlockSlot(false);
+  container.appendChild(masterCard);
+
   showScreen('save-select-screen');
 }
 
@@ -117,6 +137,74 @@ function selectSaveSlotSandbox(slot) {
   } else {
     showHub(); // new slot — still need name first
   }
+}
+
+// ── FULL UNLOCK SLOT (always slot index 3) ────────────────────────────────────
+// Rebuilds the meta from live catalogue data every time — always fresh.
+function selectFullUnlockSlot(sandbox) {
+  const SLOT = 3;
+  activeSaveSlot = SLOT;
+  if (!window._metaBySlot) window._metaBySlot = {};
+  window._metaBySlot[SLOT] = null; // clear cache
+
+  // ── All spell IDs ──
+  const allSpellIds = Object.keys(typeof SPELL_CATALOGUE !== 'undefined' ? SPELL_CATALOGUE : {});
+
+  // ── All passive IDs (flatten all PASSIVE_CHOICES arrays) ──
+  const allPassiveIds = [];
+  if (typeof PASSIVE_CHOICES !== 'undefined') {
+    Object.values(PASSIVE_CHOICES).forEach(arr => {
+      if (Array.isArray(arr)) arr.forEach(p => { if (p && p.id) allPassiveIds.push(p.id); });
+    });
+  }
+
+  // ── All book IDs at upgrade level 4 ──
+  const allBookIds = typeof SPELLBOOK_CATALOGUE !== 'undefined' ? Object.keys(SPELLBOOK_CATALOGUE) : [];
+  const bookUpgradeLevels = {};
+  const bookSlotUpgrades  = {};
+  allBookIds.forEach(id => { bookUpgradeLevels[id] = 4; });
+
+  // ── All artifacts at star 3 ──
+  const allArtifactIds = typeof ARTIFACT_ORDER !== 'undefined' ? ARTIFACT_ORDER : [];
+  const artifacts = allArtifactIds.map(id => ({ id, star: 3, roomsUsed: 0 }));
+
+  // ── All talents at max level ──
+  const talents = {};
+  if (typeof TALENT_TREE !== 'undefined') {
+    Object.values(TALENT_TREE).forEach(tree => {
+      if (tree && Array.isArray(tree.nodes)) {
+        tree.nodes.forEach(node => { if (node && node.id) talents[node.id] = node.maxLevel; });
+      }
+    });
+  }
+
+  const meta = {
+    totalRuns:        50,
+    bestLevel:        99,
+    gymsBeaten:       20,
+    artifacts,
+    activeArtifactId: allArtifactIds[0] || null,
+    unseenArtifacts:  [],
+    ownedBookIds:     [...allBookIds],
+    bookUpgradeLevels,
+    bookSlotUpgrades,
+    unseenBookIds:    [],
+    talents,
+    phos:             9999,
+    phosTotal:        99999,
+    runHistory:       [],
+    seenThroneRoom:   true,
+    seenSpells:       allSpellIds,
+    seenPassives:     allPassiveIds,
+  };
+
+  // Write meta and slot data
+  try { localStorage.setItem('elemental_meta_v1_slot' + SLOT, JSON.stringify(meta)); } catch(e) {}
+  saveSlot(SLOT, { playerName: 'Full Unlock' });
+
+  playerName  = 'Full Unlock';
+  sandboxMode = !!sandbox;
+  showBetweenRuns();
 }
 
 // ── HUB SCREEN ───────────────────────────────────────────────────────────────
@@ -365,7 +453,7 @@ function beginRun(){
   });
   resetStatusForBattle();
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[]; _zoneRivalDefeated=false;
-  _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = '';
+  _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = ''; _runKillsThisRun = 0;
   initGymRoster();
   initZoneSpecial();
 

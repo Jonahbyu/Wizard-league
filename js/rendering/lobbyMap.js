@@ -12,7 +12,7 @@ const LOBBY_LOCATIONS = [
   { id:'vault',    label:'Artifacts',        desc:'Artifacts earned from Gym Leaders',        x:0.91, y:0.67 },
   { id:'library',  label:'Spellbooks',       desc:'Manage your book upgrades',               x:0.23, y:0.91 },
   { id:'talents',  label:'Talent Tree',      desc:'Spend Phos on permanent upgrades',        x:0.74, y:0.91 },
-  { id:'guild',    label:'Wizard Guild',     desc:'Unlock and choose your wizard',           x:0.17, y:0.82 },
+  { id:'guild',    label:'Library',           desc:'Browse your discovered spells and passives', x:0.17, y:0.82 },
   { id:'tailor',   label:'Customize Wizard', desc:'Change your wizard\'s look',              x:0.83, y:0.82 },
   { id:'veil',     label:'The Veil',         desc:'Choose your burdens, layer your Mist',    x:0.355, y:0.748 },
 ];
@@ -2591,9 +2591,8 @@ function _openLobbyLocation(id) {
     renderTalentTab(content, meta);
     panel.style.display = 'block';
   } else if (id === 'guild') {
-    content.innerHTML = `<div class="lobby-panel-title">${title}</div>`;
-    _renderWizardUnlockTab(content, meta);
-    panel.style.display = 'block';
+    closeLobbyPanel();
+    if (typeof showLibrary === 'function') showLibrary();
   } else if (id === 'veil') {
     _renderVeilContent(content);
     panel.style.display = 'block';
