@@ -122,7 +122,7 @@ const CAMP_META = {
 // ── ZONE EFFECTS (applied by enemies in zone battles) ────────────────────────
 // Each zone element adds a status effect on every enemy basic attack.
 const ZONE_EFFECTS = {
-  Fire:      { desc:'🔥 +2 Burn per hit',      apply(defSide){ applyBurn(defSide, 2, Math.floor(battleNumber*1.5)); }},
+  Fire:      { desc:'🔥 +2 Burn per hit',      apply(defSide){ applyBurn('enemy', 2, Math.floor(battleNumber*1.5)); }},
   Ice:       { desc:'❄️ +2 Frost per hit',     apply(defSide){ applyFrost('enemy','player',2); }},
   Lightning: { desc:'⚡ +1 Shock per hit',     apply(defSide){ status[defSide].shockStacks=(status[defSide].shockStacks||0)+1; log('⚡ Zone Shock +1','status'); }},
   Earth:     { desc:'🪨 Attacker gains Stone', apply(defSide,attIdx){ if(combat.enemies[attIdx]?.alive) addStoneStacks('enemy', 1); }},

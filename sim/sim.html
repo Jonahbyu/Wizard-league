@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wizard League — In-Game Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #07080f; color: #c8c0b0; font-family: 'Segoe UI', monospace; font-size: .85rem; min-height: 100vh; }
+    h1 { font-family: serif; color: #c8a060; letter-spacing: .12em; font-size: 1.3rem; padding: 1rem 1.2rem .4rem; border-bottom: 1px solid #1e1a10; }
+    .sim-layout { display: flex; gap: 0; min-height: calc(100vh - 3rem); }
+
+    .sim-config { width: 320px; min-width: 260px; padding: 1rem; border-right: 1px solid #1e1a10; background: #09090f; overflow-y: auto; }
+    .cfg-section { margin-bottom: 1.2rem; }
+    .cfg-label { font-size: .65rem; letter-spacing: .18em; color: #5a5040; text-transform: uppercase; margin-bottom: .4rem; }
+    .cfg-row { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .4rem; }
+    .cfg-btn { background: #111218; border: 1px solid #2a2820; color: #888; padding: .28rem .65rem; font-size: .75rem; border-radius: 4px; cursor: pointer; transition: all .15s; }
+    .cfg-btn:hover { border-color: #4a4030; color: #bbb; }
+    .cfg-btn.active { background: #1a1208; border-color: #a07030; color: #e8c060; }
+    .cfg-input { background: #111218; border: 1px solid #2a2820; color: #c8c0b0; padding: .28rem .55rem; font-size: .8rem; border-radius: 4px; width: 80px; }
+    .cfg-input:focus { outline: none; border-color: #4a4030; }
+    select.cfg-input { width: 160px; }
+    .cfg-talent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; }
+    .cfg-talent-row { display: flex; align-items: center; gap: .3rem; font-size: .68rem; color: #8a8070; }
+    .cfg-talent-row input[type=range] { width: 50px; accent-color: #a07030; }
+    .cfg-talent-row .tv { min-width: 14px; color: #e8c060; font-weight: bold; }
+    .run-btn { display: block; width: 100%; padding: .7rem; background: #1a1208; border: 1px solid #a07030; color: #e8c060; font-size: .9rem; font-family: serif; letter-spacing: .1em; border-radius: 5px; cursor: pointer; margin-top: .5rem; transition: all .15s; }
+    .run-btn:hover:not(:disabled) { background: #251a0a; border-color: #d09040; }
+    .run-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .sim-progress { margin-top: .6rem; font-size: .72rem; color: #6a5a3a; }
+    .progress-bar-wrap { background: #111; border-radius: 3px; height: 5px; margin-top: .3rem; overflow: hidden; }
+    .progress-bar { height: 100%; background: #a07030; border-radius: 3px; transition: width .1s; }
+
+    .sim-results { flex: 1; padding: 1rem 1.2rem; overflow-y: auto; }
+    .results-placeholder { color: #3a3020; font-size: .85rem; margin-top: 2rem; text-align: center; line-height: 1.8; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+    .stat-card { background: #0c0c14; border: 1px solid #1e1e2a; border-radius: 6px; padding: .65rem .8rem; }
+    .stat-card .sc-val { font-size: 1.4rem; font-weight: bold; color: #e8c060; font-family: serif; }
+    .stat-card .sc-label { font-size: .63rem; color: #6a6050; letter-spacing: .1em; text-transform: uppercase; margin-top: .1rem; }
+    .results-section { margin-bottom: 1.3rem; }
+    .results-section h3 { font-size: .68rem; letter-spacing: .2em; color: #5a5040; text-transform: uppercase; margin-bottom: .5rem; border-bottom: 1px solid #1a1a20; padding-bottom: .25rem; }
+    .bar-row { display: flex; align-items: center; gap: .6rem; margin-bottom: .28rem; font-size: .75rem; }
+    .bar-row .br-label { min-width: 160px; color: #a89878; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-row .br-bar-wrap { flex: 1; background: #111; border-radius: 2px; height: 8px; }
+    .bar-row .br-bar { height: 8px; border-radius: 2px; background: #a07030; }
+    .bar-row .br-val { min-width: 55px; text-align: right; color: #c8b080; font-size: .7rem; }
+    .err-box { background: #120a0a; border: 1px solid #3a1a1a; border-radius: 5px; padding: .6rem; font-size: .72rem; color: #c85050; margin-bottom: 1rem; }
+
+    #run-progress-wrap { padding: .7rem 1rem; background: #0a0a10; border-bottom: 1px solid #1a1a28; margin-bottom: .8rem; }
+    .run-progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .45rem; font-size: .78rem; color: #8a7a5a; letter-spacing: .06em; }
+    .run-progress-track { background: #111118; border-radius: 4px; height: 10px; overflow: hidden; }
+    .run-progress-fill { height: 100%; background: linear-gradient(90deg, #7a4a10, #d09040); border-radius: 4px; transition: width .12s ease; }
+
+    /* Battle log */
+    .battle-log-wrap { background: #07080e; border: 1px solid #181828; border-radius: 5px; max-height: 320px; overflow-y: auto; font-family: monospace; font-size: .7rem; padding: .4rem; }
+    .bl-battle { color: #e8c060; font-weight: bold; padding: .3rem 0 .15rem; border-top: 1px solid #1e1e30; margin-top: .2rem; }
+    .bl-battle:first-child { border-top: none; margin-top: 0; }
+    .bl-entry { padding: .05rem .2rem; line-height: 1.5; }
+    .bl-player  { color: #70c070; }
+    .bl-enemy   { color: #c06050; }
+    .bl-status  { color: #c0a040; }
+    .bl-system  { color: #506070; }
+    .bl-win     { color: #50dd70; font-weight: bold; }
+    .bl-loss    { color: #dd5050; font-weight: bold; }
+
+    /* History panel */
+    #history-panel { border-top: 2px solid #141420; padding: 1rem 1.2rem; }
+    .hist-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
+    .hist-header h3 { font-size: .68rem; letter-spacing: .2em; color: #5a5040; text-transform: uppercase; }
+    .hist-clear { background: none; border: 1px solid #2a2020; color: #5a4040; font-size: .65rem; padding: .15rem .5rem; border-radius: 3px; cursor: pointer; }
+    .hist-clear:hover { border-color: #6a3030; color: #a06060; }
+    .hist-entry { background: #0c0c14; border: 1px solid #1e1e2a; border-radius: 5px; padding: .5rem .7rem; margin-bottom: .4rem; display: flex; align-items: center; gap: .7rem; cursor: pointer; transition: border-color .15s; }
+    .hist-entry:hover { border-color: #3a3050; }
+    .hist-entry .he-wr { font-size: 1.1rem; font-weight: bold; color: #e8c060; font-family: serif; min-width: 48px; }
+    .hist-entry .he-cfg { font-size: .7rem; color: #8a8070; flex: 1; }
+    .hist-entry .he-date { font-size: .63rem; color: #4a4038; }
+    .hist-none { color: #3a3020; font-size: .8rem; text-align: center; padding: 1rem; }
+  </style>
+</head>
+<body>
+
+<h1>⚔ Wizard League — In-Game Simulator</h1>
+
+<div class="sim-layout">
+
+  <!-- CONFIG ─────────────────────────────────────────────── -->
+  <div class="sim-config">
+
+    <div class="cfg-section">
+      <div class="cfg-label">Element</div>
+      <div class="cfg-row" id="el-btns"></div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-label">Strategy</div>
+      <div class="cfg-row" id="strat-btns">
+        <button class="cfg-btn active" onclick="simCfg.strategy='smart'; _setActive(this,this.closest('.cfg-row'))"
+          title="Smart: prioritizes spells with the longest cooldown (highest power), fills remaining actions with basic attacks">Smart</button>
+        <button class="cfg-btn" onclick="simCfg.strategy='random'; _setActive(this,this.closest('.cfg-row'))"
+          title="Random: shuffles available spells and picks randomly, fills remaining actions with basic attacks">Random</button>
+        <button class="cfg-btn" onclick="simCfg.strategy='basic'; _setActive(this,this.closest('.cfg-row'))"
+          title="Basic Only: never uses spells — only basic attacks every turn">Basic Only</button>
+      </div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-label">Starting Passive</div>
+      <select class="cfg-input" id="start-passive-sel" style="width:100%"
+        onchange="simCfg.startPassiveId=this.value||null">
+        <option value="">Random</option>
+      </select>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-label">Starting Spell</div>
+      <select class="cfg-input" id="start-spell-sel" style="width:100%"
+        onchange="simCfg.startSpellId=this.value||null">
+        <option value="">Random / Default</option>
+      </select>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-label">Artifact</div>
+      <div class="cfg-row">
+        <select class="cfg-input" id="art-select" onchange="simCfg.artifactId=this.value||null; _updateArtifactDesc()">
+          <option value="">None</option>
+        </select>
+        <select class="cfg-input" id="art-star" onchange="simCfg.artifactStar=+this.value; _updateArtifactDesc()">
+          <option value="0">★ 0</option><option value="1">★ 1</option><option value="2">★ 2</option><option value="3">★ 3</option>
+        </select>
+      </div>
+      <div id="art-desc" style="font-size:.65rem;color:#7a6a3a;margin-top:.25rem;line-height:1.4;min-height:1em;"></div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-label">Talent Levels</div>
+      <div id="talent-cfg" class="cfg-talent-grid"></div>
+    </div>
+
+    <div class="cfg-section">
+      <div class="cfg-label">Simulations</div>
+      <div class="cfg-row" id="count-btns">
+        <button class="cfg-btn active" onclick="simCfg.nRuns=50; _setActive(this,this.closest('.cfg-row'))">50</button>
+        <button class="cfg-btn" onclick="simCfg.nRuns=200; _setActive(this,this.closest('.cfg-row'))">200</button>
+        <button class="cfg-btn" onclick="simCfg.nRuns=500; _setActive(this,this.closest('.cfg-row'))">500</button>
+        <button class="cfg-btn" onclick="simCfg.nRuns=1000; _setActive(this,this.closest('.cfg-row'))">1000</button>
+      </div>
+      <div class="cfg-row">
+        <input type="number" class="cfg-input" placeholder="custom" min="1" max="5000" style="width:100%"
+          oninput="if(+this.value>0) simCfg.nRuns=+this.value">
+      </div>
+    </div>
+
+    <button class="run-btn" id="run-btn" onclick="runSims()">▶ Run Simulation</button>
+  </div>
+
+  <!-- RESULTS ────────────────────────────────────────────── -->
+  <div class="sim-results" id="results-panel">
+    <!-- persistent progress bar — never overwritten by _renderResults -->
+    <div id="run-progress-wrap" style="display:none">
+      <div class="run-progress-header">
+        <span id="run-prog-label">Running…</span>
+        <span id="run-prog-count" style="color:#e8c060;font-weight:bold"></span>
+      </div>
+      <div class="run-progress-track">
+        <div class="run-progress-fill" id="run-prog-fill" style="width:0%"></div>
+      </div>
+    </div>
+    <!-- dynamic content written by _renderResults -->
+    <div id="results-content">
+      <div class="results-placeholder">
+        Configure a run above and press ▶ Run Simulation.<br>
+        Uses actual game code — spell/mechanic changes reflect instantly.
+      </div>
+    </div>
+
+    <!-- saved run history -->
+    <div id="history-panel">
+      <div class="hist-header">
+        <h3>Saved Runs</h3>
+        <button class="hist-clear" onclick="_clearHistory()">Clear All</button>
+      </div>
+      <div id="history-list"><div class="hist-none">No saved runs yet.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+  PHASE 1: PRE-STUBS  (before game scripts load)
+════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Fake canvas 2D context ────────────────────────────────────────────────────
+const _fakeCtx = {
+  fillStyle:'', strokeStyle:'', lineWidth:1, font:'', textAlign:'center',
+  textBaseline:'middle', globalAlpha:1, imageSmoothingEnabled:false,
+  shadowColor:'', shadowBlur:0,
+  fillRect(){}, clearRect(){}, strokeRect(){},
+  fillText(){}, strokeText(){}, measureText(){ return {width:10}; },
+  beginPath(){}, closePath(){}, moveTo(){}, lineTo(){}, arc(){},
+  quadraticCurveTo(){}, bezierCurveTo(){},
+  fill(){}, stroke(){}, clip(){}, save(){}, restore(){},
+  scale(){}, translate(){}, rotate(){}, setTransform(){},
+  drawImage(){}, putImageData(){},
+  getImageData(){ return { data: new Uint8ClampedArray(4) }; },
+  createLinearGradient(){ return { addColorStop(){} }; },
+  createRadialGradient(){ return { addColorStop(){} }; },
+  createPattern(){ return {}; },
+};
+
+// ── Fake DOM element ──────────────────────────────────────────────────────────
+const _fakeEl = {
+  style: new Proxy({}, { get:()=>'', set:()=>true }),
+  className:'', id:'', innerHTML:'', textContent:'', value:'',
+  disabled:false, checked:false,
+  scrollTop:0, scrollHeight:0, clientWidth:300, clientHeight:200,
+  offsetWidth:300, offsetHeight:200, width:300, height:200,
+  classList:{ add(){}, remove(){}, toggle(){}, contains(){ return false; }, replace(){} },
+  children:[], firstChild:null, lastChild:null,
+  parentElement:null, parentNode:null, nextSibling:null, previousSibling:null,
+  appendChild(){ return _fakeEl; }, removeChild(){}, insertBefore(){ return _fakeEl; },
+  replaceChild(){ return _fakeEl; }, cloneNode(){ return _fakeEl; },
+  querySelector(){ return null; }, querySelectorAll(){ return []; },
+  addEventListener(){}, removeEventListener(){}, dispatchEvent(){},
+  setAttribute(){}, getAttribute(){ return null; }, hasAttribute(){ return false; },
+  removeAttribute(){}, focus(){}, blur(){}, click(){},
+  getBoundingClientRect(){ return {x:0,y:0,width:300,height:200,top:0,left:0,right:300,bottom:200}; },
+  getContext(){ return _fakeCtx; },
+  src:'', href:'', type:'', name:'',
+  _goStop(){}, _vcStop(){},
+  onmousedown:null, onmousemove:null, onmouseup:null, onclick:null,
+};
+_fakeCtx.canvas = _fakeEl;
+
+// Override document.getElementById to return fake element for missing IDs
+const _origGetById = document.getElementById.bind(document);
+document.getElementById = id => _origGetById(id) || _fakeEl;
+// Allow querySelectorAll to work normally for real elements
+const _origQSA = document.querySelectorAll.bind(document);
+
+// ── Variables declared in non-loaded files ────────────────────────────────────
+var activeSaveSlot = 0;
+var sandboxMode    = false;
+var _lastRunPhos   = 0;
+// playerCharBuff declared as `let` in characters.js (loaded) — don't redeclare as var
+var _victoryFreeplay = false;
+// Zone special slots (from mapCanvas.js — not loaded)
+var _zoneShopMid = -1, _zoneCampfireMid = -1;
+var _zoneShopEnd = -1, _zoneCampfireEnd = -1;
+
+// ── Real localStorage ref — saved before mock replaces it ─────────────────────
+const _realLS = (function(){ try { return window.localStorage; } catch(e){ return null; } })();
+
+// ── localStorage mock ─────────────────────────────────────────────────────────
+// Isolates sim from the real save file.
+const _mockStorage = {};
+try {
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    get() {
+      return {
+        getItem:    k   => Object.prototype.hasOwnProperty.call(_mockStorage, k) ? _mockStorage[k] : null,
+        setItem:    (k,v) => { _mockStorage[k] = String(v); },
+        removeItem: k   => { delete _mockStorage[k]; },
+        clear:      ()  => { for (const k of Object.keys(_mockStorage)) delete _mockStorage[k]; },
+        get length()    { return Object.keys(_mockStorage).length; },
+        key:        i   => Object.keys(_mockStorage)[i] || null,
+      };
+    }
+  });
+} catch(e) { console.warn('localStorage mock failed:', e); }
+
+// ── Synchronous setTimeout ─────────────────────────────────────────────────────
+// Replaces async browser timer with a drain queue so the full combat loop
+// runs synchronously within one simulation call.
+// Use var so these are visible across all script blocks (let is block-scoped to
+// each <script> tag in some edge cases).
+var _simQueue   = [];
+var _simDraining = false;
+var _simRunDone  = false;
+var _simIter     = 0;
+var SIM_ITER_LIMIT = 200000; // safety cap per run
+
+window.clearTimeout  = () => {};
+window.clearInterval = () => {};
+window.setInterval   = () => 0;
+window.requestAnimationFrame = () => 0;
+window.cancelAnimationFrame  = () => {};
+
+window.setTimeout = function(fn, _delay) {
+  if (_simRunDone) return 0;
+  if (typeof fn !== 'function') return 0;
+  _simQueue.push(fn);
+  if (!_simDraining) _drainSimQueue();
+  return 0;
+};
+
+function _drainSimQueue() {
+  if (_simDraining) return;
+  _simDraining = true;
+  while (_simQueue.length > 0 && !_simRunDone) {
+    if (++_simIter > SIM_ITER_LIMIT) {
+      console.error('SIM: iteration limit hit — possible infinite loop');
+      _simRunDone = true;
+      break;
+    }
+    const fn = _simQueue.shift();
+    try { fn(); } catch(e) { console.error('SIM queue error:', e); }
+  }
+  _simDraining = false;
+}
+
+// ── Pre-stubs: functions from non-loaded UI / rendering / audio files ─────────
+
+// ui.js
+function log()             {}
+function setPlayerTurnUI(active) {
+  combat.playerTurn = !!active;   // queueAction guards on this — must be set before _simAutoPlay
+  if (active && !_simRunDone) _simAutoPlay();
+}
+function showScreen(id)    {}
+function updateHPBars()    {}
+function updateStatsUI()   {}
+function renderStatusTags(){}
+function renderEnemyCards(){}
+function renderSpellButtons(){}
+function renderCombatInventory(){}
+function renderSummonsRow(){}
+function updateActionUI()  {}
+function updateChargeUI()  {}
+function switchCombatTab() {}
+function hpColor()         { return '#44aa44'; }
+function setActiveEnemy(idx) {
+  combat.activeEnemyIdx = idx;
+  if (combat.enemies && combat.enemies[idx]) combat.enemy = combat.enemies[idx];
+}
+function doBasicAttack()   {}
+function renderQueue()     {}
+function triggerHealAnim() {}
+function markPassiveSeen() {}
+function _pickBookDest(type, spell, cb) { cb(undefined); }
+function showRunBookSelectionScreen(cb) { cb(null); }
+
+// sprites.js / animations.js
+function stopBattleLoop()    {}
+function startBattleLoop()   {}
+function initBattleCanvas()  {}
+function getPlayerCharSprite() { return []; }
+function stopLobbyMap()      {}
+function triggerHitFlash()   {}   // called bare in hit.js on every damage — must be stubbed
+
+// betweenRuns.js
+function applyBookUpgrades(book, catalogueId) {}
+function showBetweenRuns() {}
+
+// map.js  (we provide real implementations post-load)
+function showGameOver()    { _simRecordResult(false); }
+function showRunVictory()  { _simRecordResult(true); }
+
+// mapCanvas.js  (we provide real implementations post-load)
+function initZoneSpecial() {
+  if (typeof initZoneRewardSequence === 'function') initZoneRewardSequence();
+}
+function showMap()              { _simLoadNextBattle(); }
+function _buildAndShowCanvas()  {}
+function buildMapNodes()        { return []; }
+function showMapCanvas()        {}
+
+// main.js
+function showPassiveScreen(element) { /* run-start passive — handled in simInitRun */ }
+function musicStopAll()         {}
+function playThroneRoomCutscene(){}
+function ensurePlasmaBook()     {}
+function plasmaBookIdx()        { return -1; }
+
+// state.js — overflow screens (DOM-heavy; we auto-resolve)
+function showBookOverflowScreen(newSpell, book) {
+  // Auto-resolve: silently drop the new spell (book is full)
+  // (Post-load override below replaces this once state.js is loaded)
+  if (typeof _pendingOverflowSpell !== 'undefined') _pendingOverflowSpell = null;
+  if (typeof _pendingOverflowBookIdx !== 'undefined') _pendingOverflowBookIdx = 0;
+}
+function showPassiveOverflowScreen(passiveId, book) {
+  if (typeof _pendingOverflowPassive !== 'undefined') _pendingOverflowPassive = null;
+  if (typeof _pendingOverflowPassiveBook !== 'undefined') _pendingOverflowPassiveBook = 0;
+}
+
+// battleReward.js — reward pick screens; auto-pick versions
+function showPassiveChoiceScreen(level, forElement) {
+  const pool = (typeof buildPassiveChoicePool === 'function') ? buildPassiveChoicePool(forElement || null) : [];
+  if (pool.length > 0) {
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (typeof addPassiveToBook === 'function') addPassiveToBook(pick.id);
+  }
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+function showSpellChoiceScreen(level, tier, forElement) {
+  const pool = (typeof buildSpellChoicePool === 'function') ? buildSpellChoicePool(tier || 'secondary', forElement || null) : [];
+  if (pool.length > 0) {
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (typeof addSpellById === 'function') addSpellById(pick.id, false, (typeof rollSpellRarity === 'function') ? rollSpellRarity() : 'dim');
+  }
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+function showIncantationChoiceScreen(level) {
+  const book = (typeof player !== 'undefined') ? player.spellbooks && player.spellbooks[player.activeBookIdx] : null;
+  const eligible = book ? book.spells.filter(s => !s.isBuiltin && s.id) : [];
+  if (eligible.length > 0) {
+    const pick = eligible[Math.floor(Math.random() * eligible.length)];
+    pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+  }
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+function showElementUnlockScreen(level) {
+  // Auto-unlock a random non-Plasma second element
+  const allEls = ['Fire','Water','Ice','Lightning','Earth','Nature','Air'];
+  const avail  = allEls.filter(e => e !== playerElement && !(player.unlockedElements||[]).includes(e));
+  if (avail.length > 0) {
+    const chosen = avail[Math.floor(Math.random() * avail.length)];
+    player.unlockedElements.push(chosen);
+    if (typeof STARTER_SPELL !== 'undefined' && STARTER_SPELL[chosen]) addSpellById(STARTER_SPELL[chosen]);
+    pendingLevelUps = [
+      { type:'passivechoice', level:'gym', forElement: chosen },
+      { type:'spellchoice',   level:'gym', tier:'secondary', forElement: chosen },
+      { type:'gym_legendary' },
+    ];
+    processNextLevelUp();
+  } else {
+    if (typeof grantRandomLegendary === 'function') grantRandomLegendary();
+    showMap();
+  }
+}
+function showBookDiscoveryScreen() {
+  // Auto-pick a random available book
+  if (typeof _buildBookDiscoveryChoices === 'function') {
+    const choices = _buildBookDiscoveryChoices(3);
+    if (choices.length > 0) {
+      const id = choices[Math.floor(Math.random() * choices.length)];
+      if (typeof SPELLBOOK_CATALOGUE !== 'undefined' && typeof makeBookInstance === 'function') {
+        const inst = makeBookInstance(id);
+        if (inst) { player.spellbooks.push(inst); }
+      }
+    }
+  }
+  if (typeof _continueGymFlow === 'function') _continueGymFlow();
+}
+
+// gymRival.js / shopCampfire.js (not loaded)
+function showGymRivalScreen() { showMap(); }
+function showRivalScreen()    { showMap(); }
+function showShopScreen()     { showMap(); }
+function showCampfireScreen() {
+  if (typeof applyHeal === 'function') applyHeal('player', Math.floor(maxHPFor('player') * 0.35), '🔥 Campfire');
+  showMap();
+}
+</script>
+
+<!-- ════════════════════════════════════════════════════════
+  GAME SCRIPTS  (must match index.html order for correctness)
+════════════════════════════════════════════════════════ -->
+<script src="../js/data/constants.js"></script>
+<script src="../js/data/characters.js"></script>
+<script src="../js/data/spells.js"></script>
+<script src="../js/data/incantations.js"></script>
+<script src="../js/data/items.js"></script>
+<script src="../js/data/artifacts.js"></script>
+<script src="../js/data/spellbooks.js"></script>
+<script src="../js/data/talents.js"></script>
+<script src="../js/data/encounters.js"></script>
+<script src="../js/data/passives.js"></script>
+<script src="../js/data/duos.js"></script>
+<script src="../js/data/mist.js"></script>
+<script src="../js/data/sprite_data.js"></script>
+<script src="../js/logic/state.js"></script>
+<script src="../js/logic/helpers.js"></script>
+<script src="../js/logic/seeds.js"></script>
+<script src="../js/logic/surge.js"></script>
+<script src="../js/logic/enemyAbilities.js"></script>
+<script src="../js/logic/hit.js"></script>
+<script src="../js/logic/combat.js"></script>
+<script src="../js/logic/battleLoad.js"></script>
+<script src="../js/logic/battleReward.js"></script>
+
+<!-- ════════════════════════════════════════════════════════
+  PHASE 2: POST-STUBS + SIM ENGINE  (after game scripts)
+════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Post-load overrides ───────────────────────────────────────────────────────
+// Override functions defined in loaded scripts that have DOM side-effects.
+// battleReward.js overrides our pre-stubs for reward screens — re-override here.
+
+// combat.js defines renderQueue with DOM access — replace with no-op
+renderQueue = function() {};
+
+// Zone tick fires every round; ZONE_EFFECTS also fires on every hit — they double-stack.
+// Per-round tick is not intended game behavior, so disable it in the sim.
+applyZoneTick = function() {};
+
+// ── Battle log capture ────────────────────────────────────────────────────────
+var _sampleLog    = [];
+var _capturingLog = false;
+
+// Override log() to capture entries during the sample run
+log = function(msg, type) {
+  if (_capturingLog) _sampleLog.push({ m: String(msg), t: type || 'info' });
+};
+
+// ── Sim history (persisted to real localStorage) ──────────────────────────────
+const _SIM_HIST_KEY = 'wl_sim_history';
+const _SIM_HIST_MAX = 25;
+
+function _saveSim(cfg, stats, sampleLog) {
+  if (!_realLS) return;
+  let hist = [];
+  try { hist = JSON.parse(_realLS.getItem(_SIM_HIST_KEY) || '[]'); } catch(e) {}
+  const entry = {
+    id:   Date.now(),
+    date: new Date().toLocaleString(),
+    cfg:  { element: cfg.element, strategy: cfg.strategy, artifactId: cfg.artifactId,
+            artifactStar: cfg.artifactStar, nRuns: cfg.nRuns,
+            startPassiveId: cfg.startPassiveId, startSpellId: cfg.startSpellId,
+            talents: cfg.talents },
+    stats: { winRate: stats.winRate, wins: stats.wins, n: stats.n,
+             avgBattles: stats.avgBattles, avgHPOnWin: stats.avgHPOnWin,
+             topSpells: stats.topSpells.slice(0, 10),
+             topPassives: stats.topPassives.slice(0, 8),
+             gymHist: stats.gymHist,
+             z1Milestones: stats.z1Milestones, z1Counts: stats.z1Counts,
+             z1GymAttempted: stats.z1GymAttempted,
+             battleHist: stats.battleHist },
+    log: sampleLog.slice(0, 800),
+  };
+  hist.unshift(entry);
+  if (hist.length > _SIM_HIST_MAX) hist = hist.slice(0, _SIM_HIST_MAX);
+  try { _realLS.setItem(_SIM_HIST_KEY, JSON.stringify(hist)); } catch(e) { console.warn('History save failed:', e); }
+  _renderHistory();
+}
+
+function _clearHistory() {
+  if (_realLS) _realLS.removeItem(_SIM_HIST_KEY);
+  _renderHistory();
+}
+
+function _loadHistory() {
+  if (!_realLS) return [];
+  try { return JSON.parse(_realLS.getItem(_SIM_HIST_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function _autoExport(cfg, stats, sampleLog) {
+  const payload = {
+    date:     new Date().toISOString(),
+    cfg:      { element: cfg.element, strategy: cfg.strategy, artifactId: cfg.artifactId,
+                artifactStar: cfg.artifactStar, nRuns: cfg.nRuns,
+                startPassiveId: cfg.startPassiveId, startSpellId: cfg.startSpellId,
+                talents: cfg.talents },
+    stats:    { winRate: stats.winRate, wins: stats.wins, n: stats.n,
+                avgBattles: stats.avgBattles, avgHPOnWin: stats.avgHPOnWin,
+                gymHist: stats.gymHist,
+                z1Milestones: stats.z1Milestones, z1Counts: stats.z1Counts,
+                z1GymAttempted: stats.z1GymAttempted,
+                battleHist: stats.battleHist,
+                topSpells:   stats.topSpells,
+                topPassives: stats.topPassives },
+    sampleLog,
+  };
+  fetch('http://127.0.0.1:3456/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).catch(() => {}); // silent if server isn't running
+}
+
+function _cfgLabel(cfg) {
+  const art = cfg.artifactId ? ` · ★${cfg.artifactStar} ${cfg.artifactId}` : '';
+  const sp  = cfg.startSpellId   ? ` · ${cfg.startSpellId}`   : '';
+  const pa  = cfg.startPassiveId ? ` · ${cfg.startPassiveId}` : '';
+  return `${cfg.element} · ${cfg.strategy} · ${cfg.nRuns} runs${art}${sp}${pa}`;
+}
+
+function _renderHistory() {
+  const list = _origGetById('history-list');
+  if (!list) return;
+  const hist = _loadHistory();
+  if (hist.length === 0) { list.innerHTML = '<div class="hist-none">No saved runs yet.</div>'; return; }
+  list.innerHTML = hist.map((e, i) => `
+    <div class="hist-entry" onclick="_restoreHistEntry(${i})" title="Click to restore this run's results">
+      <div class="he-wr">${(e.stats.winRate * 100).toFixed(1)}%</div>
+      <div class="he-cfg">
+        <div>${_cfgLabel(e.cfg)}</div>
+        <div style="font-size:.62rem;color:#5a5040;margin-top:.1rem">${e.stats.wins}/${e.stats.n} wins · avg ${e.stats.avgBattles.toFixed(1)} battles</div>
+      </div>
+      <div class="he-date">${e.date}</div>
+    </div>`).join('');
+}
+
+function _restoreHistEntry(idx) {
+  const hist = _loadHistory();
+  const e = hist[idx];
+  if (!e) return;
+  // Re-render results panel with the saved entry's stats + log
+  const panel = _origGetById('results-content');
+  if (!panel) return;
+  // Use _renderResults with a fake results array (we only have aggregate)
+  // Reconstruct minimal data needed
+  const fakeResults = Array.from({ length: e.stats.n }, (_, i) => {
+    const gc = i < e.stats.wins ? 3 : 0;
+    return { won: i < e.stats.wins, gymsCleared: gc, battleNumber: Math.round(e.stats.avgBattles) };
+  });
+  _renderResults(e.stats, fakeResults, [], false, e.log);
+  _origGetById('run-progress-wrap').style.display = 'none';
+}
+
+// battleReward.js overrides reward screens — re-override with auto-pick versions
+showPassiveChoiceScreen = function(level, forElement) {
+  const pool = buildPassiveChoicePool(forElement || null);
+  if (pool.length > 0) addPassiveToBook(pool[Math.floor(Math.random() * pool.length)].id);
+  processNextLevelUp();
+};
+showSpellChoiceScreen = function(level, tier, forElement) {
+  const pool = buildSpellChoicePool(tier || 'secondary', forElement || null);
+  if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+  processNextLevelUp();
+};
+showIncantationChoiceScreen = function(level) {
+  const book = player.spellbooks[player.activeBookIdx];
+  const elig = book ? book.spells.filter(s => !s.isBuiltin) : [];
+  if (elig.length > 0) {
+    const pick = elig[Math.floor(Math.random() * elig.length)];
+    pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+  }
+  processNextLevelUp();
+};
+showElementUnlockScreen = function(level) {
+  const allEls = ['Fire','Water','Ice','Lightning','Earth','Nature','Air'];
+  const avail  = allEls.filter(e => e !== playerElement && !(player.unlockedElements||[]).includes(e));
+  if (avail.length > 0) {
+    const chosen = avail[Math.floor(Math.random() * avail.length)];
+    player.unlockedElements.push(chosen);
+    if (STARTER_SPELL && STARTER_SPELL[chosen]) addSpellById(STARTER_SPELL[chosen]);
+    pendingLevelUps = [
+      { type:'passivechoice', level:'gym', forElement: chosen },
+      { type:'spellchoice',   level:'gym', tier:'secondary', forElement: chosen },
+      { type:'gym_legendary' },
+    ];
+    processNextLevelUp();
+  } else {
+    grantRandomLegendary();
+    showMap();
+  }
+};
+showBookDiscoveryScreen = function() {
+  if (typeof _buildBookDiscoveryChoices === 'function') {
+    const choices = _buildBookDiscoveryChoices(3);
+    if (choices.length > 0) {
+      const inst = makeBookInstance(choices[Math.floor(Math.random() * choices.length)]);
+      if (inst) player.spellbooks.push(inst);
+    }
+  }
+  _continueGymFlow();
+};
+
+// state.js defines overflow screens — replace with auto-resolve
+showBookOverflowScreen = function(newSpell, book) {
+  _pendingOverflowSpell = null;
+  _pendingOverflowBookIdx = 0;
+  // Spell is silently dropped when book is full (player would've had to remove one)
+};
+showPassiveOverflowScreen = function(passiveId, book) {
+  _pendingOverflowPassive = null;
+  _pendingOverflowPassiveBook = 0;
+};
+
+// ── Sim config ────────────────────────────────────────────────────────────────
+const simCfg = {
+  element:      'Fire',
+  strategy:     'smart',
+  artifactId:   null,
+  artifactStar: 0,
+  talents:      {},
+  nRuns:        50,
+  startPassiveId: null,  // null = random
+  startSpellId:   null,  // null = random / giveStarterSpell default
+};
+
+// ── Result recording ──────────────────────────────────────────────────────────
+var _simCurrentResult = null;
+
+function _simRecordResult(won) {
+  if (_simRunDone) return;
+  if (_capturingLog) _sampleLog.push({ m: `══ RUN ${won ? '✓ VICTORY' : '✗ DEFEAT'} — HP ${player.hp}/${maxHPFor('player')} ══`, t: won ? '_win' : '_loss' });
+  _simRunDone = true;
+  _simCurrentResult = {
+    won,
+    gymsCleared: currentGymIdx,   // 0 = died in zone 1, 1 = died in zone 2, 2 = died in zone 3, 3 = won
+    battleNumber: battleNumber || 0,
+    zoneBattleCount: zoneBattleCount || 0, // battles won in current zone (resets per zone)
+    playerHPLeft: player.hp,
+    maxHP: maxHPFor('player'),
+    spells:  (player.spellbooks || []).flatMap(b => b.spells.filter(s => !s.isBuiltin).map(s => s.id)),
+    passives:(player.spellbooks || []).flatMap(b => b.passives),
+  };
+}
+
+// ── Next-battle loader (our showMap replacement) ──────────────────────────────
+function _simLoadNextBattle() {
+  if (_simRunDone) return;
+  if (_capturingLog) _sampleLog.push({ m: `══ BATTLE ${battleNumber} ══`, t: '_battle' });
+
+  const gym = currentGymDef();
+
+  // Fight gym as soon as it's available (or if forced)
+  if (gym && (gymIsForced() || gymShouldAppear())) {
+    const roster = GYM_ROSTER;
+    if (roster && roster[currentGymIdx]) {
+      loadBattle(Object.assign({}, roster[currentGymIdx], { _rewardType: 'gym' }));
+    } else {
+      _simRecordResult(false); // no gym def — treat as loss
+    }
+    return;
+  }
+
+  // Regular encounter from zone pool
+  const zoneEl   = gym ? gym.element : playerElement;
+  const zonePick = ENCOUNTER_POOL.filter(e => e.campType === zoneEl);
+  const pool     = zonePick.length > 0 ? zonePick : ENCOUNTER_POOL;
+  const base     = pool[Math.floor(Math.random() * pool.length)];
+  const enc      = Object.assign({}, base, {
+    _rewardType: getZoneRewardType(zoneBattleCount + 1, currentGymIdx, 0),
+  });
+  loadBattle(enc);
+}
+
+// ── Reward auto-picker (our showBattleRewardScreen replacement) ───────────────
+showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
+  if (_simRunDone) return;
+
+  if (isGym) {
+    showBookDiscoveryScreen(); // mocked to auto-pick → _continueGymFlow → showMap
+    return;
+  }
+
+  if (isRival) {
+    const pool = buildPassiveChoicePool(null);
+    if (pool.length > 0) addPassiveToBook(pool[Math.floor(Math.random() * pool.length)].id);
+    showMap();
+    return;
+  }
+
+  const rewardType = combat._chosenRewardType || getZoneRewardType(zoneBattleCount, currentGymIdx, 0);
+
+  if (rewardType === 'primary_spell') {
+    // Battle 1 reward: give the chosen starting spell, or pick a random primary spell
+    if (simCfg.startSpellId) {
+      addSpellById(simCfg.startSpellId, false, 'dim');
+    } else {
+      const pool = buildSpellChoicePool('primary', null);
+      if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+    }
+  } else if (rewardType === 'spell' || rewardType === 'secondary_spell') {
+    const pool = buildSpellChoicePool('secondary', null);
+    if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+  } else if (rewardType === 'incantation') {
+    const book = player.spellbooks[player.activeBookIdx];
+    const eligible = book ? book.spells.filter(s => !s.isBuiltin) : [];
+    if (eligible.length > 0) {
+      const pick = eligible[Math.floor(Math.random() * eligible.length)];
+      pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+    }
+  } else if (rewardType === 'minor') {
+    const pool = buildMinorUpgradePool();
+    if (pool.length > 0) try { pool[Math.floor(Math.random() * pool.length)].apply(); } catch(e) {}
+  } else if (rewardType === 'major') {
+    const pool = buildMajorUpgradePool().filter(p => !p._modal);
+    if (pool.length > 0) try { pool[Math.floor(Math.random() * pool.length)].apply(); } catch(e) {}
+  }
+
+  showMap();
+};
+
+// ── Auto-play engine ──────────────────────────────────────────────────────────
+// Called when setPlayerTurnUI(true) fires — picks and queues player actions.
+function _simAutoPlay() {
+  if (_simRunDone || combat.over || !combat.playerTurn) return;
+
+  const strategy   = simCfg.strategy;
+  const actionsAvail = combat.actionsLeft || 2; // set by startRound before setPlayerTurnUI
+
+  // Best target: highest-HP alive enemy
+  const aliveEn = (combat.enemies || []).filter(e => e.alive);
+  if (aliveEn.length === 0) return;
+  const bestEnemy = aliveEn.reduce((best, e) => e.hp > best.hp ? e : best, aliveEn[0]);
+  const absIdx = combat.enemies.indexOf(bestEnemy);
+  combat.targetIdx = absIdx >= 0 ? absIdx : 0;
+  setActiveEnemy(combat.targetIdx);
+
+  // Collect usable non-builtin spells from active book
+  const book   = player.spellbooks[player.activeBookIdx];
+  const spells  = book ? book.spells : (player.spellbook || []);
+  const usable  = spells.filter(s => {
+    if (!s || s.isBuiltin) return false;
+    if ((s.currentCD || 0) > 0) return false;
+    if (s.maxPP !== undefined && (s.currentPP || 0) <= 0) return false;
+    return true;
+  });
+
+  let queued = 0;
+
+  function queueSpell(s) {
+    if (queued >= actionsAvail) return false;
+    const bookCatalogueId = book ? (book.catalogueId || null) : null;
+    const spellRef = s;
+    queueAction(s.emoji + ' ' + s.name, () => {
+      const ctx = makeSpellCtx('player', 'enemy', -1);
+      try { spellRef.execute(ctx); } catch(e) { console.warn('spell exec err', spellRef.id, e); }
+    }, { isSpellAction: true, spellObj: s, bookCatalogueId });
+    // Apply CD and consume PP immediately so next queueSpell sees updated state
+    s.currentCD = adjustedCooldownFor('player', s.baseCooldown || 0);
+    if (s.maxPP !== undefined) s.currentPP = Math.max(0, (s.currentPP || 0) - 1);
+    queued++;
+    return true;
+  }
+
+  function queueBasic() {
+    if (queued >= actionsAvail) return;
+    queueAction('⚔ Basic', () => {
+      // Use applyDirectDamage directly — simpler than going through UI functions
+      const dmg = Math.max(1, Math.round(
+        (10 + player.attackPower * 0.4) * (player.basicDmgMult || 1.0) + (player.basicDmgFlat || 0)
+      ));
+      applyDirectDamage('player', 'enemy', dmg, '⚔ Basic');
+    }, {});
+    queued++;
+  }
+
+  if (strategy === 'basic') {
+    while (queued < actionsAvail) queueBasic();
+  } else if (strategy === 'random') {
+    const shuffled = [...usable].sort(() => Math.random() - 0.5);
+    for (const s of shuffled) { if (!queueSpell(s)) break; }
+    while (queued < actionsAvail) queueBasic();
+  } else {
+    // Smart: prefer spells with higher CD (usually more powerful)
+    const sorted = [...usable].sort((a, b) => (b.baseCooldown || 0) - (a.baseCooldown || 0));
+    for (const s of sorted) { if (!queueSpell(s)) break; }
+    while (queued < actionsAvail) queueBasic();
+  }
+
+  // Safety: ensure at least one action is queued
+  if ((combat.actionQueue || []).length === 0) queueBasic();
+
+  commitEndTurn();
+}
+
+// ── Run initialiser ───────────────────────────────────────────────────────────
+function simInitRun(cfg) {
+  // Reset simulation state
+  _simQueue    = [];
+  _simDraining = false;
+  _simRunDone  = false;
+  _simIter     = 0;
+  _simCurrentResult = null;
+
+  // Clear meta cache so getMeta() re-reads from our mock localStorage
+  window._metaBySlot = null;
+
+  // Write sim meta to mock localStorage
+  const mockMeta = {
+    artifacts: [],
+    totalRuns: 0, bestLevel: 0, gymsBeaten: 0,
+    runHistory: [], unseenArtifacts: [], unseenBookIds: [],
+    ownedBookIds: Object.keys(typeof SPELLBOOK_CATALOGUE !== 'undefined' ? SPELLBOOK_CATALOGUE : {}).slice(0, 3),
+    bookUpgradeLevels: {},
+    activeArtifactId: cfg.artifactId || null,
+    talents: cfg.talents || {},
+    phos: 0, phosTotal: 0, seenThroneRoom: true,
+  };
+  if (cfg.artifactId) {
+    mockMeta.artifacts = [{ id: cfg.artifactId, star: cfg.artifactStar || 0, roomsUsed: 0 }];
+  }
+  _mockStorage['elemental_meta_v1_slot0'] = JSON.stringify(mockMeta);
+
+  // Player identity
+  const ELEM_INFO = {
+    Fire:      { emoji:'🔥', color:'#ff6622' }, Water:    { emoji:'💧', color:'#2288ff' },
+    Ice:       { emoji:'❄️', color:'#88ddff' }, Lightning:{ emoji:'⚡', color:'#ffee22' },
+    Earth:     { emoji:'🪨', color:'#aa8844' }, Nature:   { emoji:'🌿', color:'#44aa44' },
+    Plasma:    { emoji:'🔮', color:'#bb44ff' }, Air:      { emoji:'🌀', color:'#aaddff' },
+  };
+  const ei = ELEM_INFO[cfg.element] || ELEM_INFO.Fire;
+  playerElement = cfg.element || 'Fire';
+  playerEmoji   = ei.emoji;
+  playerColor   = ei.color;
+  playerName    = 'Sim';
+  playerCharBuff = null;
+
+  // Reset player (mirrors beginRun in main.js)
+  Object.assign(player, {
+    hp: BASE_MAX_HP, attackPower: 0, effectPower: 0, defense: 0,
+    skillPoints: 0, gold: 0, inventory: [], spellbook: [],
+    passives: [], startPassive: null,
+    unlockedElements: [], baseMaxHPBonus: 0, spellbooks: [], activeBookIdx: 0,
+    revives: 0, bonusActions: 0,
+    basicUpgrade: 0, basicDmgMult: 1.0,
+    _hasteStart: false, _blockStart: 0, _extraStartSpell: false, _rerolls: 0,
+    _rhythmStar: -1, _quickHandsStar: -1, _gritHealOnRevive: 0, _healBonus: 0,
+    basicDmgFlat: 0, _bannerStar: -1, _activeBookAura: null,
+    _talentReviveBonus: 0, _goldBonus: 0,
+    _talentBurnDmg: 0, _talentBurnStart: 0, _talentFireDmgMult: 1.0,
+    _talentFoamStart: 0, _talentWaterDmgMult: 1.0,
+    _talentFrostBonus: 0, _talentIceExecute: 0, _talentIceDmgMult: 1.0,
+    _talentShockBonus: 0, _talentOverloadFloor: 0.25, _talentLightDmgMult: 1.0,
+    _talentStoneStart: 0, _talentEarthDmgMult: 1.0,
+    _talentRootBonus: 0, _talentTreantHP: 0, _talentNatureDmgMult: 1.0,
+    _talentDodgeBonus: 0, _talentChargeStart: 0, _talentPlasmaDmgMult: 1.0,
+    _talentAirHits: 0, _talentAirDmgMult: 1.0,
+    _mistEnemyHPMult: 1.0, _mistEnemyDmgMult: 1.0,
+    _mistPPMult: 1.0, _mistExtraPassives: 0, _mistBossLegendaries: 0,
+    _mistCampfireReduction: 0, _mistTalentReduction: 0,
+    _slipstreamInterval: 0,
+  });
+
+  // Reset combat
+  Object.assign(combat, {
+    enemies: [], targetIdx: 0, activeEnemyIdx: 0, enemy: {}, enemyHP: 0,
+    playerTurn: false, over: false, tempDmgBonus: 0, actionsLeft: 2, basicCD: 0,
+    playerAirToggle: false, enemyAirToggle: false, actionQueue: [], summons: [],
+    totalGold: 0, prebuiltEnemyQueues: null, plasmaChargeReserved: 0,
+    plasmaOvercharged: false, plasmaSpendAmounts: {}, plasmaCurrentSpend: 1,
+    hitFlashes: [], turnInBattle: 0,
+    _surgeThreshold: 60, _surgeFulguriteMinus: 0, _stormCoreBonus: 0,
+    _surgeTriggeredThisTurn: false, _residualCurrentPending: false,
+    _echoReady: false, _swiftbladeSwitch: 0,
+    nextMeltDouble: false, meltDoubleTurn: false, _seedSurgePending: false,
+    _chosenRewardType: null, _isSpellBattle: false, _isRival: false,
+  });
+
+  resetStatusForBattle();
+
+  battleNumber = 1; currentGymIdx = 0; zoneBattleCount = 0;
+  gymSkips = 0; gymDefeated = false; pendingLevelUps = [];
+  _zoneRivalDefeated = false;
+  if (typeof _runDmgDealt !== 'undefined') {
+    _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0;
+    _runZoneReached = ''; _runKillsThisRun = 0;
+  }
+
+  initGymRoster();
+  initZoneSpecial();
+  applyCharacterBuff();
+  applyArtifactBonuses();
+  applyMistModifiers();
+  applyTalentBonuses();
+  initSpellbooksForRun();
+
+  // Starting passive
+  if (cfg.startPassiveId) {
+    addPassiveToBook(cfg.startPassiveId);
+  } else {
+    const startPool = buildPassiveChoicePool(playerElement);
+    if (startPool.length > 0)
+      addPassiveToBook(startPool[Math.floor(Math.random() * startPool.length)].id);
+  }
+
+  // Starting spell is awarded AFTER battle 1 as the first reward (primary_spell).
+  // giveStarterSpell handles any talent-based basic attack replacements (Plasma, etc.).
+  giveStarterSpell();
+
+  // Launch first battle — showMap() calls _simLoadNextBattle()
+  showMap();
+}
+
+// ── Run N simulations ─────────────────────────────────────────────────────────
+// Uses MessageChannel for real async yields between batches (since setTimeout is mocked)
+const _yieldToBrowser = fn => { const ch = new MessageChannel(); ch.port1.onmessage = fn; ch.port2.postMessage(null); };
+
+async function runSims() {
+  const btn       = _origGetById('run-btn');
+  const progWrap  = _origGetById('run-progress-wrap');
+  const progLabel = _origGetById('run-prog-label');
+  const progCount = _origGetById('run-prog-count');
+  const progFill  = _origGetById('run-prog-fill');
+
+  btn.disabled = true;
+  progWrap.style.display = 'block';
+  progFill.style.width = '0%';
+
+  const n = simCfg.nRuns || 50;
+  const results = [];
+  const errors  = [];
+  const BATCH   = Math.max(5, Math.min(50, Math.floor(500 / n * 50)));
+  _sampleLog = [];
+
+  for (let i = 0; i < n; i += BATCH) {
+    const end = Math.min(i + BATCH, n);
+    for (let j = i; j < end; j++) {
+      // Capture full log for the very first run
+      const isFirst = (i === 0 && j === 0);
+      if (isFirst) _capturingLog = true;
+      try {
+        simInitRun(simCfg);
+        results.push(_simCurrentResult || { won: false, gymsCleared: 0, battleNumber: 1 });
+      } catch(e) {
+        console.error('SIM run error:', e);
+        errors.push(e.message);
+        results.push({ won: false, gymsCleared: 0, battleNumber: 1 });
+      }
+      if (isFirst) _capturingLog = false;
+    }
+    // Update progress bar
+    const pct = results.length / n * 100;
+    progFill.style.width = pct.toFixed(1) + '%';
+    progLabel.textContent = 'Simulating…';
+    progCount.textContent = `${results.length} / ${n}`;
+    _renderResults(_aggregateResults(results, results.length), results, errors, true, _sampleLog);
+    await new Promise(resolve => _yieldToBrowser(resolve));
+  }
+
+  // Finish
+  progFill.style.width = '100%';
+  progLabel.textContent = 'Complete';
+  progCount.textContent = `${n} / ${n}`;
+  btn.disabled = false;
+  const finalStats = _aggregateResults(results, n);
+  _renderResults(finalStats, results, errors, false, _sampleLog);
+  _saveSim(simCfg, finalStats, _sampleLog);
+  _autoExport(simCfg, finalStats, _sampleLog);
+}
+
+// ── Aggregate ─────────────────────────────────────────────────────────────────
+function _aggregateResults(results, n) {
+  const wins     = results.filter(r => r && r.won).length;
+  const gymHist  = [0, 0, 0, 0]; // index = gyms cleared (0–3)
+  const spellFreq   = {};
+  const passiveFreq = {};
+  let totalBattles = 0, hpLeftSum = 0, hpLeftCount = 0;
+
+  // Zone 1 battle milestones — zoneBattleCount = # zone-1 battles WON before dying/clearing
+  // GYM_ZONE_OPEN=12 (gym unlocks), GYM_ZONE_FORCE=15 (forced)
+  const z1Milestones = [1, 3, 5, 8, 10, 12, 15];
+  const z1Counts = z1Milestones.map(() => 0);
+  let z1GymAttempted = 0; // started the gym fight (won or lost it)
+  const battleHist = {}; // battleNumber → count, for zone-1 deaths
+
+  for (const r of results) {
+    if (!r) continue;
+    const gc = Math.min(r.gymsCleared || 0, 3);
+    gymHist[gc] = (gymHist[gc] || 0) + 1;
+    totalBattles += r.battleNumber || 0;
+    if (r.won && r.playerHPLeft != null) { hpLeftSum += r.playerHPLeft; hpLeftCount++; }
+    for (const id of (r.spells   || [])) spellFreq[id]   = (spellFreq[id]   || 0) + 1;
+    for (const id of (r.passives || [])) passiveFreq[id] = (passiveFreq[id] || 0) + 1;
+
+    const zbc = r.zoneBattleCount || 0; // zone-1 battles won
+    const cleared = (r.gymsCleared || 0) >= 1;
+    // milestone N = survived N zone-1 battles (won them all)
+    z1Milestones.forEach((m, i) => {
+      if (cleared || zbc >= m) z1Counts[i]++;
+    });
+    // gym attempted: either they cleared it or they died in the gym fight
+    // gym fight starts after zbc >= GYM_ZONE_OPEN (12), so if zbc >= 12 when dying in zone 1, they were in the gym
+    if (cleared || zbc >= 12) z1GymAttempted++;
+
+    if (!cleared && gc === 0) {
+      const bn = r.battleNumber || 0;
+      battleHist[bn] = (battleHist[bn] || 0) + 1;
+    }
+  }
+
+  return {
+    n, wins,
+    winRate:     wins / n,
+    gymHist,
+    avgBattles:  n > 0 ? totalBattles / n : 0,
+    avgHPOnWin:  hpLeftCount > 0 ? hpLeftSum / hpLeftCount : 0,
+    topSpells:   Object.entries(spellFreq).sort((a,b) => b[1]-a[1]).slice(0, 15),
+    topPassives: Object.entries(passiveFreq).sort((a,b) => b[1]-a[1]).slice(0, 12),
+    z1Milestones, z1Counts, z1GymAttempted,
+    battleHist: Object.entries(battleHist).sort((a,b) => +a[0] - +b[0]).slice(0, 20),
+  };
+}
+
+// ── Render results ─────────────────────────────────────────────────────────────
+function _renderResults(stats, results, errors, inProgress, sampleLog) {
+  const panel = _origGetById('results-content');
+  if (!panel) return;
+
+  const winPct = (stats.winRate * 100).toFixed(1);
+  const gymLabels = ['Zone 1 Clear Rate', 'Zone 2 Clear Rate', 'Zone 3 Clear Rate', 'Run Victory'];
+
+  function barRow(label, count, total, tooltip) {
+    const pct = total > 0 ? (count / total * 100) : 0;
+    const pctStr = pct.toFixed(1);
+    const ta = tooltip ? ` title="${String(tooltip).replace(/"/g,'&quot;')}"` : '';
+    return `<div class="bar-row"${ta}>
+      <span class="br-label">${label}</span>
+      <div class="br-bar-wrap"><div class="br-bar" style="width:${pct.toFixed(1)}%"></div></div>
+      <span class="br-val">${count} <span style="color:#5a5040">(${pctStr}%)</span></span>
+    </div>`;
+  }
+
+  // Cumulative "reached Zone N"
+  const reachedZ2 = results.filter(r => r && (r.gymsCleared || 0) >= 1).length;
+  const reachedZ3 = results.filter(r => r && (r.gymsCleared || 0) >= 2).length;
+  const victories = stats.wins;
+
+  // Zone 1 milestone labels
+  const z1Labels = ['Won Battle 1', 'Won Battle 3', 'Won Battle 5', 'Won Battle 8', 'Won Battle 10', 'Won Battle 12', 'Won Battle 15'];
+  const z1Counts = stats.z1Counts || [];
+  const z1Milestones = stats.z1Milestones || [];
+
+  function spellName(id) {
+    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+      const d = SPELL_CATALOGUE[id]; return `${d.emoji || ''} ${d.name}`;
+    }
+    return id;
+  }
+  function spellTooltip(id) {
+    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+      const d = SPELL_CATALOGUE[id];
+      return [
+        d.name,
+        `${d.element || ''}  ·  ${d.tier || ''}  ·  CD ${d.baseCooldown ?? '?'}`,
+        d.desc || '',
+      ].filter(Boolean).join('\n');
+    }
+    return '';
+  }
+  function passiveName(id) {
+    if (typeof PASSIVE_CHOICES !== 'undefined') {
+      for (const el of Object.values(PASSIVE_CHOICES)) {
+        const p = el.find(x => x.id === id);
+        if (p) return `${p.emoji || ''} ${p.title}`;
+      }
+    }
+    return id;
+  }
+  function passiveTooltip(id) {
+    if (typeof PASSIVE_CHOICES !== 'undefined') {
+      for (const el of Object.values(PASSIVE_CHOICES)) {
+        const p = el.find(x => x.id === id);
+        if (p) return [p.title, p.desc, p.detail].filter(Boolean).join('\n');
+      }
+    }
+    return '';
+  }
+
+  // Per-run dot chart (first 300)
+  const dotLimit = inProgress ? results.length : Math.min(results.length, 300);
+  const dots = results.slice(0, dotLimit).map(r => {
+    if (!r) return '';
+    const gc  = r.gymsCleared || 0;
+    const col = r.won ? '#44aa44' : gc >= 2 ? '#aa8844' : gc >= 1 ? '#6a5a2a' : '#2a2018';
+    return `<span title="${r.won?'✓ Win':'✗ Loss'} · ${gc} gym${gc===1?'':'s'} · Battle ${r.battleNumber}"
+      style="display:inline-block;width:8px;height:8px;border-radius:1px;background:${col};margin:1px 1px;"></span>`;
+  }).join('');
+
+  const errHtml = errors && errors.length > 0
+    ? `<div class="err-box">⚠ ${errors.length} run(s) errored. Check console for details.<br><small>${errors.slice(0,3).join('<br>')}</small></div>`
+    : '';
+
+  const progressIndicator = '';
+
+  const dotsLabel = inProgress
+    ? `(${results.length} runs so far)`
+    : results.length > 300 ? `(first 300 of ${results.length} runs)` : `(${results.length} runs)`;
+
+  panel.innerHTML = `
+    ${errHtml}
+    <div class="results-section">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="sc-val">${winPct}%</div><div class="sc-label">Win Rate</div></div>
+        <div class="stat-card"><div class="sc-val">${stats.wins}/${stats.n}</div><div class="sc-label">Wins / Runs</div></div>
+        <div class="stat-card"><div class="sc-val">${stats.avgBattles.toFixed(1)}</div><div class="sc-label">Avg Battles / Run</div></div>
+        <div class="stat-card"><div class="sc-val">${stats.avgHPOnWin > 0 ? Math.round(stats.avgHPOnWin) : '—'}</div><div class="sc-label">Avg HP on Victory</div></div>
+      </div>
+    </div>
+
+    <div class="results-section">
+      <h3>Zone 1 — Battle Milestones <span style="font-size:.6rem;color:#3a3020">(survived N zone battles)</span></h3>
+      ${z1Labels.map((lbl, i) => barRow(lbl, z1Counts[i] || 0, stats.n, `Runs that won at least ${z1Milestones[i]} zone-1 battle${z1Milestones[i]===1?'':'s'}`)).join('')}
+      ${barRow('Zone 1 Gym Attempted', stats.z1GymAttempted || 0, stats.n, 'Reached the gym fight (win or loss)')}
+      ${barRow('Zone 1 Cleared ✓', reachedZ2, stats.n, 'Defeated the Zone 1 gym boss')}
+    </div>
+
+    <div class="results-section">
+      <h3>Zone Progression</h3>
+      ${barRow('Reached Zone 2', reachedZ2, stats.n)}
+      ${barRow('Reached Zone 3', reachedZ3, stats.n)}
+      ${barRow('Run Victory',    victories,  stats.n)}
+    </div>
+
+    ${(stats.battleHist && stats.battleHist.length > 0) ? `
+    <div class="results-section">
+      <h3>Zone 1 Death Distribution <span style="font-size:.6rem;color:#3a3020">(which battle run ended on)</span></h3>
+      ${stats.battleHist.map(([bn, c]) => barRow(`Died in Battle ${bn}`, c, stats.n, `${c} run${c===1?'':'s'} ended during battle ${bn}`)).join('')}
+    </div>` : ''}
+
+    <div class="results-section">
+      <h3>Most Common Spells at Run End</h3>
+      ${stats.topSpells.map(([id,c]) => barRow(spellName(id), c, stats.n, spellTooltip(id))).join('') || '<span style="color:#3a3020">No data</span>'}
+    </div>
+
+    <div class="results-section">
+      <h3>Most Common Passives at Run End</h3>
+      ${stats.topPassives.map(([id,c]) => barRow(passiveName(id), c, stats.n, passiveTooltip(id))).join('') || '<span style="color:#3a3020">No data</span>'}
+    </div>
+
+    <div class="results-section">
+      <h3>Run Outcomes <span style="font-size:.6rem;color:#3a3020">${dotsLabel}</span></h3>
+      <div style="line-height:1.3">${dots}</div>
+      <div style="margin-top:.5rem;font-size:.65rem;color:#4a4030">
+        <span style="color:#44aa44">■</span> Win &nbsp;
+        <span style="color:#aa8844">■</span> Cleared 2+ gyms &nbsp;
+        <span style="color:#6a5a2a">■</span> Cleared 1+ gym &nbsp;
+        <span style="color:#2a2018">■</span> Zone 1 only
+      </div>
+    </div>
+
+    ${(sampleLog && sampleLog.length > 0) ? `
+    <div class="results-section">
+      <h3>Sample Run Log <span style="font-size:.6rem;color:#3a3020">(run 1 of ${stats.n})</span></h3>
+      <div class="battle-log-wrap">${_renderBattleLog(sampleLog)}</div>
+    </div>` : ''}
+  `;
+}
+
+// ── Battle log renderer ───────────────────────────────────────────────────────
+function _renderBattleLog(log) {
+  const TYPE_CLASS = { player:'bl-player', enemy:'bl-enemy', status:'bl-status', system:'bl-system', win:'bl-win', _win:'bl-win', _loss:'bl-loss', _battle:'bl-battle' };
+  let html = '';
+  for (const e of log) {
+    const cls = TYPE_CLASS[e.t] || 'bl-system';
+    const isSep = e.t === '_battle' || e.t === '_win' || e.t === '_loss';
+    if (isSep) {
+      html += `<div class="${cls}">${_esc(e.m)}</div>`;
+    } else {
+      html += `<div class="bl-entry ${cls}">${_esc(e.m)}</div>`;
+    }
+  }
+  return html;
+}
+function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Config UI builder ─────────────────────────────────────────────────────────
+function _setActive(btn, row) {
+  (row || btn.closest('.cfg-row')).querySelectorAll('.cfg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Rebuild element-specific passive + spell dropdowns
+function _rebuildElementDropdowns() {
+  const el = simCfg.element;
+
+  // — Starting Passive —
+  const pSel = _origGetById('start-passive-sel');
+  if (pSel && typeof buildPassiveChoicePool === 'function') {
+    const curP = pSel.value;
+    pSel.innerHTML = '<option value="">Random</option>';
+    const pool = buildPassiveChoicePool(el);
+    pool.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = (p.emoji || '') + ' ' + (p.title || p.id);
+      if (p.desc) o.title = [p.title, p.desc, p.detail].filter(Boolean).join('\n');
+      o.selected = p.id === curP;
+      pSel.appendChild(o);
+    });
+    if (!pool.find(p => p.id === curP)) { pSel.value = ''; simCfg.startPassiveId = null; }
+  }
+
+  // — Starting Spell —
+  const sSel = _origGetById('start-spell-sel');
+  if (sSel && typeof SPELL_CATALOGUE !== 'undefined') {
+    const curS = sSel.value;
+    sSel.innerHTML = '<option value="">Random / Default</option>';
+    const spells = Object.values(SPELL_CATALOGUE)
+      .filter(s => s.element === el && (s.tier === 'primary' || s.tier === 'secondary') && !s.isBuiltin)
+      .sort((a, b) => (a.tier === b.tier ? 0 : a.tier === 'primary' ? -1 : 1) || (a.name||'').localeCompare(b.name||''));
+    spells.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = (s.emoji || '') + ' ' + (s.name || s.id) + (s.tier === 'secondary' ? ' ✦' : '');
+      if (s.desc) o.title = [s.name, `${s.element} · ${s.tier} · CD ${s.baseCooldown ?? '?'}`, s.desc].filter(Boolean).join('\n');
+      o.selected = s.id === curS;
+      sSel.appendChild(o);
+    });
+    if (!spells.find(s => s.id === curS)) { sSel.value = ''; simCfg.startSpellId = null; }
+  }
+}
+
+// Element buttons
+(function() {
+  const ELEMS = ['Fire','Water','Ice','Lightning','Earth','Nature','Plasma','Air'];
+  const EMOJIS= { Fire:'🔥',Water:'💧',Ice:'❄️',Lightning:'⚡',Earth:'🪨',Nature:'🌿',Plasma:'🔮',Air:'🌀' };
+  const row = _origGetById('el-btns');
+  if (!row) return;
+  ELEMS.forEach(el => {
+    const btn = document.createElement('button');
+    btn.className = 'cfg-btn' + (el === 'Fire' ? ' active' : '');
+    btn.textContent = EMOJIS[el] + ' ' + el;
+    btn.onclick = function() { simCfg.element = el; _setActive(this, row); _rebuildElementDropdowns(); };
+    row.appendChild(btn);
+  });
+  _rebuildElementDropdowns(); // populate on load for default element
+})();
+
+// Load history on page start
+_renderHistory();
+
+// Artifact dropdown
+function _updateArtifactDesc() {
+  const sel     = _origGetById('art-select');
+  const starSel = _origGetById('art-star');
+  const descEl  = _origGetById('art-desc');
+  if (!descEl || typeof ARTIFACT_CATALOGUE === 'undefined') return;
+  const id  = sel ? sel.value : '';
+  const def = id ? ARTIFACT_CATALOGUE[id] : null;
+  if (!def) { descEl.textContent = ''; return; }
+  const star = starSel ? +starSel.value : 0;
+  const desc = Array.isArray(def.desc) ? def.desc[star] : (def.desc || '');
+  descEl.textContent = desc + (def.flavor ? '  —  ' + def.flavor : '');
+}
+
+(function() {
+  const sel = _origGetById('art-select');
+  if (!sel || typeof ARTIFACT_CATALOGUE === 'undefined') return;
+  Object.entries(ARTIFACT_CATALOGUE).forEach(([id, def]) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = (def.emoji || '') + ' ' + (def.name || id);
+    // title shows all 4 star levels
+    if (Array.isArray(def.desc)) {
+      opt.title = def.desc.map((d,i) => `★${i}: ${d}`).join('\n') + (def.flavor ? '\n' + def.flavor : '');
+    }
+    sel.appendChild(opt);
+  });
+})();
+
+// Talent sliders — gather all multi-level talent nodes
+(function() {
+  const container = _origGetById('talent-cfg');
+  if (!container || typeof TALENT_TREE === 'undefined') return;
+  const nodes = [];
+  Object.values(TALENT_TREE).forEach(section => {
+    if (!section || !section.nodes) return;
+    section.nodes.forEach(node => {
+      if (node.id && (node.maxLevel || 0) > 1 && !nodes.find(n => n.id === node.id))
+        nodes.push(node);
+    });
+  });
+  nodes.slice(0, 20).forEach(node => {
+    const row = document.createElement('div');
+    row.className = 'cfg-talent-row';
+    const label = document.createElement('span');
+    label.textContent = node.name || node.id;
+    label.title = [
+      node.name || node.id,
+      node.desc || '',
+      `Max level: ${node.maxLevel || 1}`,
+    ].filter(Boolean).join('\n');
+    label.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.66rem;cursor:help;';
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = 0; slider.max = node.maxLevel || 3; slider.value = 0;
+    const tv = document.createElement('span');
+    tv.className = 'tv'; tv.textContent = '0';
+    slider.oninput = function() { tv.textContent = this.value; simCfg.talents[node.id] = +this.value; };
+    row.appendChild(label); row.appendChild(slider); row.appendChild(tv);
+    container.appendChild(row);
+  });
+})();
+</script>
+</body>
+</html>

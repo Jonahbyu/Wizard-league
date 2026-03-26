@@ -5,6 +5,8 @@ const LIBRARY_ELEMENTS = ['Fire', 'Water', 'Ice', 'Lightning', 'Earth', 'Nature'
 const _LIB_EL_EMOJI = { Fire:'🔥', Water:'💧', Ice:'❄️', Lightning:'⚡', Earth:'🪨', Nature:'🌿', Plasma:'🔮', Air:'🌀', Duo:'✦' };
 
 let _libActiveEl = null;
+const _LIB_SPECIAL_TABS = ['Mechanics', 'Combat'];
+const _LIB_SPECIAL_EMOJI = { Mechanics: '⚙️', Combat: '⚔️' };
 
 // ─── DISCOVERY TRACKING ────────────────────────────────────────────────────
 function markSpellSeen(id) {
@@ -145,11 +147,16 @@ function _libRenderTabs() {
   const tabs = document.getElementById('lib-tabs');
   if (!tabs) return;
   tabs.innerHTML = '';
+  tabs.style.flexDirection = 'column';
+  tabs.style.gap = '.3rem';
 
   const meta         = getMeta();
   const seenSpells   = new Set(meta.seenSpells   || []);
   const seenPassives = new Set(meta.seenPassives || []);
 
+  // Row 1: element tabs
+  const row1 = document.createElement('div');
+  row1.style.cssText = 'display:flex;gap:.25rem;';
   LIBRARY_ELEMENTS.forEach(el => {
     const { seen, total } = _libCounts(el, seenSpells, seenPassives);
     const active   = el === _libActiveEl;
@@ -169,8 +176,29 @@ function _libRenderTabs() {
       <span style="font-size:.45rem;color:${countCol};font-family:'Cinzel',serif;">${seen}/${total}</span>`;
     btn.title = el;
     btn.onclick = () => { _libActiveEl = el; _libRender(); };
-    tabs.appendChild(btn);
+    row1.appendChild(btn);
   });
+  tabs.appendChild(row1);
+
+  // Row 2: special guide tabs
+  const row2 = document.createElement('div');
+  row2.style.cssText = 'display:flex;gap:.25rem;';
+  _LIB_SPECIAL_TABS.forEach(tab => {
+    const active = tab === _libActiveEl;
+    const emoji  = _LIB_SPECIAL_EMOJI[tab] || '📖';
+    const btn = document.createElement('button');
+    btn.style.cssText = [
+      'flex:1;padding:.28rem .4rem;border-radius:4px;cursor:pointer;',
+      'display:flex;align-items:center;justify-content:center;gap:.3rem;',
+      `border:1px solid ${active ? '#6a8aaa' : '#1e2830'};`,
+      `background:${active ? '#091420' : '#060c14'};`,
+      'color:#6a9ac0;font-size:.6rem;font-family:\'Cinzel\',serif;letter-spacing:.04em;',
+    ].join('');
+    btn.innerHTML = `<span style="font-size:.75rem;">${emoji}</span><span>${tab}</span>`;
+    btn.onclick = () => { _libActiveEl = tab; _libRender(); };
+    row2.appendChild(btn);
+  });
+  tabs.appendChild(row2);
 }
 
 function _libRenderContent() {
@@ -179,6 +207,9 @@ function _libRenderContent() {
   cont.innerHTML = '';
   const el = _libActiveEl;
   if (!el) return;
+
+  if (el === 'Mechanics') { _libRenderMechanics(cont); return; }
+  if (el === 'Combat')    { _libRenderCombat(cont);    return; }
 
   const meta         = getMeta();
   const seenSpells   = new Set(meta.seenSpells   || []);
@@ -279,6 +310,154 @@ function _libSpellRow(spell, revealed) {
       </div>`;
   }
   return row;
+}
+
+// ─── GUIDE TABS ────────────────────────────────────────────────────────────
+
+function _guideSection(cont, title, emoji) {
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;gap:.4rem;font-size:.6rem;color:#6a4a20;letter-spacing:.08em;text-transform:uppercase;margin:.75rem 0 .3rem;padding-bottom:.2rem;border-bottom:1px solid #1a1512;font-family:\'Cinzel\',serif;';
+  hdr.innerHTML = `<span>${emoji}</span><span>${title}</span>`;
+  cont.appendChild(hdr);
+}
+
+function _guideEntry(cont, label, body, labelColor) {
+  const d = document.createElement('div');
+  d.style.cssText = 'display:flex;flex-direction:column;gap:.15rem;padding:.28rem .42rem;background:#0d0b09;border:1px solid #1a1512;border-radius:3px;margin-bottom:.15rem;';
+  const col = labelColor || '#c8a060';
+  d.innerHTML = `<div style="font-size:.63rem;color:${col};font-family:'Cinzel',serif;">${label}</div>`
+              + `<div style="font-size:.6rem;color:#5a5a5a;line-height:1.6;">${body}</div>`;
+  cont.appendChild(d);
+}
+
+function _libRenderMechanics(cont) {
+  _guideSection(cont, 'Core Stats', '📊');
+  _guideEntry(cont, 'ATK — Attack Power',
+    'Your base damage output. Spells multiply ATK by their own scaling factor. Higher ATK = bigger hits. Talents, passives, and items can raise it.');
+  _guideEntry(cont, 'EFX — Elemental Force',
+    'Amplifies all elemental effects you apply: burn damage per stack, frost stacks applied, root stacks, stone stacks, and momentum all scale with EFX. Formula: effect × (1 + EFX/50). Also boosts root bonus damage by +1 per 10 EFX.');
+  _guideEntry(cont, 'Defense',
+    'Reduces armor gained from your own spells. Also subtracts directly from enemy EFX, weakening their elemental effects against you.');
+  _guideEntry(cont, 'Armor / Block',
+    'Absorbs flat damage from incoming hits. Consumed before HP. Spells and passives can grant armor that resets each fight (temporary) or carries over (some items).');
+
+  _guideSection(cont, 'Status Effects', '💥');
+  _guideEntry(cont, '🔥 Burn',
+    'Stacks accumulate on a target. Each turn, deals <b>stacks × damage-per-stack</b> to HP, bypassing armor.<br>'
+    + 'Damage per stack = <span style="color:#a0c0ff;">1.0 + sourceEFX/100 + talentBonus</span> (or 1.5 with Roaring Heat).<br>'
+    + '<b>sourceEFX is snapshotted when burn is applied</b> — changing EFX later doesn\'t retroactively affect existing stacks.<br>'
+    + 'Burn decays by a fraction each turn depending on the spell that applied it.',
+    '#c86030');
+  _guideEntry(cont, '❄️ Frost',
+    'Each stack reduces enemy ATK, EFX, and Armor by 1. Stacks scale with your EFX when applied: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>.<br>'
+    + 'Decays 1 stack per turn. At 10 stacks → triggers <b>Freeze</b>: enemy skips a turn, and the next Ice hit deals 1.5× damage consuming 10 stacks.',
+    '#60a0cc');
+  _guideEntry(cont, '⚡ Shock',
+    'Reduces the shocked target\'s outgoing damage by <b>5% per stack</b> (max 75%). Applied by Lightning spells and abilities. Passives like Conduction add +1 shock per hit.',
+    '#c0c020');
+  _guideEntry(cont, '⚡ Surge (Lightning)',
+    'A charged detonation. Loading spells fill the Surge meter; when it reaches the <b>threshold (default 60)</b>, Surge explodes for its stored damage.<br>'
+    + 'Only one Surge active per target at a time. Hair Trigger lowers threshold to 50. Static Build adds +20 stored damage per turn it doesn\'t trigger.',
+    '#c0c020');
+  _guideEntry(cont, '🌿 Root',
+    'Each root stack adds <b>+5 bonus damage taken</b> per incoming attack (+1 per 10 EFX of the attacker).<br>'
+    + 'Rooted targets cannot dodge. Thorned Strikes passive doubles this bonus. Root stacks accumulate — they don\'t decay on their own.',
+    '#3a8a3a');
+  _guideEntry(cont, '🌿 Overgrowth',
+    'Enhanced permanent root. Same +5 bonus damage per stack as regular Root. Applied by zone effects and abilities — these stacks persist between turns.',
+    '#50a050');
+  _guideEntry(cont, '🪨 Stone',
+    'Grants +2 Armor per stack. Scales with EFX when applied. In Stone Stance, armor gained this turn is doubled. Stone stacks decay slowly each turn.',
+    '#8a8a6a');
+  _guideEntry(cont, '🫧 Foam',
+    'Reduces ATK and EFX by 1 flat per stack, and Armor by 5 per stack. Stacks scale with applier\'s EFX. Applied by Water enemies.',
+    '#4080a0');
+  _guideEntry(cont, '💨 Momentum',
+    'Increases damage dealt. Stacks scale with EFX: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>. Used by Air element.',
+    '#80a0c0');
+
+  _guideSection(cont, 'Nature Seeds', '🌱');
+  _guideEntry(cont, 'Seeds — Germination System',
+    'Seeds are planted mid-combat and bloom after a 5-turn timer.<br>'
+    + '<b>Damage Seed:</b> deals 30 + EFX/2 direct damage when it blooms.<br>'
+    + '<b>Root Seed:</b> applies 3 root stacks when it blooms.<br>'
+    + 'The Perennial passive replants any bloomed seed at a 4-turn timer. Deep Roots passive reduces seed timers by 1 every 3rd root applied.',
+    '#50a050');
+
+  _guideSection(cont, 'Fire Melt', '🔩');
+  _guideEntry(cont, 'Melt — Armor Destruction',
+    'Melt points reduce enemy armor (their block stat) permanently for the fight. Once armor is gone, melt damage converts directly to HP damage.<br>'
+    + 'Melt scales with EFX if Deep Heat passive is active. Forge Master amplifies melt points by ×1.3.',
+    '#c06030');
+
+  _guideSection(cont, 'Incantations', '✦');
+  _guideEntry(cont, 'Spell Upgrades',
+    'Incantations upgrade individual spells. Each level boosts one stat (e.g. burn stacks, damage, root chance) by a base amount that decays slightly with each additional level.<br>'
+    + 'Formula: <span style="color:#a0c0ff;">+baseScale × decay^(level−2)</span> per upgrade beyond lv1. Hover any spell in the element tabs to see its scaling.');
+}
+
+function _libRenderCombat(cont) {
+  _guideSection(cont, 'Run Structure', '🗺️');
+  _guideEntry(cont, 'Zones & Gyms',
+    'A run progresses through zones, each ending with a <b>Gym Boss</b>. Within each zone you fight a series of regular battles before reaching the gym.<br>'
+    + 'Enemies get progressively harder each zone: HP scales by ×1.28 per gym, damage by ×1.22, and elemental power by +4.4 per gym.');
+  _guideEntry(cont, 'Starting a Run',
+    'At the start of each run you pick your <b>element</b>. Your first reward after battle 1 is always a <b>primary spell</b> — your starting move. You begin with only that one spell.',
+    '#c8a060');
+  _guideEntry(cont, 'Choosing a Path',
+    'After each battle you see two encounter options. Each has a visible <b>reward type</b> attached. Pick the path whose reward you want more.',
+    '#c8a060');
+
+  _guideSection(cont, 'Rewards', '✦');
+  _guideEntry(cont, 'Reward Types',
+    '<b style="color:#a080ff;">Spell</b> — choose 1 of 3 spells to add to your spellbook.<br>'
+    + '<b style="color:#a080ff;">Primary Spell</b> — battle 1 of each run, picks a primary-tier spell.<br>'
+    + '<b style="color:#c8a060;">Incantation</b> — upgrade one spell you already own to the next level.<br>'
+    + '<b style="color:#888;">Minor</b> — small stat boost (gold, HP heal, ATK, etc.).<br>'
+    + '<b style="color:#c8a060;">Major</b> — significant boost (large heal, passive stat, etc.).<br>'
+    + 'Reward chances per non-gym battle: 20% Spell · 30% Incantation · 30% Minor · 20% Major.');
+  _guideEntry(cont, 'Passive Rewards',
+    'Passives are not earned from regular battles — they come from <b>Gym clears</b> and <b>Rival defeats</b>. You choose from 3 options. Legendary passives can appear with lower probability.');
+  _guideEntry(cont, 'Gym Clear Rewards',
+    'Defeating the Gym Boss gives you: a <b>full HP heal</b>, a passive reward, and bonus gold. The gym\'s element determines what the boss does in combat.',
+    '#c8a060');
+
+  _guideSection(cont, 'Combat Turn Order', '⚔️');
+  _guideEntry(cont, 'Player Turn',
+    'You have a set number of actions per turn (usually 1–2 depending on spells). Play spells from your spellbook in any order. Cooldowns track how many turns until a spell is usable again. When you end your turn, enemy turn begins.');
+  _guideEntry(cont, 'Enemy Turn',
+    'The enemy acts: attacks, applies zone effects, uses abilities. Basic attacks hit for scaled damage. Some enemies have multiple hits or special abilities that trigger passively.<br>'
+    + 'Zone effects apply extra status on every enemy attack (e.g. Fire zones apply +2 Burn to the player per hit).');
+  _guideEntry(cont, 'End of Turn',
+    'After each side\'s actions: burn ticks deal damage, frost decays, stone decays, surge meters may trigger. Effects that say "per turn" resolve here.');
+
+  _guideSection(cont, 'HP & Healing', '❤️');
+  _guideEntry(cont, 'HP Persists Between Battles',
+    'You do <b>not</b> fully heal between regular fights. Manage your HP carefully. Some minor rewards offer small heals, and some spells/passives provide lifesteal or shields.',
+    '#cc4444');
+  _guideEntry(cont, 'Gym Clear: Full Heal',
+    'Clearing the Gym Boss <b>fully restores your HP</b>. Plan your pathing to reach the gym before you run out.',
+    '#4aaa6a');
+
+  _guideSection(cont, 'Zone Effects', '🌍');
+  _guideEntry(cont, 'Per-Element Zone Hazards',
+    'The active zone element adds a passive effect on every enemy basic attack:<br>'
+    + '<span style="color:#c86030;">🔥 Fire</span> — +2 Burn applied to player per hit (scales with battle number).<br>'
+    + '<span style="color:#60a0cc;">❄️ Ice</span> — +2 Frost applied to player per hit.<br>'
+    + '<span style="color:#c0c020;">⚡ Lightning</span> — +1 Shock applied to player per hit.<br>'
+    + '<span style="color:#4080a0;">💧 Water</span> — applies Foam to player.<br>'
+    + '<span style="color:#3a8a3a;">🌿 Nature</span> — applies Root to player.<br>'
+    + 'Playing the matching element doesn\'t remove these — they always apply.');
+
+  _guideSection(cont, 'Talent Levels', '⭐');
+  _guideEntry(cont, 'Novice → Master',
+    'Talent level is set before a run and determines your starting power. Higher talent levels unlock stronger versions of incantation scaling, passive bonuses, and spell base values.<br>'
+    + 'Talents are bought with <b>Phos</b>, earned by surviving battles and clearing gyms across all your runs. You keep Phos permanently between runs.',
+    '#c8a060');
+
+  _guideSection(cont, 'Spellbooks', '📚');
+  _guideEntry(cont, 'Multiple Books',
+    'Your spells are organized into spellbooks. In combat you play from the active book. You can edit books from the map before a run starts — assign spells to whichever book fits your strategy.');
 }
 
 function _libPassiveRow(passive, revealed) {
