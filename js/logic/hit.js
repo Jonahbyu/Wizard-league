@@ -345,7 +345,7 @@ function performHit(attackerSide, defenderSide, pkg){
       if(eff.type==='burn'){
         const pow = effectPowerFor(attackerSide);
         const powerBonus = Math.floor(pow * 0.2);
-        let stacks = Math.round(((eff.stacks||0) + powerBonus) * 0.75);
+        let stacks = (eff.stacks||0) + powerBonus;
         if((attackerSide==='player' && hasPassive('fire_pyromaniac')) ||
            (attackerSide==='enemy'  && enemyHasPassive('fire_pyromaniac'))) stacks += 3;
         status[defenderSide].burnStacks += stacks;

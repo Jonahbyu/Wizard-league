@@ -306,7 +306,7 @@ function _libSimulateSpell(spell) {
       const processedEffects = (pkg.effects || []).map(ef => {
         if (ef.type === 'burn') {
           const powerBonus  = Math.floor(simEfx * 0.2);
-          const actualStacks = Math.round(((ef.stacks || 0) + powerBonus) * 0.75);
+          const actualStacks = (ef.stacks || 0) + powerBonus;
           return { ...ef, stacks: actualStacks, _rawStacks: ef.stacks || 0 };
         }
         return { ...ef };
@@ -323,7 +323,7 @@ function _libSimulateSpell(spell) {
     },
   };
 
-  const mockEnemyStatus  = { ...STATUS_DEFAULTS };
+  const mockEnemyStatus  = { ...STATUS_DEFAULTS, block: 50 };
   const mockPlayerStatus = { ...STATUS_DEFAULTS };
   const mockEnemy = {
     hp: 50, enemyMaxHP: 50, alive: true,
@@ -361,7 +361,21 @@ function _libSimulateSpell(spell) {
       if (dmg > 0) events.push({ type: 'damage', hits: 1, dmgPerHit: dmg, total: dmg, effects: [], label: label || '' });
     };
     window.applyMelt = (_a, _d, pts) => {
-      if (pts > 0) events.push({ type: 'melt', pts });
+      if (pts <= 0) return;
+      const armor = mockEnemyStatus.block || 0;
+      const breakCost = armor > 0 ? Math.ceil(armor / 3) : 0;
+      let armorDestroyed = 0, hpDmg = 0;
+      if (armor > 0 && pts >= breakCost) {
+        armorDestroyed = armor;
+        hpDmg = pts - breakCost;
+        mockEnemyStatus.block = 0;
+      } else if (armor > 0) {
+        armorDestroyed = pts * 3;
+        hpDmg = 0;
+      } else {
+        hpDmg = pts;
+      }
+      events.push({ type: 'melt', pts, armorDestroyed, hpDmg });
     };
     window.totalEnemyBurnStacks = () => 0;
 
@@ -401,7 +415,7 @@ function _libCombatPreviewHtml(spell) {
   const healEvents = events.filter(e => e.type === 'heal');
 
   let totalDmg = dmgEvents.reduce((s, e) => s + e.total, 0)
-               + meltEvents.reduce((s, e) => s + e.pts, 0);
+               + meltEvents.reduce((s, e) => s + (e.hpDmg || 0), 0);
 
   const effectEmojiMap = {
     burn:'🔥', frost:'❄️', stun:'💫', shock:'⚡',
@@ -412,7 +426,7 @@ function _libCombatPreviewHtml(spell) {
     ⚔️ ${spell.emoji} ${spell.name} — Combat Preview
   </div>`;
 
-  html += `<div style="font-size:.52rem;color:#6a4a20;margin-bottom:.3rem;">vs. Dummy Enemy &nbsp;·&nbsp; 50 HP &nbsp;·&nbsp; 0 Armor</div>`;
+  html += `<div style="font-size:.52rem;color:#6a4a20;margin-bottom:.3rem;">vs. Dummy Enemy &nbsp;·&nbsp; 50 HP &nbsp;·&nbsp; 50 Armor</div>`;
   html += `<div style="font-size:.58rem;line-height:1.75;color:#c0a870;">`;
   html += `<div style="color:#7080a0;margin-bottom:.2rem;">🧙 You cast the spell...</div>`;
 
@@ -453,7 +467,13 @@ function _libCombatPreviewHtml(spell) {
   });
 
   meltEvents.forEach(ev => {
-    html += `<div>⚒️ Melt → <span style="color:#ffdd99;font-weight:bold;">~${ev.pts} dmg</span> <span style="color:#3e3020;font-size:.5rem;">(0 armor)</span></div>`;
+    if (ev.armorDestroyed > 0 && ev.hpDmg > 0) {
+      html += `<div>⚒️ Melt → strips <span style="color:#aaddff;">${ev.armorDestroyed} armor</span>, then <span style="color:#ffdd99;font-weight:bold;">${ev.hpDmg} HP dmg</span></div>`;
+    } else if (ev.armorDestroyed > 0) {
+      html += `<div>⚒️ Melt → strips <span style="color:#aaddff;">${ev.armorDestroyed} armor</span> <span style="color:#3e3020;font-size:.5rem;">(no HP dmg — not enough pts)</span></div>`;
+    } else {
+      html += `<div>⚒️ Melt → <span style="color:#ffdd99;font-weight:bold;">${ev.hpDmg} HP dmg</span></div>`;
+    }
   });
 
   healEvents.forEach(ev => {
