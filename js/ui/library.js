@@ -267,6 +267,210 @@ function _libRenderContent() {
   }
 }
 
+// ─── COMBAT PREVIEW SIMULATION ─────────────────────────────────────────────
+
+// Run spell.execute() in a sandboxed environment, capture damage/effect events,
+// then restore all globals.  Safe to call at any game state (map, between runs, etc.)
+function _libSimulateSpell(spell) {
+  if (!spell || typeof spell.execute !== 'function') return [];
+
+  const events = [];
+  const simAtk = (typeof player !== 'undefined') ? Math.max(0, player.attackPower) : 5;
+  const simEfx = (typeof player !== 'undefined') ? Math.max(0, player.effectPower) : 3;
+
+  // Minimal spell context — mirrors makeSpellCtx without touching real game state
+  const mockS = {
+    attackerSide:    'player',
+    defenderSide:    'enemy',
+    attackPow:       () => simAtk,
+    effectPow:       () => simEfx,
+    defStat:         () => 0,
+    effectivePower:  () => simAtk,
+    pushTempPower:   () => {},
+    log:             () => {},
+    get state() {
+      return { self: { ...STATUS_DEFAULTS }, target: { ...STATUS_DEFAULTS } };
+    },
+    healSelf: (amt) => {
+      if (amt > 0) events.push({ type: 'heal', amount: Math.round(amt) });
+    },
+    hit: (pkg) => {
+      const hits   = pkg.hits || 1;
+      const bd     = Math.max(0, pkg.baseDamage || 0);
+      const mult   = spell.dmgMult || 1.0;
+      let perHit   = Math.round((bd + simAtk) * mult);
+      // Plasma: EFX adds to damage the same way ATK does
+      const isPlasma = typeof playerElement !== 'undefined' && playerElement === 'Plasma';
+      if (isPlasma) perHit += simEfx;
+      // Apply real effect formulas (mirroring performHit)
+      const processedEffects = (pkg.effects || []).map(ef => {
+        if (ef.type === 'burn') {
+          const powerBonus  = Math.floor(simEfx * 0.2);
+          const actualStacks = Math.round(((ef.stacks || 0) + powerBonus) * 0.75);
+          return { ...ef, stacks: actualStacks, _rawStacks: ef.stacks || 0 };
+        }
+        return { ...ef };
+      });
+      events.push({
+        type:      'damage',
+        hits,
+        dmgPerHit: perHit,
+        total:     perHit * hits,
+        effects:   processedEffects,
+        isAOE:     !!pkg.isAOE,
+        _isPlasma: isPlasma,
+      });
+    },
+  };
+
+  const mockEnemyStatus  = { ...STATUS_DEFAULTS };
+  const mockPlayerStatus = { ...STATUS_DEFAULTS };
+  const mockEnemy = {
+    hp: 50, enemyMaxHP: 50, alive: true,
+    status: mockEnemyStatus,
+    scaledPower: 5, element: 'Neutral', name: 'Dummy',
+    enemyDmg: 10, items: [], extraPassives: [],
+  };
+
+  // Functions to silence (DOM/animation/render side-effects)
+  const _noopKeys = [
+    'renderStatusTags', 'renderEnemyCards', 'renderBattlefield',
+    'renderSummonsRow', 'updateHPBars', 'updateActionUI', 'updateStatsUI',
+    'triggerSpellAnim', 'triggerHealAnim', 'log', 'checkDeath', 'checkWin',
+    'setActiveEnemy', 'aliveEnemies',
+  ];
+  // Functions to intercept and capture
+  const _captureKeys = ['applyDirectDamage', 'applyMelt', 'totalEnemyBurnStacks'];
+
+  const _saved = {};
+  [..._noopKeys, ..._captureKeys].forEach(k => { _saved[k] = window[k]; });
+
+  // Save the slice of combat/status we will temporarily overwrite
+  const _sc = {
+    enemies: combat.enemies, enemy: combat.enemy,
+    activeEnemyIdx: combat.activeEnemyIdx, targetIdx: combat.targetIdx,
+    over: combat.over,
+  };
+  const _ssPlayer = status.player;
+  const _ssEnemy  = status.enemy;
+
+  try {
+    _noopKeys.forEach(k => { window[k] = () => {}; });
+
+    window.applyDirectDamage = (_a, _d, dmg, label) => {
+      if (dmg > 0) events.push({ type: 'damage', hits: 1, dmgPerHit: dmg, total: dmg, effects: [], label: label || '' });
+    };
+    window.applyMelt = (_a, _d, pts) => {
+      if (pts > 0) events.push({ type: 'melt', pts });
+    };
+    window.totalEnemyBurnStacks = () => 0;
+
+    combat.enemies        = [mockEnemy];
+    combat.enemy          = mockEnemy;
+    combat.activeEnemyIdx = 0;
+    combat.targetIdx      = 0;
+    combat.over           = false;
+    status.player         = mockPlayerStatus;
+    status.enemy          = mockEnemyStatus;
+
+    spell.execute(mockS);
+
+  } catch (_) { /* keep whatever was captured */ } finally {
+    [..._noopKeys, ..._captureKeys].forEach(k => {
+      if (_saved[k] !== undefined) window[k] = _saved[k];
+    });
+    combat.enemies        = _sc.enemies;
+    combat.enemy          = _sc.enemy;
+    combat.activeEnemyIdx = _sc.activeEnemyIdx;
+    combat.targetIdx      = _sc.targetIdx;
+    combat.over           = _sc.over;
+    status.player         = _ssPlayer;
+    status.enemy          = _ssEnemy;
+  }
+
+  return events;
+}
+
+// Build the combat-preview section of the tooltip HTML
+function _libCombatPreviewHtml(spell) {
+  const simAtk = (typeof player !== 'undefined') ? player.attackPower : 5;
+  const events  = _libSimulateSpell(spell);
+
+  const dmgEvents  = events.filter(e => e.type === 'damage');
+  const meltEvents = events.filter(e => e.type === 'melt');
+  const healEvents = events.filter(e => e.type === 'heal');
+
+  let totalDmg = dmgEvents.reduce((s, e) => s + e.total, 0)
+               + meltEvents.reduce((s, e) => s + e.pts, 0);
+
+  const effectEmojiMap = {
+    burn:'🔥', frost:'❄️', stun:'💫', shock:'⚡',
+    root:'🌿', foam:'🫧', block:'🛡️',
+  };
+
+  let html = `<div style="font-family:'Cinzel',serif;font-size:.65rem;color:#c8a060;margin-bottom:.35rem;padding-bottom:.25rem;border-bottom:1px solid #2a2010;">
+    ⚔️ ${spell.emoji} ${spell.name} — Combat Preview
+  </div>`;
+
+  html += `<div style="font-size:.52rem;color:#6a4a20;margin-bottom:.3rem;">vs. Dummy Enemy &nbsp;·&nbsp; 50 HP &nbsp;·&nbsp; 0 Armor</div>`;
+  html += `<div style="font-size:.58rem;line-height:1.75;color:#c0a870;">`;
+  html += `<div style="color:#7080a0;margin-bottom:.2rem;">🧙 You cast the spell...</div>`;
+
+  if (dmgEvents.length === 0 && meltEvents.length === 0 && healEvents.length === 0) {
+    html += `<div style="color:#6a5a40;font-style:italic;">No direct damage — buff / effect spell</div>`;
+  }
+
+  dmgEvents.forEach(ev => {
+    const simEfx = (typeof player !== 'undefined') ? player.effectPower : 3;
+    // Build breakdown suffix
+    let breakdown;
+    if (ev._isPlasma) {
+      const base = Math.max(0, ev.dmgPerHit - simAtk - simEfx);
+      breakdown = `(${base} base + ${simAtk} ATK + ${simEfx} EFX)`;
+    } else {
+      const base = Math.max(0, ev.dmgPerHit - simAtk);
+      breakdown = `(${base} base + ${simAtk} ATK)`;
+    }
+    if (ev.isAOE) {
+      html += `<div>💥 AoE hit → <span style="color:#ffcc88;font-weight:bold;">${ev.dmgPerHit} dmg</span> <span style="color:#443a28;font-size:.5rem;">each · ${breakdown}</span></div>`;
+    } else if (ev.hits > 1) {
+      html += `<div>⚔️ ${ev.hits} hits × <span style="color:#ffcc88;">${ev.dmgPerHit}</span> = <span style="color:#ffdd99;font-weight:bold;">${ev.total} dmg</span> <span style="color:#3e3020;font-size:.5rem;">${breakdown}</span></div>`;
+    } else {
+      html += `<div>⚔️ <span style="color:#ffdd99;font-weight:bold;">${ev.total} dmg</span> <span style="color:#3e3020;font-size:.5rem;">${breakdown}</span></div>`;
+    }
+    // Effects from this hit — multiply per-hit stacks by number of hits
+    const efGrp = {};
+    (ev.effects || []).forEach(ef => {
+      efGrp[ef.type] = (efGrp[ef.type] || 0) + (ef.stacks || 1);
+    });
+    Object.entries(efGrp).forEach(([type, perHit]) => {
+      const total = perHit * ev.hits;
+      const detail = ev.hits > 1
+        ? `${perHit} × ${ev.hits} hits = <span style="color:#d4aa60;">${total}</span>`
+        : `<span style="color:#d4aa60;">${total}</span>`;
+      html += `<div style="padding-left:.6rem;color:#a09060;">${effectEmojiMap[type] || '✦'} ${detail} ${type}</div>`;
+    });
+  });
+
+  meltEvents.forEach(ev => {
+    html += `<div>⚒️ Melt → <span style="color:#ffdd99;font-weight:bold;">~${ev.pts} dmg</span> <span style="color:#3e3020;font-size:.5rem;">(0 armor)</span></div>`;
+  });
+
+  healEvents.forEach(ev => {
+    html += `<div>💚 Heal self → <span style="color:#88ee88;">+${ev.amount} HP</span></div>`;
+  });
+
+  if (totalDmg > 0 && events.filter(e => e.type !== 'heal').length > 1) {
+    html += `<div style="margin-top:.25rem;padding-top:.25rem;border-top:1px solid #2a2010;color:#ffee99;font-weight:bold;">Total: ${totalDmg} dmg</div>`;
+  }
+
+  html += `</div>`;
+  const simEfxFooter = (typeof player !== 'undefined') ? player.effectPower : 3;
+  html += `<div style="font-size:.44rem;color:#3a2818;margin-top:.3rem;padding-top:.25rem;border-top:1px solid #1a1208;">Simulated · ATK: ${simAtk} &nbsp;·&nbsp; EFX: ${simEfxFooter}</div>`;
+
+  return html;
+}
+
 // ─── ROW BUILDERS ──────────────────────────────────────────────────────────
 function _libSectionHdr(label, seen, total) {
   const d = document.createElement('div');
@@ -282,6 +486,7 @@ function _libSpellRow(spell, revealed) {
   row.style.cssText = 'display:flex;align-items:flex-start;gap:.45rem;padding:.3rem .42rem;background:#0d0b09;border:1px solid #1a1512;border-radius:3px;margin-bottom:.15rem;cursor:default;';
 
   if (revealed) {
+    row.style.cursor = 'help';
     const tierColors = { primary:'#4a8a4a', secondary:'#4a6a9a', legendary:'#9a6a20', merged:'#00a09a' };
     const tier    = spell.tier || 'secondary';
     const tierCol = tierColors[tier] || '#555';
@@ -299,7 +504,11 @@ function _libSpellRow(spell, revealed) {
         </div>
         <div style="font-size:.6rem;color:#5a5a5a;line-height:1.5;white-space:normal;">${spell.desc || ''}</div>
       </div>`;
-    _libTip(row, () => _libSpellFormulaHtml(spell));
+    _libTip(row, () => {
+      const preview = _libCombatPreviewHtml(spell);
+      const formula = _libSpellFormulaHtml(spell);
+      return preview + `<div style="border-top:1px solid #2a2010;margin:.45rem 0 .3rem;"></div>` + formula;
+    });
   } else {
     row.style.opacity = '0.4';
     row.innerHTML = `
