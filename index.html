@@ -557,6 +557,17 @@
 <script src="js/ui/bookEditor.js"></script>
 <script src="js/ui/library.js"></script>
 <script src="js/main.js"></script>
+<script src="version.js"></script>
+<script>
+  (function(){
+    const v = typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : null;
+    if (!v || !v.hash || v.hash === 'dev') return;
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:6px;left:8px;font-size:.5rem;color:#3a3028;font-family:monospace;pointer-events:none;z-index:9999;letter-spacing:.04em;';
+    el.textContent = v.hash + (v.date ? '  ' + v.date : '');
+    document.body.appendChild(el);
+  })();
+</script>
 
 </body>
 </html>
