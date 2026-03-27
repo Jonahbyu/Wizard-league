@@ -546,15 +546,16 @@ function _libRenderMechanics(cont) {
   _guideEntry(cont, 'EFX — Elemental Force',
     'Amplifies all elemental effects you apply: burn damage per stack, frost stacks applied, root stacks, stone stacks, and momentum all scale with EFX. Formula: effect × (1 + EFX/50). Also boosts root bonus damage by +1 per 10 EFX.');
   _guideEntry(cont, 'Defense',
-    'Reduces armor gained from your own spells. Also subtracts directly from enemy EFX, weakening their elemental effects against you.');
-  _guideEntry(cont, 'Armor / Block',
-    'Absorbs flat damage from incoming hits. Consumed before HP. Spells and passives can grant armor that resets each fight (temporary) or carries over (some items).');
+    'Scales how much <b>Armor</b> you gain (+2 per Defense point) and scales healing received. Also directly reduces enemy ATK and EFX, weakening their attacks. <b>Foam reduces Defense</b> — at negative Defense, enemies deal bonus damage per hit.');
+  _guideEntry(cont, 'Armor',
+    'Consumable damage shield. Absorbs incoming hits before HP, then depletes. Gained from the Armor action and spells. The amount gained scales with your Defense stat.');
+  _guideEntry(cont, 'Block',
+    'Flat damage reduction per hit — reusable, never depleted. Does <b>not</b> apply to effect/DoT damage. Currently granted by the Earth Hard Shell passive (10 flat reduction per hit).');
 
   _guideSection(cont, 'Status Effects', '💥');
   _guideEntry(cont, '🔥 Burn',
     'Stacks accumulate on a target. Each turn, deals <b>stacks × damage-per-stack</b> to HP, bypassing armor.<br>'
-    + 'Damage per stack = <span style="color:#a0c0ff;">1.0 + sourceEFX/100 + talentBonus</span> (or 1.5 with Roaring Heat).<br>'
-    + '<b>sourceEFX is snapshotted when burn is applied</b> — changing EFX later doesn\'t retroactively affect existing stacks.<br>'
+    + 'Damage per stack = <span style="color:#a0c0ff;">1.0 + yourEFX/100 + talentBonus</span> (or 1.5 with Roaring Heat) — uses your <b>current EFX</b> each tick, so EFX buffs gained mid-battle increase burn damage immediately.<br>'
     + 'Burn decays by a fraction each turn depending on the spell that applied it.',
     '#c86030');
   _guideEntry(cont, '❄️ Frost',
@@ -570,19 +571,21 @@ function _libRenderMechanics(cont) {
     '#c0c020');
   _guideEntry(cont, '🌿 Root',
     'Each root stack adds <b>+5 bonus damage taken</b> per incoming attack (+1 per 10 EFX of the attacker).<br>'
-    + 'Rooted targets cannot dodge. Thorned Strikes passive doubles this bonus. Root stacks accumulate — they don\'t decay on their own.',
+    + 'Rooted targets cannot dodge. Thorned Strikes passive doubles this bonus. Root stacks accumulate — they don\'t decay on their own.<br>'
+    + '<b>Root also blocks incoming effects</b> (Burn, Stun, etc.) applied to the rooted target, consuming 1 stack per effect blocked. With Overgrowth passive, blocked stacks convert to Overgrowth instead of being lost.',
     '#3a8a3a');
   _guideEntry(cont, '🌿 Overgrowth',
-    'Enhanced permanent root. Same +5 bonus damage per stack as regular Root. Applied by zone effects and abilities — these stacks persist between turns.',
+    'Permanent root — same <b>+5 bonus damage taken per stack</b> as regular Root, but these stacks never decay and are never consumed.<br>'
+    + 'Applied by the Overgrowth passive, which converts Root stacks into Overgrowth stacks whenever Root would block an effect.',
     '#50a050');
   _guideEntry(cont, '🪨 Stone',
-    'Grants +2 Armor per stack. Scales with EFX when applied. In Stone Stance, armor gained this turn is doubled. Stone stacks decay slowly each turn.',
+    'Grants <b>+3 ATK and +2 Armor per stack</b>. Both bonuses are doubled during Stone Stance. Stacks scale with EFX when applied: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>. Decay slowly each turn.',
     '#8a8a6a');
   _guideEntry(cont, '🫧 Foam',
-    'Reduces ATK and EFX by 1 flat per stack, and Armor by 5 per stack. Stacks scale with applier\'s EFX. Applied by Water enemies.',
+    'Reduces <b>Defense by 1.5 per stack</b>. Since Defense scales Armor gains and attenuates enemy stats, heavy Foam prevents effective blocking. At negative Defense, each enemy hit deals bonus damage equal to the deficit. Stacks scale with applier\'s EFX.',
     '#4080a0');
   _guideEntry(cont, '💨 Momentum',
-    'Increases damage dealt. Stacks scale with EFX: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>. Used by Air element.',
+    'Each stack grants <b>+0.8 ATK</b> and <b>+2% dodge chance</b> (cap 80%). Stacks scale with EFX: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>. Gained on every hit landed. Used by Air element.',
     '#80a0c0');
 
   _guideSection(cont, 'Nature Seeds', '🌱');

@@ -63,7 +63,7 @@ const SPELL_CATALOGUE = {
       const e = combat.enemies[combat.activeEnemyIdx];
       // Trigger enemy burn tick now
       if(e && e.status.burnStacks > 0){
-        const tickDmg = Math.round(e.status.burnStacks * burnDmgPerStack('player', e.status.burnSourcePower||0));
+        const tickDmg = Math.round(e.status.burnStacks * burnDmgPerStack('player', effectPowerFor('player','enemy')));
         applyDirectDamage('player','enemy', tickDmg, '🔥 Burn (triggered)');
         if(combat.over) return;
       }
