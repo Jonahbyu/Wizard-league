@@ -562,9 +562,20 @@
   (function(){
     const v = typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : null;
     if (!v || !v.hash || v.hash === 'dev') return;
+    let dateStr = '';
+    if (v.date) {
+      try {
+        const iso = v.date.replace(' UTC', 'Z').replace(' ', 'T');
+        const local = new Date(iso).toLocaleString(undefined, {
+          month:'short', day:'numeric', year:'numeric',
+          hour:'numeric', minute:'2-digit', timeZoneName:'short'
+        });
+        dateStr = '  ' + local;
+      } catch(_) { dateStr = '  ' + v.date; }
+    }
     const el = document.createElement('div');
     el.style.cssText = 'position:fixed;bottom:6px;left:8px;font-size:.5rem;color:#3a3028;font-family:monospace;pointer-events:none;z-index:9999;letter-spacing:.04em;';
-    el.textContent = v.hash + (v.date ? '  ' + v.date : '');
+    el.textContent = v.hash + dateStr;
     document.body.appendChild(el);
   })();
 </script>
