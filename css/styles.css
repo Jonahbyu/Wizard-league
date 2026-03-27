@@ -3,6 +3,12 @@
     body{background:#0a0a0f;color:#fff;font-family:Georgia,serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;font-size:18px;overflow-y:auto;}
     .screen{display:none;width:100%;position:relative;z-index:1;}
     .screen.active{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;padding:2.2rem 2.2rem 3rem;}
+    /* Menus centered vertically */
+    #title-screen.active,#save-select-screen.active,#element-screen.active,
+    #passive-screen.active,#gym-screen.active,#rival-screen.active,
+    #campfire-screen.active,#shop-screen.active,#battle-reward-screen.active,
+    #spellchoice-screen.active,#passivechoice-screen.active,
+    #elementunlock-screen.active,#gameover-screen.active{justify-content:center;}
     /* Non-combat screens: transparent so sky shows through */
     #title-screen.active,#element-screen.active,#passive-screen.active,
     #map-screen.active,#gym-screen.active,#rival-screen.active,#campfire-screen.active,
@@ -29,8 +35,8 @@
     .prog-title, .prog-sub, .level-badge { text-shadow: 0 2px 10px rgba(0,0,10,0.9); }
 
     /* TITLE */
-    #title-screen h1{font-family:'Cinzel',serif;font-size:2.8rem;letter-spacing:.2em;margin-bottom:.4rem;}
-    #title-screen p{color:#555;letter-spacing:.1em;margin-bottom:2.5rem;font-size:.85rem;}
+    #title-screen h1{font-family:'Cinzel',serif;font-size:4.5rem;letter-spacing:.2em;margin-bottom:.6rem;}
+    #title-screen p{color:#555;letter-spacing:.1em;margin-bottom:3rem;font-size:1.1rem;}
     .txt-input{background:#111;border:1px solid #333;color:#fff;padding:.75rem 1.2rem;font-size:1rem;font-family:Georgia,serif;width:260px;margin-bottom:1rem;border-radius:4px;outline:none;}
     .txt-input:focus{border-color:#888;}
     .btn-main{background:#fff;color:#0a0a0f;border:none;padding:.75rem 2rem;font-size:1rem;font-family:'Cinzel',serif;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;width:260px;transition:background .2s;}
@@ -38,8 +44,8 @@
     #error-msg{color:#ff4444;font-size:.8rem;margin-top:.5rem;min-height:1rem;}
 
     /* ELEMENT SELECT */
-    #element-screen h2{font-family:'Cinzel',serif;font-size:1.4rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.4rem;}
-    #element-screen .subtitle{color:#555;font-size:.8rem;letter-spacing:.1em;margin-bottom:2rem;}
+    #element-screen h2{font-family:'Cinzel',serif;font-size:1.8rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.5rem;}
+    #element-screen .subtitle{color:#555;font-size:.95rem;letter-spacing:.1em;margin-bottom:2rem;}
     .element-grid{display:grid;grid-template-columns:repeat(4,140px);gap:14px;margin-bottom:1.5rem;}
     @media(max-width:680px){
       body{font-size:16px;}
@@ -47,7 +53,7 @@
       .element-card{padding:1.2rem .8rem 1rem;}
       .element-card .emoji{font-size:1.8rem;}
       .element-card .name{font-size:.68rem;}
-      #title-screen h1{font-size:2rem;}
+      #title-screen h1{font-size:2.8rem;}
       .btn-main,.txt-input,.btn-gym,.btn-gym-forced{width:100%;max-width:320px;}
     }
     @media(min-width:1400px){
@@ -468,15 +474,15 @@
 
     /* PROGRESSION SCREENS */
     #battle-reward-screen, #spellchoice-screen, #passivechoice-screen{ gap:.7rem; }
-    .prog-title{ font-family:'Cinzel',serif; font-size:1.1rem; letter-spacing:.15em; color:#c8a060; margin-bottom:.1rem; }
-    .prog-sub{ color:#555; font-size:.72rem; letter-spacing:.08em; margin-bottom:.5rem; }
-    .prog-choices{ display:flex; flex-direction:column; gap:.55rem; width:100%; max-width:480px; }
+    .prog-title{ font-family:'Cinzel',serif; font-size:1.4rem; letter-spacing:.15em; color:#c8a060; margin-bottom:.2rem; }
+    .prog-sub{ color:#555; font-size:.85rem; letter-spacing:.08em; margin-bottom:.6rem; }
+    .prog-choices{ display:flex; flex-direction:column; gap:.65rem; width:100%; max-width:560px; }
     .prog-choice-btn{ width:100%; text-align:left; background:#0f0d0b; border:1px solid #2a2018;
-      border-radius:7px; padding:.85rem 1rem; cursor:pointer; transition:border-color .15s,background .15s;
-      display:flex; flex-direction:column; gap:4px; }
+      border-radius:7px; padding:1rem 1.2rem; cursor:pointer; transition:border-color .15s,background .15s;
+      display:flex; flex-direction:column; gap:5px; }
     .prog-choice-btn:hover{ background:#161208; border-color:#8a6030; }
-    .prog-choice-btn .pc-name{ font-family:'Cinzel',serif; font-size:.88rem; color:#e8c870; }
-    .prog-choice-btn .pc-desc{ font-size:.67rem; color:#7a6a50; line-height:1.4; }
+    .prog-choice-btn .pc-name{ font-family:'Cinzel',serif; font-size:1rem; color:#e8c870; }
+    .prog-choice-btn .pc-desc{ font-size:.74rem; color:#7a6a50; line-height:1.4; }
     .prog-choice-btn .pc-info-icon, .choice-btn .pc-info-icon{ display:inline-flex; align-items:center; justify-content:center; margin-left:5px; width:14px; height:14px; border-radius:50%; background:#3a2a10; border:1px solid #8a6030; color:#c8a050; font-size:.6rem; font-style:normal; cursor:help; vertical-align:middle; line-height:1; flex-shrink:0; }
     .prog-choice-btn .pc-info-icon:hover, .choice-btn .pc-info-icon:hover{ background:#5a3a18; border-color:#e8c870; color:#ffd080; }
     .prog-choice-btn .pc-tag{ font-size:.58rem; letter-spacing:.1em; text-transform:uppercase;

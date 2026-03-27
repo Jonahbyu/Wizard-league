@@ -56,9 +56,6 @@ function attackPowerFor(side, targetSide){
   const sm = s.stoneStanceThisTurn ? 2 : 1;
   pow += Math.floor(s.stoneStacks||0) * 3 * sm;
 
-  // Foam on self: -1.5 flat AP per stack
-  pow -= Math.floor((s.foamStacks||0) * 1.5);
-
   // Frost on self: -1 AP/stack
   pow -= Math.floor(s.frostStacks||0);
 
@@ -113,9 +110,6 @@ function effectPowerFor(side){
   // Frost on self: -1 EP/stack
   pow -= Math.floor(s.frostStacks||0);
 
-  // Foam on self: -1.5 flat EFX per stack
-  pow -= Math.floor((s.foamStacks||0) * 1.5);
-
   // Battle-scoped EFX bonus (from EFX Crystal consumable)
   if(side==='player') pow += (s.battleEfxBonus||0);
 
@@ -128,7 +122,8 @@ function effectPowerFor(side){
   return Math.max(0, pow);
 }
 
-// Defense: scales armor gained, heal amounts, reduces enemy AP and EFX
+// Defense: scales armor gained, heal amounts, reduces enemy AP and EFX.
+// Foam reduces Defense — negative Defense means enemies deal bonus damage per hit.
 function defenseFor(side){
   let def = (side==='player') ? player.defense : enemyScaledStat();
   const s = (side==='player') ? status.player : (combat.enemies[combat.activeEnemyIdx]||{status:{}}).status;
@@ -136,13 +131,16 @@ function defenseFor(side){
   // Frost weakens defense too
   def -= Math.floor((s.frostStacks||0) * 0.5);
 
+  // Foam: reduces Defense (can go negative — negative def means bonus enemy ATK/EFX)
+  def -= Math.floor((s.foamStacks||0) * 1.5);
+
   // Battle-scoped DEF bonus (from Defense Crystal consumable)
   if(side==='player') def += (s.battleDefBonus||0);
 
   // Mutual book aura — enemy shares DEF aura
   if(side==='enemy') def += (player._mutualEnemyAura ? (player._mutualEnemyAura.def||0) : 0);
 
-  return Math.max(0, def);
+  return def; // can be negative — callers handle accordingly
 }
 
 // Legacy: enemies use scaledPower as a single composite stat
@@ -166,8 +164,7 @@ function effectiveArmor(side){
   let armor = s.block || 0;
   const sm = s.stoneStanceThisTurn ? 2 : 1;
   armor += Math.floor(s.stoneStacks||0) * 2 * sm;   // Stone: +2 block/stack
-  armor -= Math.floor(s.frostStacks||0);   // Frost: -1 armor/stack (integer part only)
-  armor -= Math.floor((s.foamStacks||0) * 1.5); // Foam: -1.5 armor/stack
+  armor -= Math.floor(s.frostStacks||0);   // Frost: -1 armor/stack
   return armor; // can be negative (negative = bonus dmg to attacker)
 }
 
@@ -179,9 +176,6 @@ function powerFor(side, targetSide){
   // Stone: +3 power/stack (doubled by Stone Stance)
   const sm = s.stoneStanceThisTurn ? 2 : 1;
   pow += Math.floor(s.stoneStacks||0) * 3 * sm;
-
-  // Foam on self: -1.5 flat power per stack
-  pow -= Math.floor((s.foamStacks||0) * 1.5);
 
   // Frost on self: -1 power/stack
   pow -= Math.floor(s.frostStacks||0);
@@ -369,9 +363,9 @@ function addMomentumStacks(stacks){
 
 function gainBlock(side, amount){
   if(amount <= 0) return;
-  // Defense scales block gained: +2 block per Defense point
+  // Defense scales armor gained: +2 per Defense point. Foam-reduced Defense gives less armor.
   const defBonus = (side==='player') ? Math.floor(defenseFor('player') * 2) : 0;
-  const total = amount + defBonus;
+  const total = Math.max(0, amount + defBonus);
   status[side].block = (status[side].block||0) + total;
   if(defBonus > 0) log(`🛡️ +${total} Armor (${amount} base + ${defBonus} from Defense)`, 'status');
   if(side==='player' && typeof triggerBlockAnim === 'function') triggerBlockAnim('armor');

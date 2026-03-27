@@ -105,7 +105,7 @@ function renderEnemyCards(){
     if(s.stunned>0)          row.appendChild(tag(`❄${s.stunned}t`,'tag-stun',`Stunned — skips ${s.stunned} turn(s)`));
     if(s.rootStacks>0)       row.appendChild(tag(`🌿${s.rootStacks}`,'tag-root',`Root ×${s.rootStacks} — takes +${s.rootStacks*ROOT_POWER_PER_STACK} bonus damage`));
     if(s.overgrowthStacks>0) row.appendChild(tag(`🌿G${s.overgrowthStacks}`,'tag-root',`Overgrowth ×${s.overgrowthStacks} — +${s.overgrowthStacks*ROOT_POWER_PER_STACK} bonus damage`));
-    if(s.foamStacks>0)       row.appendChild(tag(`🫧${Math.floor(s.foamStacks)}`,'tag-block',`Foam ×${Math.floor(s.foamStacks)} — -${Math.floor(s.foamStacks)} ATK/EFX flat, -${Math.floor(s.foamStacks)*5} Armor`));
+    if(s.foamStacks>0)       row.appendChild(tag(`🫧${Math.floor(s.foamStacks)}`,'tag-block',`Foam ×${Math.floor(s.foamStacks)} — -${Math.floor(s.foamStacks*1.5)} Defense (less Armor gained; at negative Defense, enemy hits deal bonus damage)`));
     if(s.shockStacks>0)      row.appendChild(tag(`⚡${s.shockStacks}`,'tag-stun',`Shock ×${s.shockStacks} — reduces outgoing damage by ${s.shockStacks*5}%`));
     if(s.block>0)            row.appendChild(tag(`🛡${s.block}`,'tag-block',`Armor ${s.block} — absorbs ${s.block} damage`));
     if(s.phaseTurns>0)       row.appendChild(tag(`🔮`,'tag-phase',`Phase — immune to damage for ${s.phaseTurns} turn(s)`));
@@ -168,7 +168,7 @@ function renderStatusTags(){
     if(s.stunned>0)          pr.appendChild(tag(`❄${s.stunned}t`,'tag-stun',`Stunned — skip ${s.stunned} turn(s)`));
     if(s.rootStacks>0)       pr.appendChild(tag(`🌿${s.rootStacks}`,'tag-root',`Root ×${s.rootStacks} — you take +${s.rootStacks*ROOT_POWER_PER_STACK} bonus damage from attacks`));
     if(s.overgrowthStacks>0) pr.appendChild(tag(`🌿G${s.overgrowthStacks}`,'tag-root',`Overgrowth ×${s.overgrowthStacks} — enhanced root, +${s.overgrowthStacks*ROOT_POWER_PER_STACK} bonus damage`));
-    if(s.foamStacks>0)       pr.appendChild(tag(`🫧${Math.floor(s.foamStacks)}`,'tag-block',`Foam ×${Math.floor(s.foamStacks)} — -${Math.floor(s.foamStacks)} ATK/EFX flat, -${Math.floor(s.foamStacks)*5} Armor`));
+    if(s.foamStacks>0)       pr.appendChild(tag(`🫧${Math.floor(s.foamStacks)}`,'tag-block',`Foam ×${Math.floor(s.foamStacks)} — -${Math.floor(s.foamStacks*1.5)} Defense (less Armor gained; at negative Defense, enemy hits deal bonus damage)`));
     if(s.shockStacks>0)      pr.appendChild(tag(`⚡${s.shockStacks}`,'tag-stun',`Shock ×${s.shockStacks} — reduces your outgoing damage by ${s.shockStacks*5}%`));
     if(s.block>0)            pr.appendChild(tag(`🛡${s.block}`,'tag-block',`Armor ${s.block} — absorbs ${s.block} incoming damage`));
     if(s.phaseTurns>0)       pr.appendChild(tag('🔮','tag-phase',`Phase — immune to damage for ${s.phaseTurns} turn(s)`));

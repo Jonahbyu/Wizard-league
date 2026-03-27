@@ -147,7 +147,7 @@ function startRound(){
       const grease = status.player.greasefirePending;
       const mult = grease ? 2 : 1;
       if(grease){ status.player.greasefirePending = false; log('🛢️ Grease Fire: burn tick doubled!','status'); }
-      const bdmg = Math.ceil(e.status.burnStacks * burnDmgPerStack('player', e.status.burnSourcePower||0) * mult);
+      const bdmg = Math.ceil(e.status.burnStacks * burnDmgPerStack('player', effectPowerFor('player','enemy')) * mult);
       if(bdmg>0) applyEffectDamage('player','enemy', bdmg, '🔥 Burn');
       if(combat.over) return;
     }
