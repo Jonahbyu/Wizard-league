@@ -359,9 +359,29 @@ function showGameOver()    { _simRecordResult(false); }
 function showRunVictory()  { _simRecordResult(true); }
 
 // mapCanvas.js  (we provide real implementations post-load)
+// Zone special slot tracking declared as var above (~line 249-250)
+
 function initZoneSpecial() {
   if (typeof initZoneRewardSequence === 'function') initZoneRewardSequence();
+  // Schedule 2 shops + 2 campfires: mid pair (slots 7–10), end pair (slots 11–13)
+  const midFirst  = 7 + Math.floor(Math.random() * 3);
+  const midSecond = Math.min(midFirst + 1 + Math.floor(Math.random() * 2), 10);
+  const endFirst  = 11 + Math.floor(Math.random() * 2);
+  const endSecond = endFirst + 1;
+  if (Math.random() < 0.5) { _zoneCampfireMid = midFirst;  _zoneShopMid     = midSecond; }
+  else                      { _zoneShopMid     = midFirst;  _zoneCampfireMid = midSecond; }
+  if (Math.random() < 0.5) { _zoneCampfireEnd = endFirst;  _zoneShopEnd     = endSecond; }
+  else                      { _zoneShopEnd     = endFirst;  _zoneCampfireEnd = endSecond; }
 }
+
+function _pickZoneSpecial() {
+  if (zoneBattleCount === _zoneCampfireMid) { _zoneCampfireMid = -1; return (player._mistCampfireReduction||0) >= 1 ? null : 'campfire'; }
+  if (zoneBattleCount === _zoneShopMid)     { _zoneShopMid     = -1; return 'shop'; }
+  if (zoneBattleCount === _zoneCampfireEnd) { _zoneCampfireEnd = -1; return (player._mistCampfireReduction||0) >= 1 ? null : 'campfire'; }
+  if (zoneBattleCount === _zoneShopEnd)     { _zoneShopEnd     = -1; return 'shop'; }
+  return null;
+}
+
 function showMap()              { _simLoadNextBattle(); }
 function _buildAndShowCanvas()  {}
 function buildMapNodes()        { return []; }
@@ -446,12 +466,38 @@ function showBookDiscoveryScreen() {
   if (typeof _continueGymFlow === 'function') _continueGymFlow();
 }
 
-// gymRival.js / shopCampfire.js (not loaded)
+// gymRival.js / shopCampfire.js (not loaded — sim handles these directly)
 function showGymRivalScreen() { showMap(); }
 function showRivalScreen()    { showMap(); }
 function showShopScreen()     { showMap(); }
-function showCampfireScreen() {
-  if (typeof applyHeal === 'function') applyHeal('player', Math.floor(maxHPFor('player') * 0.35), '🔥 Campfire');
+function showCampfireScreen() { showMap(); }
+
+function _simEnterCampfire() {
+  // Always Rest & Recover: heal 50% HP + restore all PP
+  applyHeal('player', Math.floor(maxHPFor('player') * 0.50), '🔥 Campfire rest');
+  restoreAllPP();
+  showMap();
+}
+
+function _simEnterShop() {
+  const m = player._mistShopPriceMult || 1.0;
+  const c = n => Math.ceil(n * m);
+  // Priority buy: extra action (most impactful) > extra life > stat > consumable
+  const candidates = [
+    { cost: c(250), apply() { player.bonusActions = (player.bonusActions||0) + 1; } },
+    ...((player.revives||0) < 3 ? [{ cost: c(200), apply() { player.revives = (player.revives||0) + 1; } }] : []),
+    { cost: c(100), apply() { player.attackPower += 5; } },
+    { cost: c(100), apply() { player.effectPower += 5; } },
+    { cost: c(100), apply() { player.defense += 5; } },
+    { cost: c(50),  apply() { addItem('health_potion'); } },
+  ];
+  for (const item of candidates) {
+    if (player.gold >= item.cost) {
+      player.gold -= item.cost;
+      try { item.apply(); } catch(e) {}
+      break;
+    }
+  }
   showMap();
 }
 </script>
@@ -510,7 +556,7 @@ log = function(msg, type) {
 
 // ── Sim history (persisted to real localStorage) ──────────────────────────────
 const _SIM_HIST_KEY = 'wl_sim_history';
-const _SIM_HIST_MAX = 25;
+const _SIM_HIST_MAX = 10;
 
 function _saveSim(cfg, stats, sampleLog) {
   if (!_realLS) return;
@@ -675,7 +721,8 @@ showPassiveOverflowScreen = function(passiveId, book) {
 
 // ── Sim config ────────────────────────────────────────────────────────────────
 const simCfg = {
-  element:      'Fire',
+  element:          'Fire',
+  selectedElements: ['Fire'],
   strategy:     'smart',
   artifactId:   null,
   artifactStar: 0,
@@ -717,10 +764,28 @@ function _simLoadNextBattle() {
     if (roster && roster[currentGymIdx]) {
       loadBattle(Object.assign({}, roster[currentGymIdx], { _rewardType: 'gym' }));
     } else {
-      _simRecordResult(false); // no gym def — treat as loss
+      _simRecordResult(false);
     }
     return;
   }
+
+  // Rival at its scheduled slot
+  const rivalSlot = (typeof _zoneRivalSlot !== 'undefined' && _zoneRivalSlot > 0)
+    ? _zoneRivalSlot : (currentGymIdx === 0 ? 8 : 6);
+  if (zoneBattleCount === rivalSlot && !_zoneRivalDefeated) {
+    loadBattle({
+      name: RIVAL.name, emoji: RIVAL.emoji, element: playerElement, color: '#9a6aee',
+      difficulty: 'rival', enemyMaxHP: RIVAL.baseHP(currentGymIdx),
+      enemyDmg: RIVAL.baseDmg(currentGymIdx),
+      gold: Math.round(30 + currentGymIdx * 15), type: 'wizard', isRival: true,
+    });
+    return;
+  }
+
+  // Campfire / shop at scheduled special slots
+  const special = _pickZoneSpecial();
+  if (special === 'campfire') { _simEnterCampfire(); return; }
+  if (special === 'shop')     { _simEnterShop();     return; }
 
   // Regular encounter from zone pool
   const zoneEl   = gym ? gym.element : playerElement;
@@ -763,11 +828,17 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
     const pool = buildSpellChoicePool('secondary', null);
     if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
   } else if (rewardType === 'incantation') {
-    const book = player.spellbooks[player.activeBookIdx];
-    const eligible = book ? book.spells.filter(s => !s.isBuiltin) : [];
+    const eligible = [];
+    (player.spellbooks || []).forEach(book => {
+      book.spells.forEach(s => { if (!s.isBuiltin) eligible.push(s); });
+    });
     if (eligible.length > 0) {
       const pick = eligible[Math.floor(Math.random() * eligible.length)];
       pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+    } else {
+      // No spells to upgrade yet — fall back to minor reward
+      const pool = buildMinorUpgradePool();
+      if (pool.length > 0) try { pool[Math.floor(Math.random() * pool.length)].apply(); } catch(e) {}
     }
   } else if (rewardType === 'minor') {
     const pool = buildMinorUpgradePool();
@@ -778,6 +849,66 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
   }
 
   showMap();
+};
+
+// ── Re-override interactive screens (battleReward.js replaces pre-stubs; restore auto-pick) ──
+showPassiveChoiceScreen = function(level, forElement) {
+  const pool = buildPassiveChoicePool(forElement || null);
+  if (pool.length > 0) addPassiveToBook(pool[Math.floor(Math.random() * pool.length)].id);
+  processNextLevelUp();
+};
+
+showSpellChoiceScreen = function(level, tier, forElement) {
+  const pool = buildSpellChoicePool(tier || 'secondary', forElement || null);
+  if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+  processNextLevelUp();
+};
+
+showIncantationChoiceScreen = function(level) {
+  const eligible = [];
+  (player.spellbooks || []).forEach(book => {
+    book.spells.forEach(s => { if (!s.isBuiltin) eligible.push(s); });
+  });
+  if (eligible.length > 0) {
+    const pick = eligible[Math.floor(Math.random() * eligible.length)];
+    pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+  }
+  processNextLevelUp();
+};
+
+showElementUnlockScreen = function(level) {
+  const allEls = ['Fire','Water','Ice','Lightning','Earth','Nature','Air'];
+  const avail  = allEls.filter(e => e !== playerElement && !(player.unlockedElements||[]).includes(e));
+  if (avail.length > 0) {
+    const chosen = avail[Math.floor(Math.random() * avail.length)];
+    player.unlockedElements.push(chosen);
+    if (typeof STARTER_SPELL !== 'undefined' && STARTER_SPELL[chosen]) addSpellById(STARTER_SPELL[chosen]);
+    pendingLevelUps = [
+      { type:'passivechoice', level:'gym', forElement: chosen },
+      { type:'spellchoice',   level:'gym', tier:'secondary', forElement: chosen },
+      { type:'gym_legendary' },
+    ];
+    processNextLevelUp();
+  } else {
+    grantRandomLegendary();
+    showMap();
+  }
+};
+
+showBookDiscoveryScreen = function() {
+  const choices = (typeof _buildBookDiscoveryChoices === 'function') ? _buildBookDiscoveryChoices(3) : [];
+  if (choices.length > 0 && (player.spellbooks||[]).length < 3) {
+    const id  = choices[Math.floor(Math.random() * choices.length)];
+    const inst = (typeof makeBookInstance === 'function') ? makeBookInstance(id) : null;
+    if (inst) {
+      inst.spells.push(
+        { id:'_basic', emoji:'⚔', name:'Basic Attack', baseCooldown:1, currentCD:0, isBuiltin:true },
+        { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true }
+      );
+      player.spellbooks.push(inst);
+    }
+  }
+  _continueGymFlow();
 };
 
 // ── Auto-play engine ──────────────────────────────────────────────────────────
@@ -835,16 +966,33 @@ function _simAutoPlay() {
     queued++;
   }
 
+  function queueArmor() {
+    if (queued >= actionsAvail) return;
+    const armorSpell = (book ? book.spells : []).find(s => s.id === '_armor');
+    if (!armorSpell) return;
+    if ((combat.actionQueue||[]).some(a => a.label === '🛡 Armor')) return; // already queued
+    const armAmt = (typeof armorBlockAmount === 'function') ? armorBlockAmount() : 10;
+    const ref = armorSpell;
+    queueAction('🛡 Armor', () => {
+      if ((ref.currentPP||0) > 0) ref.currentPP--;
+      status.player.block = (status.player.block||0) + armAmt;
+      log('🛡 You brace — +' + armAmt + ' Block (' + status.player.block + ' total).', 'player');
+    }, {});
+    queued++;
+  }
+
   if (strategy === 'basic') {
     while (queued < actionsAvail) queueBasic();
   } else if (strategy === 'random') {
     const shuffled = [...usable].sort(() => Math.random() - 0.5);
     for (const s of shuffled) { if (!queueSpell(s)) break; }
+    queueArmor(); // use armor if a slot remains
     while (queued < actionsAvail) queueBasic();
   } else {
-    // Smart: prefer spells with higher CD (usually more powerful)
+    // Smart: prefer spells with higher CD (usually more powerful), then armor, then basic
     const sorted = [...usable].sort((a, b) => (b.baseCooldown || 0) - (a.baseCooldown || 0));
     for (const s of sorted) { if (!queueSpell(s)) break; }
+    queueArmor(); // use armor if a slot remains
     while (queued < actionsAvail) queueBasic();
   }
 
@@ -942,6 +1090,7 @@ function simInitRun(cfg) {
   battleNumber = 1; currentGymIdx = 0; zoneBattleCount = 0;
   gymSkips = 0; gymDefeated = false; pendingLevelUps = [];
   _zoneRivalDefeated = false;
+  _zoneShopMid = -1; _zoneCampfireMid = -1; _zoneShopEnd = -1; _zoneCampfireEnd = -1;
   if (typeof _runDmgDealt !== 'undefined') {
     _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0;
     _runZoneReached = ''; _runKillsThisRun = 0;
@@ -983,50 +1132,205 @@ async function runSims() {
   const progCount = _origGetById('run-prog-count');
   const progFill  = _origGetById('run-prog-fill');
 
+  const selectedEls = (simCfg.selectedElements && simCfg.selectedElements.length > 0)
+    ? simCfg.selectedElements : [simCfg.element || 'Fire'];
+
   btn.disabled = true;
   progWrap.style.display = 'block';
   progFill.style.width = '0%';
 
   const n = simCfg.nRuns || 50;
-  const results = [];
-  const errors  = [];
-  const BATCH   = Math.max(5, Math.min(50, Math.floor(500 / n * 50)));
-  _sampleLog = [];
+  const BATCH = Math.max(5, Math.min(50, Math.floor(500 / n * 50)));
+  const totalRuns = n * selectedEls.length;
+  let completedRuns = 0;
 
-  for (let i = 0; i < n; i += BATCH) {
-    const end = Math.min(i + BATCH, n);
-    for (let j = i; j < end; j++) {
-      // Capture full log for the very first run
-      const isFirst = (i === 0 && j === 0);
-      if (isFirst) _capturingLog = true;
-      try {
-        simInitRun(simCfg);
-        results.push(_simCurrentResult || { won: false, gymsCleared: 0, battleNumber: 1 });
-      } catch(e) {
-        console.error('SIM run error:', e);
-        errors.push(e.message);
-        results.push({ won: false, gymsCleared: 0, battleNumber: 1 });
+  const elementResults = []; // { element, stats, results, errors, sampleLog }
+  let firstLog = [];
+
+  for (const el of selectedEls) {
+    const elCfg  = Object.assign({}, simCfg, { element: el });
+    const results = [];
+    const errors  = [];
+    let elSampleLog = [];
+
+    for (let i = 0; i < n; i += BATCH) {
+      const end = Math.min(i + BATCH, n);
+      for (let j = i; j < end; j++) {
+        const isFirst = (elementResults.length === 0 && i === 0 && j === 0);
+        if (isFirst) { _sampleLog = []; _capturingLog = true; }
+        try {
+          simInitRun(elCfg);
+          results.push(_simCurrentResult || { won: false, gymsCleared: 0, battleNumber: 1 });
+        } catch(e) {
+          console.error('SIM run error:', e);
+          errors.push(e.message);
+          results.push({ won: false, gymsCleared: 0, battleNumber: 1 });
+        }
+        if (isFirst) { _capturingLog = false; elSampleLog = _sampleLog.slice(); firstLog = elSampleLog; }
       }
-      if (isFirst) _capturingLog = false;
+      completedRuns += (end - i);
+      progFill.style.width = (completedRuns / totalRuns * 100).toFixed(1) + '%';
+      progLabel.textContent = `Simulating ${el}…`;
+      progCount.textContent = `${completedRuns} / ${totalRuns}`;
+      // Live preview for single-element runs
+      if (selectedEls.length === 1) {
+        _renderResults(_aggregateResults(results, results.length), results, errors, true, elSampleLog);
+      }
+      await new Promise(resolve => _yieldToBrowser(resolve));
     }
-    // Update progress bar
-    const pct = results.length / n * 100;
-    progFill.style.width = pct.toFixed(1) + '%';
-    progLabel.textContent = 'Simulating…';
-    progCount.textContent = `${results.length} / ${n}`;
-    _renderResults(_aggregateResults(results, results.length), results, errors, true, _sampleLog);
-    await new Promise(resolve => _yieldToBrowser(resolve));
+    elementResults.push({ element: el, stats: _aggregateResults(results, n), results, errors, sampleLog: elSampleLog });
   }
 
-  // Finish
   progFill.style.width = '100%';
   progLabel.textContent = 'Complete';
-  progCount.textContent = `${n} / ${n}`;
+  progCount.textContent = `${totalRuns} / ${totalRuns}`;
   btn.disabled = false;
-  const finalStats = _aggregateResults(results, n);
-  _renderResults(finalStats, results, errors, false, _sampleLog);
-  _saveSim(simCfg, finalStats, _sampleLog);
-  _autoExport(simCfg, finalStats, _sampleLog);
+
+  if (elementResults.length === 1) {
+    const { stats, results, errors, sampleLog } = elementResults[0];
+    _renderResults(stats, results, errors, false, sampleLog);
+    _saveSim(simCfg, stats, sampleLog);
+    _autoExport(simCfg, stats, sampleLog);
+  } else {
+    _renderComparison(elementResults, n);
+    for (const er of elementResults) {
+      const cfg = Object.assign({}, simCfg, { element: er.element });
+      _saveSim(cfg, er.stats, er.sampleLog);
+      _autoExport(cfg, er.stats, er.sampleLog);
+    }
+  }
+}
+
+// ── Multi-element comparison renderer ─────────────────────────────────────────
+function _renderComparison(elementResults, n) {
+  const panel = _origGetById('results-content');
+  if (!panel) return;
+
+  const ELEM_COLOR = {
+    Fire:'#ff6622', Water:'#2288ff', Ice:'#88ddff', Lightning:'#ffee22',
+    Earth:'#aa8844', Nature:'#44aa44', Plasma:'#bb44ff', Air:'#aaddff',
+  };
+  const ELEM_EMOJI = {
+    Fire:'🔥', Water:'💧', Ice:'❄️', Lightning:'⚡',
+    Earth:'🪨', Nature:'🌿', Plasma:'🔮', Air:'🌀',
+  };
+
+  // Sort by win rate descending
+  const sorted = elementResults.slice().sort((a, b) => b.stats.winRate - a.stats.winRate);
+  const maxWR  = Math.max(...sorted.map(e => e.stats.winRate), 0.01);
+
+  function compBar(val, maxVal, color) {
+    const pct = maxVal > 0 ? Math.min(100, val / maxVal * 100) : 0;
+    return `<div style="flex:1;background:#111;border-radius:2px;height:7px;margin-left:6px"><div style="width:${pct.toFixed(1)}%;height:7px;border-radius:2px;background:${color}"></div></div>`;
+  }
+
+  const metrics = [
+    { key: 'winRate',    label: 'Win Rate',        fmt: v => (v * 100).toFixed(1) + '%', max: s => s.winRate },
+    { key: 'z1clear',   label: 'Zone 1 Clear',     fmt: v => (v * 100).toFixed(1) + '%', max: s => s._z1Clear },
+    { key: 'z2clear',   label: 'Zone 2 Clear',     fmt: v => (v * 100).toFixed(1) + '%', max: s => s._z2Clear },
+    { key: 'avgBattles',label: 'Avg Battles/Run',  fmt: v => v.toFixed(1),               max: s => s.avgBattles },
+    { key: 'avgHPOnWin',label: 'Avg HP on Win',    fmt: v => v > 0 ? Math.round(v) : '—', max: s => s.avgHPOnWin },
+  ];
+
+  // Augment stats with derived fields
+  for (const er of sorted) {
+    const reachedZ2 = er.results.filter(r => r && (r.gymsCleared||0) >= 1).length;
+    const reachedZ3 = er.results.filter(r => r && (r.gymsCleared||0) >= 2).length;
+    er.stats._z1Clear = reachedZ2 / n;
+    er.stats._z2Clear = reachedZ3 / n;
+  }
+
+  // Summary table
+  const headerCols = metrics.map(m => `<th style="text-align:right;padding:.3rem .6rem;font-size:.64rem;letter-spacing:.1em;color:#5a5040;font-weight:normal;text-transform:uppercase">${m.label}</th>`).join('');
+  const rows = sorted.map(er => {
+    const col = ELEM_COLOR[er.element] || '#888';
+    const emoji = ELEM_EMOJI[er.element] || '';
+    const errNote = er.errors.length > 0 ? ` <span style="color:#c05050;font-size:.6rem" title="${er.errors[0]}">⚠${er.errors.length}</span>` : '';
+    const cells = [
+      er.stats.winRate,
+      er.stats._z1Clear,
+      er.stats._z2Clear,
+      er.stats.avgBattles,
+      er.stats.avgHPOnWin,
+    ].map((v, i) => {
+      const m = metrics[i];
+      const fmtVal = m.fmt(v);
+      return `<td style="text-align:right;padding:.3rem .6rem;color:#c8c0b0;font-size:.8rem">${fmtVal}</td>`;
+    }).join('');
+    return `<tr style="border-bottom:1px solid #1a1a22">
+      <td style="padding:.3rem .6rem;white-space:nowrap">
+        <span style="color:${col};font-weight:bold">${emoji} ${er.element}</span>${errNote}
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  // Win rate bars
+  const barRows = sorted.map(er => {
+    const col  = ELEM_COLOR[er.element] || '#888';
+    const emoji = ELEM_EMOJI[er.element] || '';
+    const pct  = (er.stats.winRate * 100).toFixed(1);
+    const barW = maxWR > 0 ? (er.stats.winRate / maxWR * 100).toFixed(1) : 0;
+    return `<div class="bar-row">
+      <span class="br-label" style="color:${col}">${emoji} ${er.element}</span>
+      <div class="br-bar-wrap"><div class="br-bar" style="width:${barW}%;background:${col}"></div></div>
+      <span class="br-val">${pct}% <span style="color:#5a5040">(${er.stats.wins}/${n})</span></span>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="results-section">
+      <h3>Element Comparison — ${n} runs each</h3>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:1px solid #2a2830">
+            <th style="text-align:left;padding:.3rem .6rem;font-size:.64rem;letter-spacing:.1em;color:#5a5040;font-weight:normal;text-transform:uppercase">Element</th>
+            ${headerCols}
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="results-section">
+      <h3>Win Rate</h3>
+      ${barRows}
+    </div>
+
+    <div class="results-section">
+      <h3>Zone 1 Clear Rate</h3>
+      ${sorted.map(er => {
+        const col = ELEM_COLOR[er.element] || '#a07030';
+        const emoji = ELEM_EMOJI[er.element] || '';
+        const pct  = (er.stats._z1Clear * 100).toFixed(1);
+        const maxZ1 = Math.max(...sorted.map(e => e.stats._z1Clear), 0.01);
+        const barW = (er.stats._z1Clear / maxZ1 * 100).toFixed(1);
+        const cnt  = er.results.filter(r => r && (r.gymsCleared||0) >= 1).length;
+        return `<div class="bar-row">
+          <span class="br-label" style="color:${col}">${emoji} ${er.element}</span>
+          <div class="br-bar-wrap"><div class="br-bar" style="width:${barW}%;background:${col}"></div></div>
+          <span class="br-val">${pct}% <span style="color:#5a5040">(${cnt}/${n})</span></span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="results-section">
+      <h3>Zone 1 Battle 1 Survival</h3>
+      ${sorted.map(er => {
+        const col  = ELEM_COLOR[er.element] || '#a07030';
+        const emoji = ELEM_EMOJI[er.element] || '';
+        const cnt  = (er.stats.z1Counts && er.stats.z1Counts[0]) || 0;
+        const pct  = (cnt / n * 100).toFixed(1);
+        const maxB1 = Math.max(...sorted.map(e => (e.stats.z1Counts && e.stats.z1Counts[0]) || 0), 1);
+        const barW = (cnt / maxB1 * 100).toFixed(1);
+        return `<div class="bar-row">
+          <span class="br-label" style="color:${col}">${emoji} ${er.element}</span>
+          <div class="br-bar-wrap"><div class="br-bar" style="width:${barW}%;background:${col}"></div></div>
+          <span class="br-val">${pct}% <span style="color:#5a5040">(${cnt}/${n})</span></span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
 }
 
 // ── Aggregate ─────────────────────────────────────────────────────────────────
@@ -1291,20 +1595,66 @@ function _rebuildElementDropdowns() {
   }
 }
 
-// Element buttons
+// Element buttons — multi-select
 (function() {
   const ELEMS = ['Fire','Water','Ice','Lightning','Earth','Nature','Plasma','Air'];
   const EMOJIS= { Fire:'🔥',Water:'💧',Ice:'❄️',Lightning:'⚡',Earth:'🪨',Nature:'🌿',Plasma:'🔮',Air:'🌀' };
   const row = _origGetById('el-btns');
   if (!row) return;
+
+  const elBtns = {};
+
+  function _syncAllBtn() {
+    const allActive = ELEMS.every(e => simCfg.selectedElements.includes(e));
+    if (allBtn) allBtn.classList.toggle('active', allActive);
+  }
+
+  // "All" button
+  const allBtn = document.createElement('button');
+  allBtn.className = 'cfg-btn';
+  allBtn.textContent = '✦ All';
+  allBtn.style.cssText = 'letter-spacing:.04em;';
+  allBtn.onclick = function() {
+    const allActive = ELEMS.every(e => simCfg.selectedElements.includes(e));
+    if (allActive) {
+      // Deselect all except Fire
+      simCfg.selectedElements = ['Fire'];
+      ELEMS.forEach(e => { if (elBtns[e]) elBtns[e].classList.toggle('active', e === 'Fire'); });
+    } else {
+      simCfg.selectedElements = [...ELEMS];
+      ELEMS.forEach(e => { if (elBtns[e]) elBtns[e].classList.add('active'); });
+    }
+    simCfg.element = simCfg.selectedElements[0] || 'Fire';
+    _syncAllBtn();
+    _rebuildElementDropdowns();
+  };
+  row.appendChild(allBtn);
+
   ELEMS.forEach(el => {
     const btn = document.createElement('button');
     btn.className = 'cfg-btn' + (el === 'Fire' ? ' active' : '');
     btn.textContent = EMOJIS[el] + ' ' + el;
-    btn.onclick = function() { simCfg.element = el; _setActive(this, row); _rebuildElementDropdowns(); };
+    btn.onclick = function() {
+      const idx = simCfg.selectedElements.indexOf(el);
+      if (idx >= 0) {
+        if (simCfg.selectedElements.length > 1) {
+          simCfg.selectedElements.splice(idx, 1);
+          btn.classList.remove('active');
+        }
+        // Can't deselect the last one
+      } else {
+        simCfg.selectedElements.push(el);
+        btn.classList.add('active');
+      }
+      simCfg.element = simCfg.selectedElements[0] || 'Fire';
+      _syncAllBtn();
+      _rebuildElementDropdowns();
+    };
     row.appendChild(btn);
+    elBtns[el] = btn;
   });
-  _rebuildElementDropdowns(); // populate on load for default element
+
+  _rebuildElementDropdowns();
 })();
 
 // Load history on page start

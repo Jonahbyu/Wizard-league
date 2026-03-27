@@ -576,10 +576,13 @@ function commitEndTurn(){
     flatActions.push({p:{id:'player'}, action:a, isPlasmaFinal:true});
   });
 
-  resolveFlat(flatActions, 0);
+  combat._gen = (combat._gen||0) + 1;
+  resolveFlat(flatActions, 0, combat._gen);
 }
 
-function resolveFlat(flatActions, idx){
+function resolveFlat(flatActions, idx, chainGen){
+  // Stale chain guard: abort if a newer chain has started (e.g. post-revive)
+  if(combat._gen !== chainGen) return;
   if(idx >= flatActions.length){
     // All actions done — now check deferred death
     if(player.hp <= 0 && !combat.over){
@@ -596,7 +599,7 @@ function resolveFlat(flatActions, idx){
   }
 
   const {p, action, isPlasmaFinal} = flatActions[idx];
-  const next = ()=>{ if(!combat.over) setTimeout(()=>resolveFlat(flatActions, idx+1), 320); };
+  const next = ()=>{ if(!combat.over) setTimeout(()=>resolveFlat(flatActions, idx+1, chainGen), 320); };
 
   if(p.id === 'player'){
     const snapTgt = action.targetIdx != null ? action.targetIdx : combat.targetIdx;

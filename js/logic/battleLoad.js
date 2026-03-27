@@ -61,7 +61,7 @@ function restoreAllPP(){
 
 function loadBattle(enc){
   combat.over=false; combat.tempDmgBonus=0; combat.playerTurn=false;
-  combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
+  combat._gen=0; combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
   combat.totalGold=0; combat.hitFlashes=[]; combat.turnInBattle=0;
   combat._chosenRewardType = enc._rewardType || null;
   combat.activeZoneElement=(inGymZone()&&!enc.isGym)?(currentGymDef()||{}).element:null;
