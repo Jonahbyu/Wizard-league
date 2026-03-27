@@ -598,8 +598,8 @@ function _libRenderMechanics(cont) {
 
   _guideSection(cont, 'Fire Melt', '🔩');
   _guideEntry(cont, 'Melt — Armor Destruction',
-    'Melt points reduce enemy armor (their block stat) permanently for the fight. Once armor is gone, melt damage converts directly to HP damage.<br>'
-    + 'Melt scales with EFX if Deep Heat passive is active. Forge Master amplifies melt points by ×1.3.',
+    'Each melt point strips <b>3 Armor</b> from the target. To fully break all Armor costs <b>ceil(Armor ÷ 3)</b> melt points — any melt left over converts to <b>direct HP damage at 1:1</b>. If you can\'t break all the Armor in one hit, no HP damage is dealt — only Armor is chipped.<br>'
+    + '<b>Forge Master:</b> +30% melt points. <b>Deep Heat:</b> +EFX/5 bonus melt points; also converts 50% of stripped Armor into bonus melt. <b>Meltdown</b> legendary: when Armor fully breaks, gain bonus melt equal to its peak value.',
     '#c06030');
 
   _guideSection(cont, 'Incantations', '✦');
