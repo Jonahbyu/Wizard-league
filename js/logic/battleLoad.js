@@ -18,7 +18,7 @@ function makeEnemyObj(enc){
   const zoneScaled = (enc.isGym || enc.isTargetDummy) ? {} : scaleEnemyForZone(enc, currentGymIdx);
   const mistHPMult  = player._mistEnemyHPMult  || 1.0;
   const mistDmgMult = player._mistEnemyDmgMult || 1.0;
-  const finalMaxHP  = Math.round((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * mistHPMult * 1.25);
+  const finalMaxHP  = Math.round((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * mistHPMult * 0.70 * (battleNumber === 1 ? 0.5 : 1));
   const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult) - 5);
 
   // Build ability list based on element + zone depth
@@ -64,7 +64,7 @@ function loadBattle(enc){
   combat._gen=0; combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
   combat.totalGold=0; combat.hitFlashes=[]; combat.turnInBattle=0;
   combat._chosenRewardType = enc._rewardType || null;
-  combat.activeZoneElement=(inGymZone()&&!enc.isGym)?(currentGymDef()||{}).element:null;
+  combat.activeZoneElement=(battleNumber === 1) ? null : ((inGymZone()&&!enc.isGym)?(currentGymDef()||{}).element:null);
   combat._echoReady = false;    // will be set true in startRound
   combat._swiftbladeSwitch = 0; // reset per-battle swiftblade switch counter
   combat.nextMeltDouble    = false; // Temper: next melt hit doubled

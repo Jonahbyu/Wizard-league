@@ -52,7 +52,7 @@ function scaleEnemy(enc, gymIdx) {
   return {
     name: enc.name,
     el:   enc.el,
-    hp:   Math.round(scaledHP * 1.25),          // +25% global HP modifier
+    hp:   Math.round(scaledHP * 0.70),          // 30% less HP (balance change)
     dmg:  Math.max(1, scaledDmg - 5),           // -5 dmg global
     ap:   Math.floor(gymIdx * 4.4),             // scaledPower = floor(gymIdx×4.4)
   };

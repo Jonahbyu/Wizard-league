@@ -55,7 +55,7 @@ const ENEMY_POOL = [
 ];
 
 function scaleEnemy(enc, gymIdx) {
-  const hp  = Math.round(enc.hp  * (1 + gymIdx * 0.28) * 1.25);
+  const hp  = Math.round(enc.hp  * (1 + gymIdx * 0.28) * 0.70);
   const dmg = Math.max(1, Math.round(enc.dmg * (1 + gymIdx * 0.22)) - 5);
   const ap  = Math.floor(gymIdx * 4.4);
   return { hp, dmg, ap };
@@ -309,7 +309,8 @@ function grantGymRewards(player, el, strategy) {
 }
 
 // ─── BATTLE SIMULATION ────────────────────────────────────────────────────────
-function simulateBattle(player, enemy) {
+function simulateBattle(player, enemy, livesLeft) {
+  livesLeft = livesLeft || 0;
   const el    = player.element;
   const ap0   = player.ap;
   const efx0  = player.efx;
@@ -510,13 +511,22 @@ function simulateBattle(player, enemy) {
     // ── ENEMY ATTACKS ─────────────────────────────────────────────────────
     const shockPct = clamp(shockStacks * (0.03 + (hasP('lightning_conduction') ? 0.02 : 0)), 0, 0.75);
     playerHP -= Math.max(0, Math.round(enemyDmgBase * (1 - shockPct)));
+
+    // Lives: if player died, revive to 75% and clear debuffs, battle continues
+    if (playerHP <= 0 && livesLeft > 0) {
+      livesLeft--;
+      playerHP = Math.round(player.maxHP * 0.75);
+      burnStacks = 0; shockStacks = 0; rootStacks = 0; overgrowthStacks = 0;
+    }
   }
 
   const won = enemyHP <= 0 && playerHP > 0;
-  return { won, turns, hpLeft: won ? Math.max(0, playerHP) : 0 };
+  return { won, turns, hpLeft: won ? Math.max(0, playerHP) : 0, livesLeft };
 }
 
 // ─── SIMULATE ONE FULL ZONE RUN ───────────────────────────────────────────────
+const BONUS_LIVES = 3;  // lives the player starts each run with
+
 function simulateRun(element, talentCfg, zone, strategy) {
   const gymIdx = zone - 1;
   const eb = talentCfg[element] || {};
@@ -541,14 +551,18 @@ function simulateRun(element, talentCfg, zone, strategy) {
   const isZone1 = zone === 1;
   const BATTLES = 12;
   let battlesWon = 0;
+  let livesLeft = BONUS_LIVES;  // lives persist across battles
   // Track build snapshots (early/mid/late)
   let buildEarly  = null;  // after battle 3
   let buildMid    = null;  // after battle 7
   let buildLate   = null;  // after battle 11
 
   for (let b = 1; b <= BATTLES; b++) {
-    const enemy = scaleEnemy(rnd(ENEMY_POOL), gymIdx);
-    const result = simulateBattle(player, enemy);
+    const baseEnemy = scaleEnemy(rnd(ENEMY_POOL), gymIdx);
+    // Battle 1: half HP, no zone effect
+    const enemy = b === 1 ? { ...baseEnemy, hp: Math.round(baseEnemy.hp * 0.5) } : baseEnemy;
+    const result = simulateBattle(player, enemy, livesLeft);
+    livesLeft = result.livesLeft;  // carry remaining lives forward
 
     if (!result.won) {
       return { won: false, battlesWon, hpAtEnd: 0,
@@ -572,7 +586,7 @@ function simulateRun(element, talentCfg, zone, strategy) {
   // Gym boss — full heal before
   player.hp = maxHP;
   const boss = gymEnemy(element, gymIdx);
-  const gymResult = simulateBattle(player, boss);
+  const gymResult = simulateBattle(player, boss, livesLeft);
 
   return {
     won: gymResult.won,

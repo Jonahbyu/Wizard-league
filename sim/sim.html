@@ -94,12 +94,25 @@
     <div class="cfg-section">
       <div class="cfg-label">Strategy</div>
       <div class="cfg-row" id="strat-btns">
-        <button class="cfg-btn active" onclick="simCfg.strategy='smart'; _setActive(this,this.closest('.cfg-row'))"
-          title="Smart: prioritizes spells with the longest cooldown (highest power), fills remaining actions with basic attacks">Smart</button>
-        <button class="cfg-btn" onclick="simCfg.strategy='random'; _setActive(this,this.closest('.cfg-row'))"
-          title="Random: shuffles available spells and picks randomly, fills remaining actions with basic attacks">Random</button>
-        <button class="cfg-btn" onclick="simCfg.strategy='basic'; _setActive(this,this.closest('.cfg-row'))"
+        <button class="cfg-btn active" onclick="simCfg.strategy='smart'; _setActive(this,this.closest('.cfg-row')); document.getElementById('smart-opts').style.display='block'"
+          title="Smart: commits to an archetype goal each run, scores rewards toward that goal">Smart</button>
+        <button class="cfg-btn" onclick="simCfg.strategy='random'; _setActive(this,this.closest('.cfg-row')); document.getElementById('smart-opts').style.display='none'"
+          title="Random: shuffles available spells and picks randomly">Random</button>
+        <button class="cfg-btn" onclick="simCfg.strategy='basic'; _setActive(this,this.closest('.cfg-row')); document.getElementById('smart-opts').style.display='none'"
           title="Basic Only: never uses spells — only basic attacks every turn">Basic Only</button>
+      </div>
+    </div>
+
+    <div class="cfg-section" id="smart-opts">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem">
+        <span class="cfg-label" style="margin:0">Engine Builder</span>
+        <span id="exp-ratio-label" style="font-size:.65rem;color:#c8a060">20% Experimental</span>
+      </div>
+      <input type="range" id="exp-ratio-slider" min="0" max="100" value="20"
+        oninput="simCfg.experimentalRatio=this.value/100; document.getElementById('exp-ratio-label').textContent=this.value+'% Experimental'"
+        style="width:100%;accent-color:#c8a060;height:4px">
+      <div style="display:flex;justify-content:space-between;font-size:.58rem;color:#4a4030;margin-top:.2rem">
+        <span>⚙ Engine</span><span>🎲 Random</span>
       </div>
     </div>
 
@@ -117,6 +130,12 @@
         onchange="simCfg.startSpellId=this.value||null">
         <option value="">Random / Default</option>
       </select>
+      <div class="cfg-row" style="margin-top:.4rem">
+        <span class="cfg-label">Starting Book</span>
+        <select id="start-book-sel" onchange="simCfg.startBookId = this.value || null" style="background:#0c0c14;border:1px solid #2a2a3a;color:#c8a060;font-size:.7rem;padding:.2rem .4rem;border-radius:4px;font-family:'Cinzel',serif">
+          <option value="">Random / Default</option>
+        </select>
+      </div>
     </div>
 
     <div class="cfg-section">
@@ -174,13 +193,9 @@
       </div>
     </div>
 
-    <!-- saved run history -->
-    <div id="history-panel">
-      <div class="hist-header">
-        <h3>Saved Runs</h3>
-        <button class="hist-clear" onclick="_clearHistory()">Clear All</button>
-      </div>
-      <div id="history-list"><div class="hist-none">No saved runs yet.</div></div>
+    <!-- history panel hidden — rendered in History tab instead -->
+    <div id="history-panel" style="display:none">
+      <div id="history-list"></div>
     </div>
   </div>
 </div>
@@ -301,12 +316,12 @@ function _drainSimQueue() {
   _simDraining = true;
   while (_simQueue.length > 0 && !_simRunDone) {
     if (++_simIter > SIM_ITER_LIMIT) {
-      console.error('SIM: iteration limit hit — possible infinite loop');
+      console.error('SIM: iteration limit hit — battle:', battleNumber, 'hp:', player.hp, 'enemies:', (combat.enemies||[]).map(e=>e.hp+'hp'));
       _simRunDone = true;
       break;
     }
     const fn = _simQueue.shift();
-    try { fn(); } catch(e) { console.error('SIM queue error:', e); }
+    try { fn(); } catch(e) { console.error('SIM queue error:', e, '| battle:', battleNumber, '| fn:', fn.toString().slice(0,80)); }
   }
   _simDraining = false;
 }
@@ -473,31 +488,60 @@ function showShopScreen()     { showMap(); }
 function showCampfireScreen() { showMap(); }
 
 function _simEnterCampfire() {
-  // Always Rest & Recover: heal 50% HP + restore all PP
-  applyHeal('player', Math.floor(maxHPFor('player') * 0.50), '🔥 Campfire rest');
+  const maxHP = maxHPFor('player');
+  if (player.hp < maxHP * 0.30) _simRunLowHPCampfires++;
+  const healed = Math.floor(maxHP * 0.50);
+  applyHeal('player', healed, '🔥 Campfire rest');
   restoreAllPP();
+  log(`🔥 Campfire: healed ${healed} HP, PP restored`, 'win');
   showMap();
 }
 
 function _simEnterShop() {
   const m = player._mistShopPriceMult || 1.0;
   const c = n => Math.ceil(n * m);
-  // Priority buy: extra action (most impactful) > extra life > stat > consumable
+  log(`🛒 Shop — gold: ${player.gold}`, 'system');
+
+  // Real shop has one reward slot (spell OR incantation) — pick randomly like the game does
+  const rewardItem = Math.random() < 0.5
+    ? { label: 'Spell Reward', cost: c(150), apply() {
+        const pool = buildSpellChoicePool('secondary', null);
+        if (pool.length > 0) {
+          const s = addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+          if (s) log(`  📜 Shop spell: ${s.emoji||'✨'} ${s.name} [${s.rarity||'dim'}]`, 'item');
+        }
+      }}
+    : { label: 'Incantation', cost: c(150), apply() {
+        const elig = [];
+        (player.spellbooks||[]).forEach(b => b.spells.forEach(s => { if (!s.isBuiltin) elig.push(s); }));
+        if (elig.length > 0) {
+          const s = elig[Math.floor(Math.random() * elig.length)];
+          s.incantationLevel = (s.incantationLevel||1) + 1;
+          log(`  ✦ Shop incantation: ${s.emoji||'✨'} ${s.name} → Lv${s.incantationLevel}`, 'item');
+        }
+      }};
+
+  // Priority list — buy ALL affordable items (real game allows multiple purchases per shop)
   const candidates = [
-    { cost: c(250), apply() { player.bonusActions = (player.bonusActions||0) + 1; } },
-    ...((player.revives||0) < 3 ? [{ cost: c(200), apply() { player.revives = (player.revives||0) + 1; } }] : []),
-    { cost: c(100), apply() { player.attackPower += 5; } },
-    { cost: c(100), apply() { player.effectPower += 5; } },
-    { cost: c(100), apply() { player.defense += 5; } },
-    { cost: c(50),  apply() { addItem('health_potion'); } },
+    { label: 'Extra Action',    cost: c(250), apply() { player.bonusActions = (player.bonusActions||0) + 1; } },
+    ...((player.revives||0) < 3 ? [{ label: 'Extra Life', cost: c(200), apply() { player.revives = (player.revives||0) + 1; } }] : []),
+    rewardItem,
+    { label: '+5 Attack Power', cost: c(100), apply() { player.attackPower += 5; } },
+    { label: '+5 Effect Power', cost: c(100), apply() { player.effectPower += 5; } },
+    { label: '+5 Defense',      cost: c(100), apply() { player.defense += 5; } },
+    { label: '+25 Max HP',      cost: c(100), apply() { player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+25; player.hp=Math.min(maxHPFor('player'),player.hp+25); } },
   ];
+  let bought = false;
   for (const item of candidates) {
     if (player.gold >= item.cost) {
       player.gold -= item.cost;
+      _simRunGoldSpent += item.cost;
       try { item.apply(); } catch(e) {}
-      break;
+      log(`  💰 Bought: ${item.label} (${item.cost}g) — gold left: ${player.gold}`, 'win');
+      bought = true;
     }
   }
+  if (!bought) log(`  (nothing affordable)`, 'system');
   showMap();
 }
 </script>
@@ -540,6 +584,59 @@ function _simEnterShop() {
 
 // combat.js defines renderQueue with DOM access — replace with no-op
 renderQueue = function() {};
+
+// ── Damage tracking ───────────────────────────────────────────────────────────
+var _simRunDmgByType  = {};   // { type: totalDmg } — reset each run
+var _simRunDmgBySpell = {};   // { spellId: totalDmg } — direct hit dmg per spell
+var _simCurrentSpellId = null; // set while a spell/basic action is executing
+var _simRunSpellsLog     = [];  // [{id, zone, rarity}] — spell acquisition per zone
+var _simRunGoldSpent     = 0;   // gold spent in shops this run
+var _simRunLowHPCampfires = 0;  // campfire visits with HP < 30%
+
+function _simDmgType(label, spellId) {
+  // Classify a damage event into a source category
+  const l = label ? label.toLowerCase() : '';
+  if (l.includes('burn'))                          return 'burn';
+  if (l.includes('frost') || l.includes('permafrost')) return 'frost';
+  if (l.includes('shock') || l.includes('static shock')) return 'shock';
+  if (l.includes('foam'))                          return 'foam';
+  if (l.includes('root') || l.includes('thorn') || l.includes('briar')) return 'root';
+  if (l.includes('stone') || l.includes('earth crush')) return 'stone';
+  if (l.includes('melt'))                          return 'melt';
+  if (l.includes('surge'))                         return 'surge';
+  if (l.includes('seed') || l.includes('bloom'))   return 'seed';
+  if (spellId === '_basic' || l.includes('basic') || l.includes('⚔')) return 'basic';
+  if (spellId && spellId !== '_basic')              return 'spell';
+  return 'other';
+}
+
+// Wrap applyDirectDamage to record damage source breakdown
+(function(){
+  const _orig = applyDirectDamage;
+  applyDirectDamage = function(attackerSide, defenderSide, dmg, label, opts) {
+    if (attackerSide === 'player' && defenderSide === 'enemy' && dmg > 0 && !_simRunDone) {
+      const type = _simDmgType(label, _simCurrentSpellId);
+      _simRunDmgByType[type] = (_simRunDmgByType[type] || 0) + dmg;
+      // Attribute direct-hit damage back to the spell that triggered it
+      if (_simCurrentSpellId && _simCurrentSpellId !== '_basic' && type === 'spell') {
+        _simRunDmgBySpell[_simCurrentSpellId] = (_simRunDmgBySpell[_simCurrentSpellId] || 0) + dmg;
+      }
+    }
+    return _orig.apply(this, arguments);
+  };
+})();
+
+// Wrap addSpellById to record which zone each spell was acquired in
+(function(){
+  const _origAdd = addSpellById;
+  addSpellById = function(id, replace, rarity) {
+    const result = _origAdd.call(this, id, replace, rarity);
+    if (result && !_simRunDone) {
+      _simRunSpellsLog.push({ id, zone: currentGymIdx || 0, rarity: result.rarity || 'dim' });
+    }
+    return result;
+  };
+})();
 
 // Zone tick fires every round; ZONE_EFFECTS also fires on every hit — they double-stack.
 // Per-round tick is not intended game behavior, so disable it in the sim.
@@ -627,12 +724,21 @@ function _cfgLabel(cfg) {
 }
 
 function _renderHistory() {
-  const list = _origGetById('history-list');
-  if (!list) return;
+  // Refresh the History tab if it's currently open
+  if (_simActiveTab === 'history') {
+    const body = _origGetById('results-tab-body');
+    if (body) _renderHistoryTab(body);
+  }
+}
+
+function _renderHistoryTab(body) {
   const hist = _loadHistory();
-  if (hist.length === 0) { list.innerHTML = '<div class="hist-none">No saved runs yet.</div>'; return; }
-  list.innerHTML = hist.map((e, i) => `
-    <div class="hist-entry" onclick="_restoreHistEntry(${i})" title="Click to restore this run's results">
+  if (!hist.length) {
+    body.innerHTML = '<div style="color:#3a3020;padding:1.5rem;text-align:center">No saved runs yet.<br><span style="font-size:.7rem">Runs are saved automatically after each simulation.</span></div>';
+    return;
+  }
+  const rows = hist.map((e, i) => `
+    <div class="hist-entry" onclick="_restoreHistEntry(${i})" title="Click to restore this run's results" style="cursor:pointer">
       <div class="he-wr">${(e.stats.winRate * 100).toFixed(1)}%</div>
       <div class="he-cfg">
         <div>${_cfgLabel(e.cfg)}</div>
@@ -640,6 +746,12 @@ function _renderHistory() {
       </div>
       <div class="he-date">${e.date}</div>
     </div>`).join('');
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+      <span style="font-size:.65rem;color:#5a5040;letter-spacing:.1em;text-transform:uppercase">${hist.length} saved run${hist.length===1?'':'s'}</span>
+      <button class="hist-clear" onclick="_clearHistory()" style="font-size:.65rem">Clear All</button>
+    </div>
+    ${rows}`;
 }
 
 function _restoreHistEntry(idx) {
@@ -662,12 +774,24 @@ function _restoreHistEntry(idx) {
 // battleReward.js overrides reward screens — re-override with auto-pick versions
 showPassiveChoiceScreen = function(level, forElement) {
   const pool = buildPassiveChoicePool(forElement || null);
-  if (pool.length > 0) addPassiveToBook(pool[Math.floor(Math.random() * pool.length)].id);
+  if (pool.length > 0) {
+    const pick = simCfg.strategy === 'smart'
+      ? _simPickSmart(pool, p => _simScorePassive(p.id))
+      : pool[Math.floor(Math.random() * pool.length)];
+    addPassiveToBook(pick.id);
+    log(`🧿 Passive: ${pick.emoji||''} ${pick.title||pick.id}`, 'win');
+  }
   processNextLevelUp();
 };
 showSpellChoiceScreen = function(level, tier, forElement) {
   const pool = buildSpellChoicePool(tier || 'secondary', forElement || null);
-  if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+  if (pool.length > 0) {
+    const pick = simCfg.strategy === 'smart'
+      ? _simPickSmart(pool, p => _simScoreSpell(p.id))
+      : pool[Math.floor(Math.random() * pool.length)];
+    const spell = addSpellById(pick.id, false, rollSpellRarity());
+    if (spell) log(`📜 Spell: ${spell.emoji||'✨'} ${spell.name} [${spell.rarity||'dim'}]`, 'win');
+  }
   processNextLevelUp();
 };
 showIncantationChoiceScreen = function(level) {
@@ -730,7 +854,14 @@ const simCfg = {
   nRuns:        50,
   startPassiveId: null,  // null = random
   startSpellId:   null,  // null = random / giveStarterSpell default
+  startBookId:       null,  // null = random / default
+  experimentalRatio: 0.20,  // 0 = pure engine-builder, 1 = pure random
 };
+
+// ── Results tab state ─────────────────────────────────────────────────────────
+let _simLastData    = null;  // { elementResults, n, isMulti }
+let _simActiveTab   = 'aggregate';
+let _simDiveElement = null;
 
 // ── Result recording ──────────────────────────────────────────────────────────
 var _simCurrentResult = null;
@@ -741,13 +872,23 @@ function _simRecordResult(won) {
   _simRunDone = true;
   _simCurrentResult = {
     won,
-    gymsCleared: currentGymIdx,   // 0 = died in zone 1, 1 = died in zone 2, 2 = died in zone 3, 3 = won
+    gymsCleared: currentGymIdx,
     battleNumber: battleNumber || 0,
-    zoneBattleCount: zoneBattleCount || 0, // battles won in current zone (resets per zone)
+    zoneBattleCount: zoneBattleCount || 0,
     playerHPLeft: player.hp,
     maxHP: maxHPFor('player'),
-    spells:  (player.spellbooks || []).flatMap(b => b.spells.filter(s => !s.isBuiltin).map(s => s.id)),
+    spells:      (player.spellbooks || []).flatMap(b => b.spells.filter(s => !s.isBuiltin).map(s => s.id)),
+    spellLevels: (player.spellbooks || []).flatMap(b => b.spells.filter(s => !s.isBuiltin).map(s => ({ id: s.id, lv: s.incantationLevel || 1 }))),
     passives:(player.spellbooks || []).flatMap(b => b.passives),
+    dmgByType:         { ..._simRunDmgByType  },
+    dmgBySpell:        { ..._simRunDmgBySpell },
+    secondaryElements: [...(player.unlockedElements || [])],
+    spellsLog:       _simRunSpellsLog.slice(),
+    goldAtEnd:       player.gold,
+    goldSpent:       _simRunGoldSpent,
+    lowHPCampfires:  _simRunLowHPCampfires,
+    bookCount:       player.spellbooks.length,
+    archetypeGoal:   _simRunArchetypeGoal,
   };
 }
 
@@ -762,7 +903,19 @@ function _simLoadNextBattle() {
   if (gym && (gymIsForced() || gymShouldAppear())) {
     const roster = GYM_ROSTER;
     if (roster && roster[currentGymIdx]) {
-      loadBattle(Object.assign({}, roster[currentGymIdx], { _rewardType: 'gym' }));
+      const g = roster[currentGymIdx];
+      loadBattle({
+        name: g.name, emoji: g.emoji, element: g.element, color: g.color,
+        difficulty: 'gym', diffClass: 'diff-hard',
+        enemyMaxHP: gymBossHP(), enemyDmg: g.baseDmg,
+        gold: g.gold, type: 'wizard', isGym: true,
+        signature: g.signature,
+        gymPassive: g.passive, gymPhase2Passive: g.phase2Passive,
+        gymEntryEffect: g.entryEffect,
+        gymHitCounter: 0, gymPhase2: false,
+        gymPhase2Dmg: g.phase2Dmg, gymChargeInterval: g.chargeInterval,
+        _rewardType: 'gym',
+      });
     } else {
       _simRecordResult(false);
     }
@@ -809,7 +962,11 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
 
   if (isRival) {
     const pool = buildPassiveChoicePool(null);
-    if (pool.length > 0) addPassiveToBook(pool[Math.floor(Math.random() * pool.length)].id);
+    if (pool.length > 0) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      addPassiveToBook(pick.id);
+      log(`🏆 Rival reward — Passive: ${pick.emoji||''} ${pick.title||pick.id}`, 'win');
+    }
     showMap();
     return;
   }
@@ -818,15 +975,23 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
 
   if (rewardType === 'primary_spell') {
     // Battle 1 reward: give the chosen starting spell, or pick a random primary spell
+    let spell;
     if (simCfg.startSpellId) {
-      addSpellById(simCfg.startSpellId, false, 'dim');
+      spell = addSpellById(simCfg.startSpellId, false, 'dim');
     } else {
       const pool = buildSpellChoicePool('primary', null);
-      if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+      if (pool.length > 0) spell = addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
     }
+    if (spell) log(`📜 Starter spell: ${spell.emoji||'✨'} ${spell.name} [${spell.rarity||'dim'}]`, 'win');
   } else if (rewardType === 'spell' || rewardType === 'secondary_spell') {
     const pool = buildSpellChoicePool('secondary', null);
-    if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+    if (pool.length > 0) {
+      const pick = simCfg.strategy === 'smart'
+        ? _simPickSmart(pool, p => _simScoreSpell(p.id))
+        : pool[Math.floor(Math.random() * pool.length)];
+      const spell = addSpellById(pick.id, false, rollSpellRarity());
+      if (spell) log(`📜 New spell: ${spell.emoji||'✨'} ${spell.name} [${spell.rarity||'dim'}]`, 'win');
+    }
   } else if (rewardType === 'incantation') {
     const eligible = [];
     (player.spellbooks || []).forEach(book => {
@@ -835,6 +1000,7 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
     if (eligible.length > 0) {
       const pick = eligible[Math.floor(Math.random() * eligible.length)];
       pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+      log(`✦ Incantation upgraded: ${pick.name} → Lv${pick.incantationLevel}`, 'win');
     } else {
       // No spells to upgrade yet — fall back to minor reward
       const pool = buildMinorUpgradePool();
@@ -842,10 +1008,34 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
     }
   } else if (rewardType === 'minor') {
     const pool = buildMinorUpgradePool();
-    if (pool.length > 0) try { pool[Math.floor(Math.random() * pool.length)].apply(); } catch(e) {}
+    if (pool.length > 0) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      try { pick.apply(); log(`⬆ Minor upgrade: ${pick.label||'stat boost'}`, 'win'); } catch(e) {}
+    }
   } else if (rewardType === 'major') {
-    const pool = buildMajorUpgradePool().filter(p => !p._modal);
-    if (pool.length > 0) try { pool[Math.floor(Math.random() * pool.length)].apply(); } catch(e) {}
+    const pool = buildMajorUpgradePool();
+    if (pool.length > 0) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      if (pick._modal) {
+        // New Spellbook modal — add a random book inline (no DOM needed)
+        log(`⬆⬆ Major upgrade: ${pick.label||'New Spellbook'}`, 'win');
+        if ((player.spellbooks||[]).length < 3 && typeof _buildBookDiscoveryChoices === 'function') {
+          const choices = _buildBookDiscoveryChoices(3);
+          if (choices.length > 0) {
+            const inst = makeBookInstance(choices[Math.floor(Math.random() * choices.length)]);
+            if (inst) {
+              inst.spells.push(
+                { id:'_basic', emoji:'⚔', name:'Basic Attack', baseCooldown:1, currentCD:0, isBuiltin:true },
+                { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true }
+              );
+              player.spellbooks.push(inst);
+            }
+          }
+        }
+      } else {
+        try { pick.apply(); log(`⬆⬆ Major upgrade: ${pick.label||'major boost'}`, 'win'); } catch(e) {}
+      }
+    }
   }
 
   showMap();
@@ -854,13 +1044,23 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
 // ── Re-override interactive screens (battleReward.js replaces pre-stubs; restore auto-pick) ──
 showPassiveChoiceScreen = function(level, forElement) {
   const pool = buildPassiveChoicePool(forElement || null);
-  if (pool.length > 0) addPassiveToBook(pool[Math.floor(Math.random() * pool.length)].id);
+  if (pool.length > 0) {
+    const pick = simCfg.strategy === 'smart'
+      ? _simPickSmart(pool, p => _simScorePassive(p.id))
+      : pool[Math.floor(Math.random() * pool.length)];
+    addPassiveToBook(pick.id);
+  }
   processNextLevelUp();
 };
 
 showSpellChoiceScreen = function(level, tier, forElement) {
   const pool = buildSpellChoicePool(tier || 'secondary', forElement || null);
-  if (pool.length > 0) addSpellById(pool[Math.floor(Math.random() * pool.length)].id, false, rollSpellRarity());
+  if (pool.length > 0) {
+    const pick = simCfg.strategy === 'smart'
+      ? _simPickSmart(pool, p => _simScoreSpell(p.id))
+      : pool[Math.floor(Math.random() * pool.length)];
+    addSpellById(pick.id, false, rollSpellRarity());
+  }
   processNextLevelUp();
 };
 
@@ -872,6 +1072,7 @@ showIncantationChoiceScreen = function(level) {
   if (eligible.length > 0) {
     const pick = eligible[Math.floor(Math.random() * eligible.length)];
     pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+    log(`✦ Incantation: ${pick.emoji||'✨'} ${pick.name} → Lv${pick.incantationLevel}`, 'win');
   }
   processNextLevelUp();
 };
@@ -911,13 +1112,143 @@ showBookDiscoveryScreen = function() {
   _continueGymFlow();
 };
 
+// Pick best-scoring item from a draw, with experimental fallback
+// scoreFn(item) → number. expRatio 0=always best, 1=always random.
+function _simPickSmart(pool, scoreFn) {
+  if (!pool || !pool.length) return null;
+  const expRatio = simCfg.experimentalRatio != null ? simCfg.experimentalRatio : 0.20;
+  if (Math.random() < expRatio) return pool[Math.floor(Math.random() * pool.length)]; // experimental
+  const draw = pool.length > 3 ? pickRandom(pool, 3) : pool.slice();
+  return draw.reduce((best, item) => scoreFn(item) >= scoreFn(best) ? item : best, draw[0]);
+}
+
+// ── Archetype goal system ─────────────────────────────────────────────────────
+var _simRunArchetypeGoal = null; // set at run start when strategy='smart'
+
+const _ARCHETYPE_PROFILES = {
+  'Burn Stack':  { primaryType:'burn',  el:'Fire',      keywords:['burn','ignite','kindle','ember','flame','fire','inferno','char','scorch','blaze'] },
+  'Melt-Burn':   { primaryType:'burn',  el:'Fire',      keywords:['burn','melt','lava','kindle','fire','molten','temper'] },
+  'Melt-Burst':  { primaryType:'spell', el:'Fire',      keywords:['melt','lava','molten','damage','strike','blast'] },
+  'Melt':        { primaryType:'melt',  el:null,        keywords:['melt','lava','molten','temper','slag'] },
+  'Frost Stack': { primaryType:'frost', el:'Ice',       keywords:['frost','freeze','chill','cold','ice','blizzard','glacial','shatter'] },
+  'Freeze':      { primaryType:'frost', el:'Ice',       keywords:['freeze','frost','chill','cold','ice','crystal'] },
+  'Shock Chain': { primaryType:'shock', el:'Lightning', keywords:['shock','static','lightning','overload','chain','bolt','arc','thunder'] },
+  'Surge-Shock': { primaryType:'shock', el:'Plasma',    keywords:['surge','shock','plasma','fulgurite','charge','ion','discharge'] },
+  'Surge':       { primaryType:'surge', el:'Plasma',    keywords:['surge','plasma','charge','fulgurite','ion','overcharge'] },
+  'Foam Strip':  { primaryType:'foam',  el:'Water',     keywords:['foam','drench','wave','water','flood','torrent','bubble','soak'] },
+  'Root-Thorn':  { primaryType:'root',  el:'Nature',    keywords:['root','thorn','briar','nature','vine','entangle','bramble'] },
+  'Seed Bloom':  { primaryType:'seed',  el:'Nature',    keywords:['seed','bloom','spore','petal','growth','sprout','grove'] },
+  'Stone Crush': { primaryType:'stone', el:'Earth',     keywords:['stone','earth','crush','quake','boulder','geode','rock'] },
+  'Burst':       { primaryType:'spell', el:null,        keywords:['strike','blast','bolt','hit','burst','damage','power','force'] },
+};
+
+// ── Smart reward scoring ─────────────────────────────────────────────────────
+function _simCurrentBuildType() {
+  const d = _simRunDmgByType;
+  const total = Object.values(d).reduce((s,v)=>s+v,0) || 1;
+  let best = 'spell', bestPct = 0;
+  for (const [t, v] of Object.entries(d)) {
+    if (v/total > bestPct) { bestPct = v/total; best = t; }
+  }
+  return best; // dominant damage type so far
+}
+
+const _BUILD_SPELL_KEYWORDS = {
+  burn:  ['burn','ignite','kindle','ember','flame','fire','inferno','char','scorch'],
+  frost: ['frost','freeze','chill','cold','ice','blizzard','permafrost','glacial'],
+  shock: ['shock','static','lightning','overload','storm','bolt','arc','surge'],
+  foam:  ['foam','drench','wave','water','flood','torrent','bubble'],
+  root:  ['root','thorn','briar','seed','bloom','vine','nature','grove'],
+  stone: ['stone','earth','crush','quake','boulder','geode','rock'],
+  melt:  ['melt','lava','molten','temper','slag','volcanic'],
+  surge: ['surge','charge','plasma','fulgurite','ion','static charge'],
+  seed:  ['seed','bloom','spore','petal','growth'],
+};
+
+// Detect which archetype the current run is naturally becoming, based on spells+damage so far
+function _simDetectCurrentArchetype() {
+  // Use existing spells + damage type distribution to find best-matching archetype profile
+  const existingSpells = (player.spellbooks||[]).flatMap(b=>b.spells).filter(s=>!s.isBuiltin);
+  const spellText = existingSpells.map(s => {
+    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[s.id]) {
+      const d = SPELL_CATALOGUE[s.id]; return `${d.name||''} ${d.desc||''} ${d.element||''}`;
+    }
+    return s.id;
+  }).join(' ').toLowerCase();
+
+  // Also factor in damage dealt so far
+  const dmgTotal = Object.values(_simRunDmgByType).reduce((s,v)=>s+v,0) || 1;
+  const dmgPct = t => (_simRunDmgByType[t]||0) / dmgTotal;
+
+  // Score each archetype profile against current state
+  let bestArch = null, bestScore = -1;
+  for (const [arch, prof] of Object.entries(_ARCHETYPE_PROFILES)) {
+    let s = 0;
+    s += prof.keywords.filter(k => spellText.includes(k)).length * 2;
+    if (prof.primaryType) s += dmgPct(prof.primaryType) * 10;
+    if (prof.el && existingSpells.some(sp => {
+      const d = (typeof SPELL_CATALOGUE!=='undefined') && SPELL_CATALOGUE[sp.id];
+      return d && d.element === prof.el;
+    })) s += 3;
+    if (s > bestScore) { bestScore = s; bestArch = arch; }
+  }
+  return bestArch; // what the run is naturally becoming
+}
+
+function _simScoreSpell(id) {
+  if (!id || typeof SPELL_CATALOGUE === 'undefined' || !SPELL_CATALOGUE[id]) return 0;
+  const d = SPELL_CATALOGUE[id];
+  const nameDesc = `${d.name||''} ${d.desc||''} ${d.element||''}`.toLowerCase();
+
+  // Detect what archetype the run is naturally becoming
+  const currentArch = _simDetectCurrentArchetype();
+  _simRunArchetypeGoal = currentArch; // track for result recording
+
+  let score = 0;
+  if (currentArch && _ARCHETYPE_PROFILES[currentArch]) {
+    const prof = _ARCHETYPE_PROFILES[currentArch];
+    // Strongly reward spells that reinforce the emerging build
+    const keywordMatches = prof.keywords.filter(k => nameDesc.includes(k)).length;
+    score += keywordMatches * 3;
+    if (prof.el && d.element === prof.el) score += 2;
+    else if (d.element === playerElement) score += 1;
+  } else {
+    // No build direction yet — just prefer player element
+    if (d.element === playerElement) score += 2;
+  }
+  // Avoid duplicates
+  const existing = (player.spellbooks||[]).flatMap(b=>b.spells).map(s=>s.id);
+  if (existing.includes(id)) score -= 3;
+  return score;
+}
+
+function _simScorePassive(id) {
+  if (!id) return 0;
+  const currentArch = _simDetectCurrentArchetype();
+  const keywords = currentArch && _ARCHETYPE_PROFILES[currentArch]
+    ? _ARCHETYPE_PROFILES[currentArch].keywords
+    : (_BUILD_SPELL_KEYWORDS[_simCurrentBuildType()] || []);
+  let score = 0;
+  if (keywords.some(k => id.toLowerCase().includes(k))) score += 3;
+  if (typeof PASSIVE_CHOICES !== 'undefined') {
+    for (const el of Object.values(PASSIVE_CHOICES)) {
+      const p = el.find(x => x.id === id);
+      if (p) {
+        const text = `${p.title||''} ${p.desc||''} ${p.detail||''}`.toLowerCase();
+        if (keywords.some(k => text.includes(k))) score += 3;
+        break;
+      }
+    }
+  }
+  return score;
+}
+
 // ── Auto-play engine ──────────────────────────────────────────────────────────
 // Called when setPlayerTurnUI(true) fires — picks and queues player actions.
 function _simAutoPlay() {
   if (_simRunDone || combat.over || !combat.playerTurn) return;
 
   const strategy   = simCfg.strategy;
-  const actionsAvail = combat.actionsLeft || 2; // set by startRound before setPlayerTurnUI
 
   // Best target: highest-HP alive enemy
   const aliveEn = (combat.enemies || []).filter(e => e.alive);
@@ -927,25 +1258,57 @@ function _simAutoPlay() {
   combat.targetIdx = absIdx >= 0 ? absIdx : 0;
   setActiveEnemy(combat.targetIdx);
 
+  // Smart book-switching: if another book has more valuable usable spells, switch to it.
+  // Costs 1 action (only when 2+ actions are available).
+  // Score = sum of baseCooldown of available spells (higher CD → more powerful).
+  function _bookUsableScore(b) {
+    if (!b) return -1;
+    return b.spells.filter(s =>
+      !s.isBuiltin && (s.currentCD||0) === 0 && (s.maxPP === undefined || (s.currentPP||0) > 0)
+    ).reduce((sum, s) => sum + (s.baseCooldown||1), 0);
+  }
+
+  let book    = player.spellbooks[player.activeBookIdx];
+  let queued  = 0;
+  const actionsAvail = (combat.actionsLeft || 2) + (player.bonusActions || 0);
+
+  if (strategy === 'smart' && player.spellbooks.length > 1 && actionsAvail >= 2) {
+    let bestScore = _bookUsableScore(book);
+    let bestIdx   = player.activeBookIdx;
+    player.spellbooks.forEach((b, i) => {
+      if (i === player.activeBookIdx) return;
+      const score = _bookUsableScore(b);
+      if (score > bestScore) { bestScore = score; bestIdx = i; }
+    });
+    if (bestIdx !== player.activeBookIdx) {
+      const switchTo = bestIdx;
+      const newBook  = player.spellbooks[bestIdx];
+      // Queue the switch action (costs 1 action), apply immediately so spell selection uses new book
+      queueAction('📖 ' + newBook.name, () => { if (typeof switchBook === 'function') switchBook(switchTo); }, {});
+      if (typeof switchBook === 'function') switchBook(switchTo);
+      book   = player.spellbooks[player.activeBookIdx];
+      queued = 1;
+    }
+  }
+
   // Collect usable non-builtin spells from active book
-  const book   = player.spellbooks[player.activeBookIdx];
-  const spells  = book ? book.spells : (player.spellbook || []);
-  const usable  = spells.filter(s => {
+  const spells = book ? book.spells : (player.spellbook || []);
+  const usable = spells.filter(s => {
     if (!s || s.isBuiltin) return false;
     if ((s.currentCD || 0) > 0) return false;
     if (s.maxPP !== undefined && (s.currentPP || 0) <= 0) return false;
     return true;
   });
 
-  let queued = 0;
-
   function queueSpell(s) {
     if (queued >= actionsAvail) return false;
     const bookCatalogueId = book ? (book.catalogueId || null) : null;
     const spellRef = s;
     queueAction(s.emoji + ' ' + s.name, () => {
+      _simCurrentSpellId = spellRef.id;
       const ctx = makeSpellCtx('player', 'enemy', -1);
       try { spellRef.execute(ctx); } catch(e) { console.warn('spell exec err', spellRef.id, e); }
+      _simCurrentSpellId = null;
     }, { isSpellAction: true, spellObj: s, bookCatalogueId });
     // Apply CD and consume PP immediately so next queueSpell sees updated state
     s.currentCD = adjustedCooldownFor('player', s.baseCooldown || 0);
@@ -957,11 +1320,14 @@ function _simAutoPlay() {
   function queueBasic() {
     if (queued >= actionsAvail) return;
     queueAction('⚔ Basic', () => {
-      // Use applyDirectDamage directly — simpler than going through UI functions
+      // Mirror doBasicAttack in ui.js: compute base dmg (no AP), pass to performHit
+      // performHit → applyOutgoingDamageMods adds attackPower and checks enemy block
+      _simCurrentSpellId = '_basic';
       const dmg = Math.max(1, Math.round(
-        (10 + player.attackPower * 0.4) * (player.basicDmgMult || 1.0) + (player.basicDmgFlat || 0)
+        (25 + (player.basicDmgFlat || 0)) * (player.basicDmgMult || 1.0)
       ));
-      applyDirectDamage('player', 'enemy', dmg, '⚔ Basic');
+      performHit('player', 'enemy', { baseDamage: dmg, isBasic: true, abilityElement: playerElement, effects: [] });
+      _simCurrentSpellId = null;
     }, {});
     queued++;
   }
@@ -1087,6 +1453,13 @@ function simInitRun(cfg) {
 
   resetStatusForBattle();
 
+  _simRunDmgByType  = {};
+  _simRunDmgBySpell = {};
+  _simCurrentSpellId = null;
+  _simRunSpellsLog      = [];
+  _simRunGoldSpent      = 0;
+  _simRunLowHPCampfires = 0;
+
   battleNumber = 1; currentGymIdx = 0; zoneBattleCount = 0;
   gymSkips = 0; gymDefeated = false; pendingLevelUps = [];
   _zoneRivalDefeated = false;
@@ -1102,6 +1475,8 @@ function simInitRun(cfg) {
   applyArtifactBonuses();
   applyMistModifiers();
   applyTalentBonuses();
+  // Archetype goal starts null — updated reactively as spells are taken
+  _simRunArchetypeGoal = null;
   initSpellbooksForRun();
 
   // Starting passive
@@ -1111,6 +1486,21 @@ function simInitRun(cfg) {
     const startPool = buildPassiveChoicePool(playerElement);
     if (startPool.length > 0)
       addPassiveToBook(startPool[Math.floor(Math.random() * startPool.length)].id);
+  }
+
+  // If a specific starting book was chosen, set it as the primary book
+  if (cfg.startBookId && typeof SPELLBOOK_CATALOGUE !== 'undefined' && SPELLBOOK_CATALOGUE[cfg.startBookId]) {
+    if (typeof makeBookInstance === 'function') {
+      const inst = makeBookInstance(cfg.startBookId);
+      if (inst) {
+        inst.spells.push(
+          { id:'_basic', emoji:'⚔', name:'Basic Attack', baseCooldown:1, currentCD:0, isBuiltin:true },
+          { id:'_armor', emoji:'🛡', name:'Armor',        baseCooldown:0, currentCD:0, isBuiltin:true }
+        );
+        player.spellbooks = [inst];
+        player.activeBookIdx = 0;
+      }
+    }
   }
 
   // Starting spell is awarded AFTER battle 1 as the first reward (primary_spell).
@@ -1160,6 +1550,7 @@ async function runSims() {
         if (isFirst) { _sampleLog = []; _capturingLog = true; }
         try {
           simInitRun(elCfg);
+          if (!_simCurrentResult) console.warn(`SIM: run ${j+1} null result — iter=${_simIter}, battle=${battleNumber}, queueLen=${_simQueue.length}`);
           results.push(_simCurrentResult || { won: false, gymsCleared: 0, battleNumber: 1 });
         } catch(e) {
           console.error('SIM run error:', e);
@@ -1186,6 +1577,10 @@ async function runSims() {
   progCount.textContent = `${totalRuns} / ${totalRuns}`;
   btn.disabled = false;
 
+  _simLastData = { elementResults, n, isMulti: elementResults.length > 1 };
+  _simActiveTab = 'aggregate';
+  _simDiveElement = elementResults.length > 0 ? elementResults[0].element : null;
+
   if (elementResults.length === 1) {
     const { stats, results, errors, sampleLog } = elementResults[0];
     _renderResults(stats, results, errors, false, sampleLog);
@@ -1202,9 +1597,56 @@ async function runSims() {
 }
 
 // ── Multi-element comparison renderer ─────────────────────────────────────────
+function _renderElementLinesChart(elementResults, n) {
+  if (!elementResults || elementResults.length < 2) return '';
+  const W = 400, H = 100, PX = 8, PY = 10;
+  const iW = W - PX * 2, iH = H - PY * 2;
+
+  // Grid lines
+  const grids = [0.25, 0.5, 0.75].map(p => {
+    const y = (PY + (1 - p) * iH).toFixed(1);
+    return `<line x1="${PX}" y1="${y}" x2="${W-PX}" y2="${y}" stroke="${p===0.5?'#252535':'#181820'}" stroke-width="1"/>
+            <text x="${PX-2}" y="${(+y+3).toFixed(0)}" fill="#3a3030" font-size="7" text-anchor="end">${(p*100).toFixed(0)}%</text>`;
+  }).join('');
+
+  // One polyline per element — cumulative win rate
+  const lines = elementResults.map(er => {
+    const col = _ELEM_COLOR[er.element] || '#888';
+    const pts = er.results.map((r, i) => {
+      const wins = er.results.slice(0, i + 1).filter(x => x && x.won).length;
+      const x = (PX + (i / Math.max(n - 1, 1)) * iW).toFixed(1);
+      const y = (PY + (1 - wins / (i + 1)) * iH).toFixed(1);
+      return `${x},${y}`;
+    }).join(' ');
+    // Final dot
+    const finalWR = er.stats.winRate;
+    const fx = (PX + iW).toFixed(1);
+    const fy = (PY + (1 - finalWR) * iH).toFixed(1);
+    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>
+            <circle cx="${fx}" cy="${fy}" r="2.5" fill="${col}"/>`;
+  }).join('');
+
+  // Legend
+  const legend = elementResults.map(er => {
+    const col   = _ELEM_COLOR[er.element] || '#888';
+    const emoji = _ELEM_EMOJI[er.element] || '';
+    return `<span style="color:${col};font-size:.62rem;white-space:nowrap;display:inline-flex;align-items:center;gap:3px">
+      <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="${col}" stroke-width="2"/></svg>
+      ${emoji} ${er.element} ${(er.stats.winRate*100).toFixed(0)}%</span>`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
+    ${grids}${lines}
+  </svg>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.3rem">${legend}</div>`;
+}
+
 function _renderComparison(elementResults, n) {
-  const panel = _origGetById('results-content');
-  if (!panel) return;
+  const _panelRoot = _origGetById('results-content');
+  if (!_panelRoot) return;
+  _ensureTabBar();
+  _updateTabButtons('aggregate');
+  const panel = _origGetById('results-tab-body') || _panelRoot;
 
   const ELEM_COLOR = {
     Fire:'#ff6622', Water:'#2288ff', Ice:'#88ddff', Lightning:'#ffee22',
@@ -1265,16 +1707,19 @@ function _renderComparison(elementResults, n) {
     </tr>`;
   }).join('');
 
-  // Win rate bars
-  const barRows = sorted.map(er => {
-    const col  = ELEM_COLOR[er.element] || '#888';
+  // Win rate + zone clear cards
+  const elemCards = sorted.map(er => {
+    const col   = ELEM_COLOR[er.element] || '#888';
     const emoji = ELEM_EMOJI[er.element] || '';
-    const pct  = (er.stats.winRate * 100).toFixed(1);
-    const barW = maxWR > 0 ? (er.stats.winRate / maxWR * 100).toFixed(1) : 0;
-    return `<div class="bar-row">
-      <span class="br-label" style="color:${col}">${emoji} ${er.element}</span>
-      <div class="br-bar-wrap"><div class="br-bar" style="width:${barW}%;background:${col}"></div></div>
-      <span class="br-val">${pct}% <span style="color:#5a5040">(${er.stats.wins}/${n})</span></span>
+    const wrPct = (er.stats.winRate * 100).toFixed(0);
+    const z1Pct = (er.stats._z1Clear * 100).toFixed(0);
+    const z2Pct = (er.stats._z2Clear * 100).toFixed(0);
+    const errNote = er.errors.length > 0 ? ` ⚠${er.errors.length}` : '';
+    return `<div style="background:#0c0c14;border:1px solid ${col}44;border-radius:6px;padding:.55rem .7rem;display:flex;flex-direction:column;gap:.15rem">
+      <div style="font-size:.75rem;font-weight:bold;color:${col}">${emoji} ${er.element}${errNote}</div>
+      <div style="font-size:1.3rem;font-weight:bold;color:${col};font-family:serif">${wrPct}%</div>
+      <div style="font-size:.58rem;color:#5a5040">win rate · ${er.stats.wins}/${n}</div>
+      <div style="font-size:.62rem;color:#6a6050;margin-top:.15rem">Z1 ${z1Pct}% · Z2 ${z2Pct}% · ${er.stats.avgBattles.toFixed(1)} battles/run</div>
     </div>`;
   }).join('');
 
@@ -1291,46 +1736,41 @@ function _renderComparison(elementResults, n) {
         </table>
       </div>
     </div>
-
     <div class="results-section">
-      <h3>Win Rate</h3>
-      ${barRows}
-    </div>
-
-    <div class="results-section">
-      <h3>Zone 1 Clear Rate</h3>
-      ${sorted.map(er => {
-        const col = ELEM_COLOR[er.element] || '#a07030';
-        const emoji = ELEM_EMOJI[er.element] || '';
-        const pct  = (er.stats._z1Clear * 100).toFixed(1);
-        const maxZ1 = Math.max(...sorted.map(e => e.stats._z1Clear), 0.01);
-        const barW = (er.stats._z1Clear / maxZ1 * 100).toFixed(1);
-        const cnt  = er.results.filter(r => r && (r.gymsCleared||0) >= 1).length;
-        return `<div class="bar-row">
-          <span class="br-label" style="color:${col}">${emoji} ${er.element}</span>
-          <div class="br-bar-wrap"><div class="br-bar" style="width:${barW}%;background:${col}"></div></div>
-          <span class="br-val">${pct}% <span style="color:#5a5040">(${cnt}/${n})</span></span>
-        </div>`;
-      }).join('')}
-    </div>
-
-    <div class="results-section">
-      <h3>Zone 1 Battle 1 Survival</h3>
-      ${sorted.map(er => {
-        const col  = ELEM_COLOR[er.element] || '#a07030';
-        const emoji = ELEM_EMOJI[er.element] || '';
-        const cnt  = (er.stats.z1Counts && er.stats.z1Counts[0]) || 0;
-        const pct  = (cnt / n * 100).toFixed(1);
-        const maxB1 = Math.max(...sorted.map(e => (e.stats.z1Counts && e.stats.z1Counts[0]) || 0), 1);
-        const barW = (cnt / maxB1 * 100).toFixed(1);
-        return `<div class="bar-row">
-          <span class="br-label" style="color:${col}">${emoji} ${er.element}</span>
-          <div class="br-bar-wrap"><div class="br-bar" style="width:${barW}%;background:${col}"></div></div>
-          <span class="br-val">${pct}% <span style="color:#5a5040">(${cnt}/${n})</span></span>
-        </div>`;
-      }).join('')}
+      <h3>Win Rate Overview</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:.8rem">${elemCards}</div>
+      <h3>Cumulative Win Rate — All Elements <span style="font-size:.6rem;color:#3a3020">(converges as runs grow)</span></h3>
+      ${_renderElementLinesChart(sorted, n)}
     </div>
   `;
+}
+
+// ── Build archetype classifier ─────────────────────────────────────────────────
+function _classifyArchetype(r) {
+  const d = r.dmgByType || {};
+  const total = Object.values(d).reduce((s, v) => s + v, 0) || 1;
+  const pct = type => (d[type] || 0) / total;
+  const spellStr = ((r.spells || []).concat(r.passives || [])).join(' ').toLowerCase();
+  const hasMelt  = spellStr.includes('melt')  || pct('melt')  > 0.10;
+  const hasSurge = pct('surge') > 0.10 || spellStr.includes('surge') || spellStr.includes('fulgurite');
+  const hasSeed  = pct('seed')  > 0.05 || spellStr.includes('seed')  || spellStr.includes('bloom');
+  if (hasMelt && pct('burn')  > 0.20) return 'Melt-Burn';
+  if (hasMelt && pct('spell') > 0.30) return 'Melt-Burst';
+  if (hasMelt)                         return 'Melt';
+  if (pct('burn')  > 0.45)            return 'Burn Stack';
+  if (pct('burn')  > 0.25)            return 'Burn Hybrid';
+  if (pct('frost') > 0.40)            return 'Frost Stack';
+  if (pct('frost') > 0.20 && spellStr.includes('freeze')) return 'Freeze';
+  if (pct('shock') > 0.35 && hasSurge) return 'Surge-Shock';
+  if (hasSurge)                         return 'Surge';
+  if (pct('shock') > 0.30)             return 'Shock Chain';
+  if (pct('foam')  > 0.15)             return 'Foam Strip';
+  if (pct('root')  > 0.20)             return 'Root-Thorn';
+  if (hasSeed)                          return 'Seed Bloom';
+  if (pct('stone') > 0.20)             return 'Stone Crush';
+  if (pct('spell') > 0.70)             return 'Burst';
+  if (pct('basic') > 0.35)             return 'Basic Heavy';
+  return 'Hybrid';
 }
 
 // ── Aggregate ─────────────────────────────────────────────────────────────────
@@ -1338,8 +1778,21 @@ function _aggregateResults(results, n) {
   const wins     = results.filter(r => r && r.won).length;
   const gymHist  = [0, 0, 0, 0]; // index = gyms cleared (0–3)
   const spellFreq   = {};
+  const spellWins   = {};
   const passiveFreq = {};
+  const archetypeStats = {}; // archetype → { count, wins }
   let totalBattles = 0, hpLeftSum = 0, hpLeftCount = 0;
+  const passiveWins    = {};
+  const bookCountStats = { 1:{count:0,wins:0}, 2:{count:0,wins:0}, 3:{count:0,wins:0} };
+  const rarityRuns     = {};  // rarity → runs containing ≥1 of that rarity
+  const rarityWins     = {};
+  let   goldAtEndSum   = 0, goldSpentSum = 0, goldRunCount = 0;
+  let   lowHPCampSum   = 0;
+  const zoneSpellFreq  = { 0:{}, 1:{}, 2:{} }; // zone → {spellId: count}
+  const zoneSpellWins  = { 0:{}, 1:{}, 2:{} };
+  const hpByZone       = {};  // gymsCleared → {sum, count}
+  const comboFreq      = {};  // 'id1|id2' → count
+  const comboWins      = {};
 
   // Zone 1 battle milestones — zoneBattleCount = # zone-1 battles WON before dying/clearing
   // GYM_ZONE_OPEN=12 (gym unlocks), GYM_ZONE_FORCE=15 (forced)
@@ -1356,6 +1809,7 @@ function _aggregateResults(results, n) {
     if (r.won && r.playerHPLeft != null) { hpLeftSum += r.playerHPLeft; hpLeftCount++; }
     for (const id of (r.spells   || [])) spellFreq[id]   = (spellFreq[id]   || 0) + 1;
     for (const id of (r.passives || [])) passiveFreq[id] = (passiveFreq[id] || 0) + 1;
+    if (r.won) for (const id of (r.spells || [])) spellWins[id] = (spellWins[id] || 0) + 1;
 
     const zbc = r.zoneBattleCount || 0; // zone-1 battles won
     const cleared = (r.gymsCleared || 0) >= 1;
@@ -1371,11 +1825,180 @@ function _aggregateResults(results, n) {
       const bn = r.battleNumber || 0;
       battleHist[bn] = (battleHist[bn] || 0) + 1;
     }
+
+    // Passive wins
+    if (r.won) for (const id of (r.passives || [])) passiveWins[id] = (passiveWins[id] || 0) + 1;
+    // Book count stats
+    const bc = Math.min(r.bookCount || 1, 3);
+    bookCountStats[bc].count++;
+    if (r.won) bookCountStats[bc].wins++;
+    // Rarity stats
+    const seenRarities = new Set();
+    for (const sl of (r.spellsLog || [])) if (sl.rarity && sl.rarity !== 'dim') seenRarities.add(sl.rarity);
+    for (const rar of seenRarities) {
+      rarityRuns[rar] = (rarityRuns[rar] || 0) + 1;
+      if (r.won) rarityWins[rar] = (rarityWins[rar] || 0) + 1;
+    }
+    // Gold
+    if (r.goldAtEnd != null) { goldAtEndSum += r.goldAtEnd; goldSpentSum += (r.goldSpent||0); goldRunCount++; }
+    // Low-HP campfires
+    lowHPCampSum += (r.lowHPCampfires || 0);
+    // Zone spell acquisition
+    for (const sl of (r.spellsLog || [])) {
+      const z = Math.min(sl.zone || 0, 2);
+      zoneSpellFreq[z][sl.id] = (zoneSpellFreq[z][sl.id] || 0) + 1;
+      if (r.won) zoneSpellWins[z][sl.id] = (zoneSpellWins[z][sl.id] || 0) + 1;
+    }
+    // HP by zone (wins only)
+    if (r.won && r.playerHPLeft != null) {
+      const gz = Math.min(r.gymsCleared || 0, 3);
+      if (!hpByZone[gz]) hpByZone[gz] = { sum: 0, count: 0 };
+      hpByZone[gz].sum += r.playerHPLeft; hpByZone[gz].count++;
+    }
+    // Spell combos (pairs) — top 8 spells only to limit combinations
+    const sp = (r.spells || []).slice(0, 8);
+    for (let i = 0; i < sp.length; i++) for (let j = i+1; j < sp.length; j++) {
+      const key = [sp[i], sp[j]].sort().join('|');
+      comboFreq[key] = (comboFreq[key] || 0) + 1;
+      if (r.won) comboWins[key] = (comboWins[key] || 0) + 1;
+    }
+  }
+
+  // ── Damage breakdown aggregation ──────────────────────────────────────────
+  const dmgByType  = {};
+  const dmgBySpell = {};
+  const secElemCount   = {}; // how many runs had each secondary element
+  const secElemWins    = {}; // wins that had each secondary element
+
+  for (const r of results) {
+    if (!r) continue;
+    for (const [type, dmg] of Object.entries(r.dmgByType  || {})) dmgByType[type]  = (dmgByType[type]  || 0) + dmg;
+    for (const [id,  dmg] of Object.entries(r.dmgBySpell || {})) dmgBySpell[id]   = (dmgBySpell[id]   || 0) + dmg;
+    for (const el of (r.secondaryElements || [])) {
+      secElemCount[el] = (secElemCount[el] || 0) + 1;
+      if (r.won) secElemWins[el] = (secElemWins[el] || 0) + 1;
+    }
+    // Archetype
+    const arch = _classifyArchetype(r);
+    if (!archetypeStats[arch]) archetypeStats[arch] = { count: 0, wins: 0 };
+    archetypeStats[arch].count++;
+    if (r.won) archetypeStats[arch].wins++;
+  }
+
+  // Avg damage per battle (total dmg this run / battles fought this run, averaged across runs)
+  let dmgPerBattleSum = 0, dmgPerBattleCount = 0;
+  for (const r of results) {
+    if (!r) continue;
+    const runTotalDmg = Object.values(r.dmgByType || {}).reduce((s, d) => s + d, 0);
+    const battles = r.battleNumber || 1;
+    if (runTotalDmg > 0) { dmgPerBattleSum += runTotalDmg / battles; dmgPerBattleCount++; }
+  }
+  const avgDmgPerBattle = dmgPerBattleCount > 0 ? dmgPerBattleSum / dmgPerBattleCount : 0;
+
+  const _nn = Math.max(n, 1);
+  const overallWR = wins / _nn;
+  const topDmgByType  = Object.entries(dmgByType).map(([t,d]) => [t, d / _nn]).sort((a,b) => b[1]-a[1]);
+  const topDmgSpells  = Object.entries(dmgBySpell).map(([id,d]) => [id, d / _nn]).sort((a,b) => b[1]-a[1]).slice(0, 12);
+  const topSecondary  = Object.entries(secElemCount)
+    .map(([el, cnt]) => [el, { count: cnt, wins: secElemWins[el] || 0 }])
+    .sort((a, b) => b[1].count - a[1].count);
+
+  // Spell balance: spells with enough sample size, sorted by win-rate delta vs overall
+  const minSample = Math.max(3, Math.floor(n * 0.05));
+  const spellBalance = Object.entries(spellFreq)
+    .filter(([, c]) => c >= minSample)
+    .map(([id, count]) => {
+      const w  = spellWins[id] || 0;
+      const wr = w / count;
+      return [id, { count, wins: w, winRate: wr, diff: wr - overallWR }];
+    })
+    .sort((a, b) => b[1].diff - a[1].diff);
+
+  // Archetypes sorted by win rate desc
+  const archetypes = Object.entries(archetypeStats)
+    .map(([arch, { count, wins: w }]) => [arch, { count, wins: w, winRate: count > 0 ? w / count : 0 }])
+    .sort((a, b) => b[1].winRate - a[1].winRate);
+
+  // Passive balance (same logic as spellBalance)
+  const passiveBalance = Object.entries(passiveFreq)
+    .filter(([, c]) => c >= minSample)
+    .map(([id, count]) => {
+      const w = passiveWins[id] || 0;
+      return [id, { count, wins: w, winRate: w / count, diff: (w / count) - overallWR }];
+    })
+    .sort((a, b) => b[1].diff - a[1].diff);
+
+  // Rarity impact cards
+  const rarityImpact = Object.entries(rarityRuns)
+    .map(([rar, cnt]) => [rar, { count: cnt, wins: rarityWins[rar]||0, winRate: (rarityWins[rar]||0)/cnt }])
+    .sort((a, b) => { const order = {radiant:0,blazing:1,kindled:2}; return (order[a[0]]??9)-(order[b[0]]??9); });
+
+  // Gold stats
+  const avgGoldAtEnd  = goldRunCount > 0 ? goldAtEndSum  / goldRunCount : 0;
+  const avgGoldSpent  = goldRunCount > 0 ? goldSpentSum  / goldRunCount : 0;
+  const avgLowHPCamps = n > 0 ? lowHPCampSum / n : 0;
+
+  // Zone spell acquisition — top 5 per zone
+  const zoneSpells = [0, 1, 2].map(z => {
+    const entries = Object.entries(zoneSpellFreq[z])
+      .map(([id, cnt]) => [id, { count: cnt, wins: zoneSpellWins[z][id]||0 }])
+      .sort((a,b) => b[1].count - a[1].count)
+      .slice(0, 8);
+    return { zone: z, spells: entries };
+  });
+
+  // HP by zone cards
+  const hpByZoneCards = Object.entries(hpByZone)
+    .map(([gz, {sum, count}]) => [+gz, { avgHP: sum/count, count }])
+    .sort((a,b) => a[0]-b[0]);
+
+  // Top spell combos (min 3 runs, sorted by frequency)
+  const topCombos = Object.entries(comboFreq)
+    .filter(([, c]) => c >= 3)
+    .map(([key, cnt]) => [key, { count: cnt, wins: comboWins[key]||0, winRate: (comboWins[key]||0)/cnt }])
+    .sort((a,b) => b[1].count - a[1].count)
+    .slice(0, 12);
+
+  // ── Spell level analysis ───────────────────────────────────────────────────
+  // spellLevelData[id] = { lvSum, lvCount, lvMax, lvDist:{1:N,2:N,...}, wins, runs }
+  const spellLevelData = {};
+  for (const r of results) {
+    if (!r) continue;
+    for (const { id, lv } of (r.spellLevels || [])) {
+      if (!spellLevelData[id]) spellLevelData[id] = { lvSum:0, lvCount:0, lvMax:0, lvDist:{}, wins:0, runs:0 };
+      const d = spellLevelData[id];
+      d.lvSum += lv; d.lvCount++; d.lvMax = Math.max(d.lvMax, lv);
+      d.lvDist[lv] = (d.lvDist[lv] || 0) + 1;
+      d.runs++;
+      if (r.won) d.wins++;
+    }
+  }
+  // Spells that actually got upgraded (avg level > 1), sorted by avg level desc
+  const upgradedSpells = Object.entries(spellLevelData)
+    .filter(([, d]) => d.lvCount > 0 && d.lvSum / d.lvCount > 1.05) // only spells that got upgraded at least occasionally
+    .map(([id, d]) => {
+      const avgLv = d.lvSum / d.lvCount;
+      const pctUpgraded = d.lvDist[1] ? 1 - d.lvDist[1] / d.lvCount : 1;
+      return [id, { avgLv, lvMax: d.lvMax, lvDist: d.lvDist, runs: d.runs, wins: d.wins, winRate: d.wins/d.runs, pctUpgraded }];
+    })
+    .sort((a, b) => b[1].avgLv - a[1].avgLv)
+    .slice(0, 18);
+
+  // Level distribution across ALL spells — how often do runs have a spell at lv2, lv3, lv4+
+  const globalLvDist = {};
+  for (const r of results) {
+    if (!r) continue;
+    let maxLvThisRun = 1;
+    for (const { lv } of (r.spellLevels || [])) maxLvThisRun = Math.max(maxLvThisRun, lv);
+    const bucket = maxLvThisRun >= 4 ? '4+' : String(maxLvThisRun);
+    if (!globalLvDist[bucket]) globalLvDist[bucket] = { count:0, wins:0 };
+    globalLvDist[bucket].count++;
+    if (r.won) globalLvDist[bucket].wins++;
   }
 
   return {
     n, wins,
-    winRate:     wins / n,
+    winRate:     overallWR,
     gymHist,
     avgBattles:  n > 0 ? totalBattles / n : 0,
     avgHPOnWin:  hpLeftCount > 0 ? hpLeftSum / hpLeftCount : 0,
@@ -1383,13 +2006,689 @@ function _aggregateResults(results, n) {
     topPassives: Object.entries(passiveFreq).sort((a,b) => b[1]-a[1]).slice(0, 12),
     z1Milestones, z1Counts, z1GymAttempted,
     battleHist: Object.entries(battleHist).sort((a,b) => +a[0] - +b[0]).slice(0, 20),
+    topDmgByType,
+    topDmgSpells,
+    topSecondary,
+    avgDmgPerBattle,
+    spellBalance,
+    archetypes,
+    overallWR,
+    passiveBalance,
+    rarityImpact,
+    avgGoldAtEnd, avgGoldSpent, avgLowHPCamps,
+    zoneSpells,
+    hpByZoneCards,
+    topCombos,
+    bookCountStats,
+    upgradedSpells,
+    globalLvDist,
   };
 }
 
 // ── Render results ─────────────────────────────────────────────────────────────
+// ── Damage type colors ────────────────────────────────────────────────────────
+const _DMG_TYPE_META = {
+  burn:   { label:'🔥 Burn',         color:'#ff6622' },
+  spell:  { label:'✨ Direct Spell',  color:'#e8c060' },
+  basic:  { label:'⚔ Basic Attack',  color:'#9a8a6a' },
+  frost:  { label:'❄️ Frost',         color:'#88ddff' },
+  shock:  { label:'⚡ Shock',         color:'#ffee22' },
+  foam:   { label:'🫧 Foam',          color:'#2288ff' },
+  root:   { label:'🌿 Root/Thorn',    color:'#44aa44' },
+  stone:  { label:'🪨 Stone',         color:'#aa8844' },
+  melt:   { label:'🌋 Melt',          color:'#ff4400' },
+  surge:  { label:'🔮 Surge',         color:'#bb44ff' },
+  seed:   { label:'🌱 Seed/Bloom',    color:'#66cc44' },
+  other:  { label:'💥 Other',         color:'#5a5040' },
+};
+const _ELEM_COLOR = {
+  Fire:'#ff6622', Water:'#2288ff', Ice:'#88ddff', Lightning:'#ffee22',
+  Earth:'#aa8844', Nature:'#44aa44', Plasma:'#bb44ff', Air:'#aaddff',
+};
+const _ELEM_EMOJI = {
+  Fire:'🔥', Water:'💧', Ice:'❄️', Lightning:'⚡',
+  Earth:'🪨', Nature:'🌿', Plasma:'🔮', Air:'🌀',
+};
+
+function _dmgBarRow(label, avgDmg, maxDmg, color) {
+  const pct = maxDmg > 0 ? Math.min(100, avgDmg / maxDmg * 100) : 0;
+  return `<div class="bar-row">
+    <span class="br-label">${label}</span>
+    <div class="br-bar-wrap"><div class="br-bar" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>
+    <span class="br-val">${Math.round(avgDmg)} <span style="color:#5a5040">avg/run</span></span>
+  </div>`;
+}
+
+function _renderDmgByTypeSection(stats) {
+  const data = stats.topDmgByType || [];
+  if (!data.length) return '';
+  const totalAvg = data.reduce((s, [,d]) => s + d, 0) || 1;
+  const cards = data.map(([type, avg]) => {
+    const meta = _DMG_TYPE_META[type] || { label: type, color: '#5a5040' };
+    const pct  = (avg / totalAvg * 100).toFixed(0);
+    return `<div style="background:#0c0c14;border:1px solid ${meta.color}33;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.62rem;color:${meta.color};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta.label}</div>
+      <div style="font-size:1.15rem;font-weight:bold;color:#e8c060;font-family:serif">${Math.round(avg)}</div>
+      <div style="font-size:.58rem;color:#5a5040">avg dmg/run · ${pct}%</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section">
+    <h3>Damage by Source <span style="font-size:.6rem;color:#3a3020">(avg per run)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+    <div style="margin-top:.4rem;font-size:.62rem;color:#4a4030">Total avg: <b style="color:#c8a060">${Math.round(totalAvg)}</b> dmg/run</div>
+  </div>`;
+}
+
+function _renderDmgBySpellSection(stats) {
+  const data = stats.topDmgSpells || [];
+  if (!data.length) return '';
+  const cards = data.map(([id, avg]) => {
+    let name = id, emoji = '', tooltip = '';
+    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+      const d = SPELL_CATALOGUE[id];
+      emoji   = d.emoji || '';
+      name    = d.name  || id;
+      tooltip = `${d.name} · ${d.element || ''} ${d.tier || ''} · CD ${d.baseCooldown ?? '?'}\n${d.desc || ''}`;
+    }
+    const ta = tooltip ? ` title="${tooltip.replace(/"/g,'&quot;')}"` : '';
+    return `<div${ta} style="background:#0c0c14;border:1px solid #2a2010;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${emoji} ${name}</div>
+      <div style="font-size:1.15rem;font-weight:bold;color:#e8c060;font-family:serif">${Math.round(avg)}</div>
+      <div style="font-size:.58rem;color:#5a5040">avg dmg/run</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section">
+    <h3>Top Spells by Direct Damage <span style="font-size:.6rem;color:#3a3020">(avg per run · direct only)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards || '<span style="color:#3a3020">No data</span>'}</div>
+  </div>`;
+}
+
+function _renderSecondaryElementsSection(stats) {
+  const data = stats.topSecondary || [];
+  if (!data.length) return '';
+  const n = stats.n || 1;
+  const cards = data.map(([el, { count, wins }]) => {
+    const color   = _ELEM_COLOR[el] || '#888';
+    const emoji   = _ELEM_EMOJI[el] || '';
+    const winRate = count > 0 ? (wins / count * 100).toFixed(0) : '0';
+    const freq    = (count / n * 100).toFixed(0);
+    return `<div title="${emoji} ${el}: ${count} runs, ${wins} wins" style="background:#0c0c14;border:1px solid ${color}33;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.62rem;color:${color};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${emoji} ${el}</div>
+      <div style="font-size:1.15rem;font-weight:bold;color:${color};font-family:serif">${winRate}%</div>
+      <div style="font-size:.58rem;color:#5a5040">win rate when present</div>
+      <div style="font-size:.58rem;color:#4a4030">${count} runs · ${freq}% freq</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section">
+    <h3>Secondary Elements <span style="font-size:.6rem;color:#3a3020">(win rate when unlocked)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
+function _renderRunOutcomeGraph(results) {
+  const pts = results.filter(r => r);
+  if (pts.length < 2) return '';
+  const W = 400, H = 72, PX = 6, PY = 6;
+  const iW = W - PX * 2, iH = H - PY * 2;
+  const n  = pts.length;
+  // Cumulative win rate line
+  let wins = 0;
+  const linePoints = pts.map((r, i) => {
+    if (r.won) wins++;
+    const x = (PX + (i / (n - 1)) * iW).toFixed(1);
+    const y = (PY + (1 - wins / (i + 1)) * iH).toFixed(1);
+    return `${x},${y}`;
+  }).join(' ');
+  const finalWR = wins / n;
+  const lineCol = finalWR >= 0.5 ? '#44aa44' : finalWR >= 0.2 ? '#aa8844' : '#aa4444';
+  // Horizontal grid lines
+  const grids = [0.25, 0.5, 0.75].map(p => {
+    const y = (PY + (1 - p) * iH).toFixed(1);
+    const lc = p === 0.5 ? '#2a2a3a' : '#1a1a22';
+    return `<line x1="${PX}" y1="${y}" x2="${W - PX}" y2="${y}" stroke="${lc}" stroke-width="1"/>
+            <text x="${W - PX - 1}" y="${(+y - 2).toFixed(0)}" fill="#3a3030" font-size="7" text-anchor="end">${(p*100).toFixed(0)}%</text>`;
+  }).join('');
+  // Fill area under line
+  const firstPt = `${PX},${(PY + iH).toFixed(1)}`;
+  const lastPt  = `${(PX + iW).toFixed(1)},${(PY + iH).toFixed(1)}`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin-bottom:.3rem">
+    ${grids}
+    <polyline points="${firstPt} ${linePoints} ${lastPt}" fill="${lineCol}18" stroke="none"/>
+    <polyline points="${linePoints}" fill="none" stroke="${lineCol}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function _renderSpellBalanceSection(stats) {
+  const data = stats.spellBalance || [];
+  if (!data.length) return '';
+  const wr = stats.overallWR || 0;
+  const wrPct = (wr * 100).toFixed(1);
+  const NERF_THRESH =  0.15;
+  const BUFF_THRESH = -0.15;
+
+  const overtuned  = data.filter(([, s]) => s.diff >= NERF_THRESH);
+  const undertuned = data.filter(([, s]) => s.diff <= BUFF_THRESH).slice().reverse();
+  const balanced   = data.filter(([, s]) => s.diff > BUFF_THRESH && s.diff < NERF_THRESH);
+
+  function spellCard(id, s, borderColor) {
+    let name = id, emoji = '', tooltip = '';
+    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+      const d = SPELL_CATALOGUE[id];
+      emoji   = d.emoji || '';
+      name    = d.name || id;
+      tooltip = `${d.name} · ${d.element || ''} ${d.tier || ''} · CD ${d.baseCooldown ?? '?'}\n${d.desc || ''}`;
+    }
+    const ta      = tooltip ? ` title="${tooltip.replace(/"/g,'&quot;')}"` : '';
+    const wrStr   = (s.winRate * 100).toFixed(0) + '%';
+    const diffStr = (s.diff > 0 ? '+' : '') + (s.diff * 100).toFixed(0) + 'pp';
+    const diffCol = s.diff >= NERF_THRESH ? '#ff9944' : s.diff <= BUFF_THRESH ? '#44aaff' : '#6a8a4a';
+    return `<div${ta} style="background:#0c0c14;border:1px solid ${borderColor}55;border-radius:6px;padding:.5rem .7rem;display:flex;flex-direction:column;gap:.15rem;">
+      <div style="font-size:.95rem;line-height:1.2;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${emoji} ${name}</div>
+      <div style="font-size:1.25rem;font-weight:bold;color:${diffCol};font-family:serif">${wrStr}</div>
+      <div style="font-size:.6rem;color:${diffCol}">${diffStr} vs ${wrPct}% avg</div>
+      <div style="font-size:.58rem;color:#4a4030;margin-top:.1rem">${s.count} runs · ${s.wins} wins</div>
+    </div>`;
+  }
+
+  const GRID = `display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:.6rem`;
+
+  let html = `<div class="results-section">
+    <h3>Spell Balance Flags <span style="font-size:.6rem;color:#3a3020">(vs ${wrPct}% overall · ±15pp threshold · target ~5% @ no upgrades)</span></h3>`;
+
+  if (!overtuned.length && !undertuned.length && !balanced.length) {
+    html += `<span style="color:#3a3020">Not enough data (need ≥5% of runs per spell)</span>`;
+  }
+  if (overtuned.length) {
+    html += `<div style="color:#ff9944;font-size:.65rem;margin:.25rem 0 .2rem">⬆ Overtuned</div><div style="${GRID}">${overtuned.map(([id,s])=>spellCard(id,s,'#ff9944')).join('')}</div>`;
+  }
+  if (undertuned.length) {
+    html += `<div style="color:#44aaff;font-size:.65rem;margin:.25rem 0 .2rem">⬇ Undertuned</div><div style="${GRID}">${undertuned.map(([id,s])=>spellCard(id,s,'#44aaff')).join('')}</div>`;
+  }
+  if (balanced.length) {
+    html += `<div style="color:#6a8a4a;font-size:.65rem;margin:.25rem 0 .2rem">✓ Balanced</div><div style="${GRID}">${balanced.map(([id,s])=>spellCard(id,s,'#6a8a4a')).join('')}</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+const _ARCHETYPE_COLOR = {
+  'Melt-Burn':   '#ff5500', 'Melt-Burst':  '#ff7700', 'Melt':        '#ff4400',
+  'Burn Stack':  '#ff6622', 'Burn Hybrid': '#cc5511',
+  'Frost Stack': '#88ddff', 'Freeze':      '#aaeeff',
+  'Surge-Shock': '#cc88ff', 'Surge':       '#bb44ff', 'Shock Chain': '#ffee22',
+  'Foam Strip':  '#2288ff', 'Root-Thorn':  '#44aa44',
+  'Seed Bloom':  '#66cc44', 'Stone Crush': '#aa8844',
+  'Burst':       '#e8c060', 'Basic Heavy': '#9a8a6a', 'Hybrid':      '#7a6a5a',
+};
+
+function _renderArchetypesSection(stats) {
+  const data = stats.archetypes || [];
+  if (!data.length) return '';
+  const n = stats.n || 1;
+  const cards = data.map(([arch, { count, wins, winRate }]) => {
+    const color  = _ARCHETYPE_COLOR[arch] || '#8a7a6a';
+    const wrStr  = (winRate * 100).toFixed(0) + '%';
+    const pctStr = (count / n * 100).toFixed(0) + '%';
+    return `<div title="${arch}: ${count} runs, ${wins} wins" style="background:#0c0c14;border:1px solid ${color}44;border-radius:6px;padding:.5rem .7rem;display:flex;flex-direction:column;gap:.12rem;">
+      <div style="font-size:.8rem;color:${color};font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${arch}</div>
+      <div style="font-size:1.25rem;font-weight:bold;color:${color};font-family:serif">${wrStr}</div>
+      <div style="font-size:.6rem;color:#6a6050">win rate</div>
+      <div style="font-size:.58rem;color:#4a4030;margin-top:.1rem">${count} runs · ${pctStr}</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section">
+    <h3>Build Archetypes <span style="font-size:.6rem;color:#3a3020">(by damage source mix · sorted by win rate)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
+// ── Results tab system ─────────────────────────────────────────────────────────
+const _TAB_DEFS = [
+  { id: 'aggregate', label: 'Aggregate' },
+  { id: 'wins',      label: 'Winning Builds' },
+  { id: 'log',       label: 'Sample Log' },
+  { id: 'dive',      label: 'Element Dive' },
+  { id: 'history',   label: 'History' },
+];
+
+function _ensureTabBar() {
+  const panel = _origGetById('results-content');
+  if (!panel || _origGetById('results-tab-bar')) return;
+  const TAB_BASE = 'background:transparent;border:none;border-bottom:2px solid transparent;padding:.35rem .75rem;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-family:"Cinzel",serif;transition:color .15s;';
+  const buttons  = _TAB_DEFS.map(t =>
+    `<button id="rtab-${t.id}" onclick="_switchResultsTab('${t.id}')" style="${TAB_BASE}color:#5a5040">${t.label}</button>`
+  ).join('');
+  const bar = document.createElement('div');
+  bar.id = 'results-tab-bar';
+  bar.style.cssText = 'display:flex;gap:0;border-bottom:1px solid #1e1e2a;margin-bottom:.8rem;flex-shrink:0';
+  bar.innerHTML = buttons;
+  const body = document.createElement('div');
+  body.id = 'results-tab-body';
+  panel.innerHTML = '';
+  panel.appendChild(bar);
+  panel.appendChild(body);
+}
+
+function _updateTabButtons(activeId) {
+  _TAB_DEFS.forEach(t => {
+    const btn = _origGetById(`rtab-${t.id}`);
+    if (!btn) return;
+    const isActive = t.id === activeId;
+    btn.style.color       = isActive ? '#c8a060' : '#5a5040';
+    btn.style.borderBottom = isActive ? '2px solid #c8a060' : '2px solid transparent';
+  });
+}
+
+function _switchResultsTab(tab) {
+  _simActiveTab = tab;
+  _updateTabButtons(tab);
+  if (!_simLastData) return;
+  const body = _origGetById('results-tab-body');
+  if (!body) return;
+  if (tab === 'aggregate') {
+    const { elementResults, n, isMulti } = _simLastData;
+    if (isMulti) {
+      _renderComparison(elementResults, n);
+    } else {
+      const { stats, results, errors, sampleLog } = elementResults[0];
+      _renderResults(stats, results, errors, false, sampleLog);
+    }
+  } else if (tab === 'wins') {
+    _renderWinsTab(body);
+  } else if (tab === 'log') {
+    _renderLogTab(body);
+  } else if (tab === 'dive') {
+    _renderDiveTab(body);
+  } else if (tab === 'history') {
+    _renderHistoryTab(body);
+  }
+}
+
+function _renderWinsTab(body) {
+  if (!_simLastData) return;
+  const { elementResults } = _simLastData;
+  const el = _simDiveElement || (elementResults[0] && elementResults[0].element);
+  const er = elementResults.find(e => e.element === el) || elementResults[0];
+  if (!er) { body.innerHTML = '<div style="color:#3a3020;padding:1rem">No data.</div>'; return; }
+
+  const wins = (er.results || []).filter(r => r && r.won);
+  if (!wins.length) { body.innerHTML = '<div style="color:#3a3020;padding:1rem">No winning runs.</div>'; return; }
+
+  // Element picker
+  const picker = elementResults.length > 1
+    ? `<div style="margin-bottom:.7rem;display:flex;gap:.4rem;flex-wrap:wrap">
+        ${elementResults.map(e => {
+          const col   = _ELEM_COLOR[e.element] || '#888';
+          const emoji = _ELEM_EMOJI[e.element] || '';
+          const isAct = e.element === el;
+          return `<button onclick="_simDiveElement='${e.element}';_renderWinsTab(_origGetById('results-tab-body'))"
+            style="background:${isAct?col+'22':'transparent'};border:1px solid ${isAct?col:'#333'};color:${isAct?col:'#666'};border-radius:4px;padding:3px 10px;font-size:.68rem;cursor:pointer;font-family:'Cinzel',serif">${emoji} ${e.element}</button>`;
+        }).join('')}
+      </div>` : '';
+
+  const overallWR = wins.length / (er.results||[]).length;
+  const header = `<div style="font-size:.65rem;color:#5a5040;margin-bottom:.6rem">${wins.length} winning runs of ${(er.results||[]).length} — ${(overallWR*100).toFixed(1)}% win rate</div>`;
+
+  // Sort wins: most gyms cleared first, then HP remaining
+  const sorted = wins.slice().sort((a,b) => (b.gymsCleared||0)-(a.gymsCleared||0) || (b.playerHPLeft||0)-(a.playerHPLeft||0));
+  const display = sorted.slice(0, 30); // show up to 30
+
+  const GYM_LABEL = ['Zone 1 Clear', 'Zone 2 Clear', 'Zone 3 Clear', 'Full Victory'];
+
+  const cards = display.map((r, idx) => {
+    const archGoal   = r.archetypeGoal || '—';
+    const archActual = _classifyArchetype(r);
+    const goalColor  = _ARCHETYPE_COLOR[archGoal] || '#5a5040';
+    const actColor   = _ARCHETYPE_COLOR[archActual] || '#8a7a6a';
+    const gc         = Math.min(r.gymsCleared || 0, 3);
+    const hpPct      = r.maxHP > 0 ? Math.round(r.playerHPLeft / r.maxHP * 100) : 0;
+    const hpCol      = hpPct > 60 ? '#44aa44' : hpPct > 30 ? '#aa8844' : '#aa4444';
+
+    // Spell damage breakdown
+    const dmgBySpell  = r.dmgBySpell || {};
+    const dmgByType   = r.dmgByType  || {};
+    const totalDmg    = Object.values(dmgByType).reduce((s,v)=>s+v,0) || 1;
+    const spellDmgRows = Object.entries(dmgBySpell)
+      .sort((a,b)=>b[1]-a[1]).slice(0,6)
+      .map(([id, dmg]) => {
+        let name = id;
+        if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+          const d = SPELL_CATALOGUE[id]; name = `${d.emoji||''}${d.name}`;
+        }
+        const pct = (dmg/totalDmg*100).toFixed(0);
+        const barW = (dmg / (Object.values(dmgBySpell)[0]||1) * 100).toFixed(0);
+        return `<div style="display:flex;align-items:center;gap:.4rem;margin:.1rem 0;font-size:.62rem">
+          <span style="color:#c8a060;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+          <div style="width:50px;height:5px;background:#1a1a22;border-radius:2px;flex-shrink:0">
+            <div style="width:${barW}%;height:5px;background:#c88030;border-radius:2px"></div>
+          </div>
+          <span style="color:#5a5040;white-space:nowrap;min-width:55px;text-align:right">${dmg} (${pct}%)</span>
+        </div>`;
+      }).join('');
+
+    // Type breakdown dots
+    const typeDots = Object.entries(dmgByType).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([t,v]) => {
+        const m = _DMG_TYPE_META[t] || { color:'#5a5040', label: t };
+        const pct = (v/totalDmg*100).toFixed(0);
+        return `<span style="color:${m.color};font-size:.6rem">${m.label.split(' ')[0]} ${pct}%</span>`;
+      }).join('<span style="color:#2a2020"> · </span>');
+
+    // Passives
+    const passiveStr = (r.passives||[]).map(id => {
+      if (typeof PASSIVE_CHOICES !== 'undefined') {
+        for (const el of Object.values(PASSIVE_CHOICES)) {
+          const p = el.find(x => x.id === id);
+          if (p) return `${p.emoji||''}${p.title}`;
+        }
+      }
+      return id;
+    }).join(', ');
+
+    return `<div style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:8px;padding:.65rem .8rem;margin-bottom:.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem">
+        <div>
+          <span style="font-size:.62rem;color:${goalColor};background:${goalColor}18;padding:1px 6px;border-radius:3px;border:1px solid ${goalColor}44">Goal: ${archGoal}</span>
+          <span style="font-size:.62rem;color:${actColor};background:${actColor}18;padding:1px 6px;border-radius:3px;border:1px solid ${actColor}44;margin-left:.3rem">Built: ${archActual}</span>
+        </div>
+        <div style="text-align:right">
+          <span style="color:#e8c060;font-size:.72rem;font-weight:bold">${GYM_LABEL[gc]}</span>
+          <span style="color:${hpCol};font-size:.65rem;margin-left:.4rem">${r.playerHPLeft}/${r.maxHP} HP (${hpPct}%)</span>
+        </div>
+      </div>
+      ${spellDmgRows || '<span style="color:#3a3020;font-size:.62rem">No spell damage data</span>'}
+      <div style="margin-top:.35rem;font-size:.6rem;color:#5a5040;line-height:1.6">${typeDots}</div>
+      ${passiveStr ? `<div style="margin-top:.25rem;font-size:.6rem;color:#7a6a3a">Passives: ${passiveStr}</div>` : ''}
+      <div style="margin-top:.2rem;font-size:.58rem;color:#3a3020">Books: ${r.bookCount||1} · Gold left: ${r.goldAtEnd||0}</div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = picker + header + cards +
+    (sorted.length > 30 ? `<div style="color:#3a3020;font-size:.65rem;text-align:center;padding:.5rem">Showing top 30 of ${sorted.length} wins</div>` : '');
+}
+
+function _renderLogTab(body) {
+  if (!_simLastData) return;
+  const { elementResults } = _simLastData;
+  const el = _simDiveElement || (elementResults[0] && elementResults[0].element);
+  const er = elementResults.find(e => e.element === el) || elementResults[0];
+  if (!er || !er.sampleLog || !er.sampleLog.length) {
+    body.innerHTML = '<div style="color:#3a3020;padding:1rem">No sample log captured.</div>';
+    return;
+  }
+  const picker = elementResults.length > 1
+    ? `<div style="margin-bottom:.6rem;display:flex;gap:.4rem;flex-wrap:wrap">
+        ${elementResults.map(e => {
+          const col   = (_ELEM_COLOR[e.element] || '#888');
+          const emoji = (_ELEM_EMOJI[e.element] || '');
+          const isAct = e.element === el;
+          return `<button onclick="_simDiveElement='${e.element}';_renderLogTab(_origGetById('results-tab-body'))"
+            style="background:${isAct?col+'22':'transparent'};border:1px solid ${isAct?col:'#333'};color:${isAct?col:'#666'};border-radius:4px;padding:2px 8px;font-size:.65rem;cursor:pointer">${emoji} ${e.element}</button>`;
+        }).join('')}
+      </div>` : '';
+  body.innerHTML = `${picker}
+    <div class="battle-log-wrap">${_renderBattleLog(er.sampleLog)}</div>`;
+}
+
+function _renderDiveTab(body) {
+  if (!_simLastData) return;
+  const { elementResults, n, isMulti } = _simLastData;
+  const el = _simDiveElement || (elementResults[0] && elementResults[0].element);
+  const er = elementResults.find(e => e.element === el) || elementResults[0];
+  if (!er) { body.innerHTML = '<div style="color:#3a3020;padding:1rem">No data.</div>'; return; }
+
+  const picker = isMulti
+    ? `<div style="margin-bottom:.7rem;display:flex;gap:.4rem;flex-wrap:wrap">
+        ${elementResults.map(e => {
+          const col   = (_ELEM_COLOR[e.element] || '#888');
+          const emoji = (_ELEM_EMOJI[e.element] || '');
+          const isAct = e.element === el;
+          return `<button onclick="_simDiveElement='${e.element}';_renderDiveTab(_origGetById('results-tab-body'))"
+            style="background:${isAct?col+'22':'transparent'};border:1px solid ${isAct?col:'#333'};color:${isAct?col:'#666'};border-radius:4px;padding:3px 10px;font-size:.68rem;cursor:pointer;font-family:'Cinzel',serif">${emoji} ${e.element}</button>`;
+        }).join('')}
+      </div>` : '';
+
+  // Render element deep-dive using existing _renderResults into a temp container
+  const tmp = document.createElement('div');
+  _renderResultsInto(tmp, er.stats, er.results, er.errors, false, null); // no sample log in dive
+  body.innerHTML = picker + tmp.innerHTML;
+}
+
+// Internal: render results content into arbitrary container (no tab system)
+function _renderResultsInto(container, stats, results, errors, inProgress, sampleLog) {
+  const _origPanel = _origGetById('results-content');
+  // Temporarily swap panel reference
+  const _fake = { innerHTML: '' };
+  _renderResultsHTML(_fake, stats, results, errors, inProgress, sampleLog);
+  container.innerHTML = _fake.innerHTML;
+}
+
+function _renderPassiveBalanceSection(stats) {
+  const data = stats.passiveBalance || [];
+  if (!data.length) return '';
+  const wr = stats.overallWR || 0;
+  const wrPct = (wr * 100).toFixed(1);
+  const NERF = 0.15, BUFF = -0.15;
+  const overtuned  = data.filter(([,s]) => s.diff >= NERF);
+  const undertuned = data.filter(([,s]) => s.diff <= BUFF).slice().reverse();
+  const balanced   = data.filter(([,s]) => s.diff > BUFF && s.diff < NERF);
+  function passiveCard(id, s, borderColor) {
+    let name = id, tooltip = '';
+    if (typeof PASSIVE_CHOICES !== 'undefined') {
+      for (const el of Object.values(PASSIVE_CHOICES)) {
+        const p = el.find(x => x.id === id);
+        if (p) { name = `${p.emoji||''} ${p.title}`; tooltip = [p.title,p.desc,p.detail].filter(Boolean).join('\n'); break; }
+      }
+    }
+    const ta = tooltip ? ` title="${tooltip.replace(/"/g,'&quot;')}"` : '';
+    const diffStr = (s.diff>0?'+':'')+(s.diff*100).toFixed(0)+'pp';
+    const diffCol = s.diff>=NERF?'#ff9944':s.diff<=BUFF?'#44aaff':'#6a8a4a';
+    return `<div${ta} style="background:#0c0c14;border:1px solid ${borderColor}55;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.62rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+      <div style="font-size:1.15rem;font-weight:bold;color:${diffCol};font-family:serif">${(s.winRate*100).toFixed(0)}%</div>
+      <div style="font-size:.6rem;color:${diffCol}">${diffStr} vs ${wrPct}% avg</div>
+      <div style="font-size:.58rem;color:#4a4030">${s.count} runs</div>
+    </div>`;
+  }
+  const GRID = 'display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:.5rem';
+  let html = `<div class="results-section"><h3>Passive Balance Flags <span style="font-size:.6rem;color:#3a3020">(vs ${wrPct}% overall · ±15pp threshold)</span></h3>`;
+  if (overtuned.length)  html += `<div style="color:#ff9944;font-size:.65rem;margin:.2rem 0">⬆ Overtuned</div><div style="${GRID}">${overtuned.map(([id,s])=>passiveCard(id,s,'#ff9944')).join('')}</div>`;
+  if (undertuned.length) html += `<div style="color:#44aaff;font-size:.65rem;margin:.2rem 0">⬇ Undertuned</div><div style="${GRID}">${undertuned.map(([id,s])=>passiveCard(id,s,'#44aaff')).join('')}</div>`;
+  if (balanced.length)   html += `<div style="color:#6a8a4a;font-size:.65rem;margin:.2rem 0">✓ Balanced</div><div style="${GRID}">${balanced.map(([id,s])=>passiveCard(id,s,'#6a8a4a')).join('')}</div>`;
+  if (!overtuned.length&&!undertuned.length&&!balanced.length) html += '<span style="color:#3a3020">Not enough data</span>';
+  return html + '</div>';
+}
+
+function _renderBookDiversitySection(stats) {
+  const bcs = stats.bookCountStats || {};
+  const cards = [1,2,3].map(n => {
+    const d = bcs[n] || {count:0,wins:0};
+    if (!d.count) return '';
+    const wr  = d.count > 0 ? (d.wins/d.count*100).toFixed(0) : '0';
+    const pct = stats.n > 0 ? (d.count/stats.n*100).toFixed(0) : '0';
+    const col = n===3?'#c8a060':n===2?'#aa8844':'#5a5040';
+    return `<div style="background:#0c0c14;border:1px solid ${col}44;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.68rem;color:${col}">${n} Spellbook${n>1?'s':''}</div>
+      <div style="font-size:1.25rem;font-weight:bold;color:${col};font-family:serif">${wr}%</div>
+      <div style="font-size:.58rem;color:#5a5040">win rate</div>
+      <div style="font-size:.58rem;color:#4a4030">${d.count} runs · ${pct}% of total</div>
+    </div>`;
+  }).filter(Boolean).join('');
+  if (!cards) return '';
+  return `<div class="results-section"><h3>Spellbook Diversity <span style="font-size:.6rem;color:#3a3020">(win rate by # of books)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
+function _renderRaritySection(stats) {
+  const data = stats.rarityImpact || [];
+  if (!data.length) return '';
+  const RARITY_META = {
+    kindled: { label:'✦ Kindled', color:'#66bbff' },
+    blazing: { label:'✦✦ Blazing', color:'#ff9944' },
+    radiant: { label:'✦✦✦ Radiant', color:'#ffe066' },
+  };
+  const cards = data.map(([rar, {count, wins, winRate}]) => {
+    const m   = RARITY_META[rar] || { label: rar, color:'#888' };
+    const pct = stats.n > 0 ? (count/stats.n*100).toFixed(0) : '0';
+    return `<div style="background:#0c0c14;border:1px solid ${m.color}44;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.68rem;color:${m.color}">${m.label}</div>
+      <div style="font-size:1.25rem;font-weight:bold;color:${m.color};font-family:serif">${(winRate*100).toFixed(0)}%</div>
+      <div style="font-size:.58rem;color:#5a5040">win rate when present</div>
+      <div style="font-size:.58rem;color:#4a4030">${count} runs · ${pct}% freq</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section"><h3>Rarity Impact <span style="font-size:.6rem;color:#3a3020">(win rate when ≥1 rarity spell present)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
+function _renderZoneSpellsSection(stats) {
+  const data = stats.zoneSpells || [];
+  if (!data.length || !data.some(z => z.spells.length)) return '';
+  const ZONE_LABELS = ['Zone 1', 'Zone 2', 'Zone 3'];
+  const cols = data.map(({ zone, spells }) => {
+    if (!spells.length) return '';
+    const rows = spells.map(([id, { count, wins }]) => {
+      const wr  = count > 0 ? (wins/count*100).toFixed(0) : '0';
+      let name  = id;
+      if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+        const d = SPELL_CATALOGUE[id]; name = `${d.emoji||''} ${d.name}`;
+      }
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;border-bottom:1px solid #111;font-size:.65rem">
+        <span style="color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:.4rem">${name}</span>
+        <span style="color:#5a5040;white-space:nowrap">${count}× <span style="color:#6a9a4a">${wr}%w</span></span>
+      </div>`;
+    }).join('');
+    return `<div style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.5rem .65rem">
+      <div style="font-size:.62rem;color:#5a5040;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">${ZONE_LABELS[zone]}</div>
+      ${rows}
+    </div>`;
+  }).filter(Boolean).join('');
+  if (!cols) return '';
+  return `<div class="results-section"><h3>Zone Spell Acquisition <span style="font-size:.6rem;color:#3a3020">(spells picked up per zone · count · win% when taken)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cols}</div>
+  </div>`;
+}
+
+function _renderHPEfficiencySection(stats) {
+  const data = stats.hpByZoneCards || [];
+  if (!data.length) return '';
+  const ZONE_LABELS = {0:'Zone 1 Win',1:'Zone 2 Win',2:'Zone 3 Win',3:'Run Victory'};
+  const maxHP = 150; // approx cap for color scaling
+  const cards = data.map(([gz, {avgHP, count}]) => {
+    const col = avgHP > 80 ? '#44aa44' : avgHP > 40 ? '#aa8844' : '#aa4444';
+    return `<div style="background:#0c0c14;border:1px solid ${col}44;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.6rem;color:#5a5040;text-transform:uppercase;letter-spacing:.07em">${ZONE_LABELS[gz]||'Zone '+gz}</div>
+      <div style="font-size:1.25rem;font-weight:bold;color:${col};font-family:serif">${Math.round(avgHP)}</div>
+      <div style="font-size:.58rem;color:#5a5040">avg HP remaining</div>
+      <div style="font-size:.58rem;color:#4a4030">${count} wins</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section"><h3>HP Efficiency <span style="font-size:.6rem;color:#3a3020">(avg HP remaining on zone clear · wins only)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
+function _renderSpellCombosSection(stats) {
+  const data = stats.topCombos || [];
+  if (!data.length) return '';
+  function sName(id) {
+    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+      const d = SPELL_CATALOGUE[id]; return `${d.emoji||''}${d.name}`;
+    }
+    return id;
+  }
+  const cards = data.map(([key, {count, wins, winRate}]) => {
+    const [a, b] = key.split('|');
+    const wr  = (winRate*100).toFixed(0)+'%';
+    const col = winRate > (stats.overallWR||0) + 0.1 ? '#44aa44' : winRate < (stats.overallWR||0) - 0.1 ? '#aa4444' : '#aa8844';
+    return `<div style="background:#0c0c14;border:1px solid ${col}33;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem" title="${sName(a)} + ${sName(b)}">
+      <div style="font-size:.58rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sName(a)}</div>
+      <div style="font-size:.58rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">+ ${sName(b)}</div>
+      <div style="font-size:1.1rem;font-weight:bold;color:${col};font-family:serif;margin-top:.1rem">${wr}</div>
+      <div style="font-size:.58rem;color:#4a4030">${count} runs together</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section"><h3>Spell Combos <span style="font-size:.6rem;color:#3a3020">(most frequent pairs · win rate when both present)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
 function _renderResults(stats, results, errors, inProgress, sampleLog) {
   const panel = _origGetById('results-content');
   if (!panel) return;
+  _ensureTabBar();
+  _updateTabButtons('aggregate');
+  const body = _origGetById('results-tab-body') || panel;
+  _renderResultsHTML(body, stats, results, errors, inProgress, sampleLog);
+}
+
+function _renderSpellLevelsSection(stats) {
+  const gld = stats.globalLvDist || {};
+  const upg = stats.upgradedSpells || [];
+  if (!Object.keys(gld).length && !upg.length) return '';
+
+  // Level pips: e.g. ◆◆◇◇ for lv2 of 4
+  function levelPips(avgLv, maxLv) {
+    const maxPips = Math.max(maxLv, 4);
+    let s = '';
+    for (let i = 1; i <= maxPips; i++) {
+      s += i <= avgLv ? '<span style="color:#e8c060">◆</span>' : '<span style="color:#2a2018">◇</span>';
+    }
+    return s;
+  }
+
+  // Max level distribution cards
+  const lvOrder = ['1','2','3','4+'];
+  const lvColors = { '1':'#4a4030', '2':'#aa8844', '3':'#e8c060', '4+':'#44cc88' };
+  const lvLabels = { '1':'Base (Lv 1)', '2':'Upgraded (Lv 2)', '3':'Advanced (Lv 3)', '4+':'Mastered (Lv 4+)' };
+  const totalRuns = Object.values(gld).reduce((s,v) => s + v.count, 0) || 1;
+
+  const lvCards = lvOrder.map(lv => {
+    const d = gld[lv];
+    if (!d) return '';
+    const pct = (d.count / totalRuns * 100).toFixed(0);
+    const wr  = d.count > 0 ? (d.wins / d.count * 100).toFixed(0) : '—';
+    const col = lvColors[lv];
+    return `<div style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.58rem;color:#5a5040;text-transform:uppercase;letter-spacing:.07em">${lvLabels[lv]}</div>
+      <div style="font-size:1.2rem;font-weight:bold;color:${col};font-family:serif">${pct}%</div>
+      <div style="font-size:.62rem;color:#6a5a2a">${d.count} runs · <span style="color:#44aa44">${wr}%</span> win</div>
+    </div>`;
+  }).join('');
+
+  // Per-spell upgraded cards (top 18, avg lv > 1.05)
+  const spellCards = upg.map(([id, d]) => {
+    const nm  = (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id])
+      ? `${SPELL_CATALOGUE[id].emoji || ''} ${SPELL_CATALOGUE[id].name}` : id;
+    const tt  = (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id])
+      ? SPELL_CATALOGUE[id].desc || '' : '';
+    const ta  = tt ? ` title="${tt.replace(/"/g,'&quot;')}"` : '';
+    const avgLvDisp = d.avgLv.toFixed(2);
+    const wr  = d.runs > 0 ? (d.wins / d.runs * 100).toFixed(0) : '—';
+    const pctUp = (d.pctUpgraded * 100).toFixed(0);
+    const pips = levelPips(d.avgLv, d.lvMax);
+    const col = d.avgLv >= 3 ? '#44cc88' : d.avgLv >= 2 ? '#e8c060' : '#aa8844';
+    return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.15rem">
+      <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</div>
+      <div style="font-size:.72rem;letter-spacing:.05em">${pips}</div>
+      <div style="font-size:1.1rem;font-weight:bold;color:${col};font-family:serif">Lv ${avgLvDisp} avg</div>
+      <div style="font-size:.58rem;color:#4a4030">${pctUp}% upgraded · max Lv${d.lvMax} · <span style="color:#44aa44">${wr}%</span> win</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="results-section">
+    <h3>Spell Incantation Levels</h3>
+    <div style="font-size:.62rem;color:#5a5040;margin-bottom:.4rem">Highest level reached per run — higher levels = more upgrades taken</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.8rem">${lvCards}</div>
+    ${upg.length ? `
+    <h3 style="margin-top:.4rem">Most Upgraded Spells <span style="font-size:.6rem;color:#3a3020">(avg level &gt; 1.05)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${spellCards}</div>` : ''}
+  </div>`;
+}
+
+function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog) {
 
   const winPct = (stats.winRate * 100).toFixed(1);
   const gymLabels = ['Zone 1 Clear Rate', 'Zone 2 Clear Rate', 'Zone 3 Clear Rate', 'Run Victory'];
@@ -1479,47 +2778,93 @@ function _renderResults(stats, results, errors, inProgress, sampleLog) {
         <div class="stat-card"><div class="sc-val">${stats.wins}/${stats.n}</div><div class="sc-label">Wins / Runs</div></div>
         <div class="stat-card"><div class="sc-val">${stats.avgBattles.toFixed(1)}</div><div class="sc-label">Avg Battles / Run</div></div>
         <div class="stat-card"><div class="sc-val">${stats.avgHPOnWin > 0 ? Math.round(stats.avgHPOnWin) : '—'}</div><div class="sc-label">Avg HP on Victory</div></div>
+        ${(()=>{ const tot=(stats.topDmgByType||[]).reduce((s,[,d])=>s+d,0); return tot>0?`<div class="stat-card"><div class="sc-val">${Math.round(tot)}</div><div class="sc-label">Avg Dmg Dealt / Run</div></div>`:''; })()}
+        ${stats.avgDmgPerBattle > 0 ? `<div class="stat-card"><div class="sc-val">${Math.round(stats.avgDmgPerBattle)}</div><div class="sc-label">Avg Dmg / Battle</div></div>` : ''}
+        ${stats.avgGoldAtEnd > 0 ? `<div class="stat-card"><div class="sc-val">${Math.round(stats.avgGoldAtEnd)}</div><div class="sc-label">Avg Gold at End</div></div>` : ''}
+        ${stats.avgGoldSpent > 0 ? `<div class="stat-card"><div class="sc-val">${Math.round(stats.avgGoldSpent)}</div><div class="sc-label">Avg Gold Spent</div></div>` : ''}
+        ${stats.avgLowHPCamps > 0 ? `<div class="stat-card"><div class="sc-val">${stats.avgLowHPCamps.toFixed(2)}</div><div class="sc-label">Avg Low-HP Campfires</div></div>` : ''}
+      </div>
+    </div>
+
+    ${(()=>{
+      function milCard(label, count, total, highlight) {
+        const pct = total > 0 ? (count / total * 100) : 0;
+        const col = highlight ? '#e8c060' : pct >= 75 ? '#44aa44' : pct >= 40 ? '#aa8844' : '#5a5040';
+        return `<div style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+          <div style="font-size:.58rem;color:#5a5040;text-transform:uppercase;letter-spacing:.07em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</div>
+          <div style="font-size:1.2rem;font-weight:bold;color:${col};font-family:serif">${pct.toFixed(0)}%</div>
+          <div style="font-size:.58rem;color:#4a4030">${count} / ${total}</div>
+        </div>`;
+      }
+      const n = stats.n;
+      const milCards = z1Labels.map((lbl, i) => milCard(lbl, z1Counts[i]||0, n))
+        .concat([
+          milCard('Gym Attempted', stats.z1GymAttempted||0, n),
+          milCard('Zone 1 Cleared ✓', reachedZ2, n, false),
+          milCard('Zone 2 Reached', reachedZ2, n),
+          milCard('Zone 3 Reached', reachedZ3, n),
+          milCard('Run Victory 🏆', victories, n, true),
+        ]).join('');
+      return `<div class="results-section">
+        <h3>Milestones &amp; Zone Progression</h3>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${milCards}</div>
+      </div>`;
+    })()}
+
+
+    <div class="results-section">
+      <h3>Most Common Spells at Run End</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">
+        ${stats.topSpells.map(([id,c]) => {
+          const pct = stats.n > 0 ? (c/stats.n*100).toFixed(0) : '0';
+          const nm  = spellName(id);
+          const tt  = spellTooltip(id);
+          const ta  = tt ? ` title="${tt.replace(/"/g,'&quot;')}"` : '';
+          return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+            <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</div>
+            <div style="font-size:1.15rem;font-weight:bold;color:#e8c060;font-family:serif">${pct}%</div>
+            <div style="font-size:.58rem;color:#4a4030">${c} / ${stats.n} runs</div>
+          </div>`;
+        }).join('') || '<span style="color:#3a3020">No data</span>'}
       </div>
     </div>
 
     <div class="results-section">
-      <h3>Zone 1 — Battle Milestones <span style="font-size:.6rem;color:#3a3020">(survived N zone battles)</span></h3>
-      ${z1Labels.map((lbl, i) => barRow(lbl, z1Counts[i] || 0, stats.n, `Runs that won at least ${z1Milestones[i]} zone-1 battle${z1Milestones[i]===1?'':'s'}`)).join('')}
-      ${barRow('Zone 1 Gym Attempted', stats.z1GymAttempted || 0, stats.n, 'Reached the gym fight (win or loss)')}
-      ${barRow('Zone 1 Cleared ✓', reachedZ2, stats.n, 'Defeated the Zone 1 gym boss')}
-    </div>
-
-    <div class="results-section">
-      <h3>Zone Progression</h3>
-      ${barRow('Reached Zone 2', reachedZ2, stats.n)}
-      ${barRow('Reached Zone 3', reachedZ3, stats.n)}
-      ${barRow('Run Victory',    victories,  stats.n)}
-    </div>
-
-    ${(stats.battleHist && stats.battleHist.length > 0) ? `
-    <div class="results-section">
-      <h3>Zone 1 Death Distribution <span style="font-size:.6rem;color:#3a3020">(which battle run ended on)</span></h3>
-      ${stats.battleHist.map(([bn, c]) => barRow(`Died in Battle ${bn}`, c, stats.n, `${c} run${c===1?'':'s'} ended during battle ${bn}`)).join('')}
-    </div>` : ''}
-
-    <div class="results-section">
-      <h3>Most Common Spells at Run End</h3>
-      ${stats.topSpells.map(([id,c]) => barRow(spellName(id), c, stats.n, spellTooltip(id))).join('') || '<span style="color:#3a3020">No data</span>'}
-    </div>
-
-    <div class="results-section">
       <h3>Most Common Passives at Run End</h3>
-      ${stats.topPassives.map(([id,c]) => barRow(passiveName(id), c, stats.n, passiveTooltip(id))).join('') || '<span style="color:#3a3020">No data</span>'}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">
+        ${stats.topPassives.map(([id,c]) => {
+          const pct = stats.n > 0 ? (c/stats.n*100).toFixed(0) : '0';
+          const nm  = passiveName(id);
+          const tt  = passiveTooltip(id);
+          const ta  = tt ? ` title="${tt.replace(/"/g,'&quot;')}"` : '';
+          return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+            <div style="font-size:.62rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</div>
+            <div style="font-size:1.15rem;font-weight:bold;color:#e8c060;font-family:serif">${pct}%</div>
+            <div style="font-size:.58rem;color:#4a4030">${c} / ${stats.n} runs</div>
+          </div>`;
+        }).join('') || '<span style="color:#3a3020">No data</span>'}
+      </div>
     </div>
 
+    ${_renderDmgByTypeSection(stats)}
+    ${_renderDmgBySpellSection(stats)}
+    ${_renderSecondaryElementsSection(stats)}
+    ${_renderArchetypesSection(stats)}
+    ${_renderSpellBalanceSection(stats)}
+    ${_renderPassiveBalanceSection(stats)}
+    ${_renderBookDiversitySection(stats)}
+    ${_renderRaritySection(stats)}
+    ${_renderHPEfficiencySection(stats)}
+    ${_renderSpellCombosSection(stats)}
+    ${_renderZoneSpellsSection(stats)}
+    ${_renderSpellLevelsSection(stats)}
+
     <div class="results-section">
-      <h3>Run Outcomes <span style="font-size:.6rem;color:#3a3020">${dotsLabel}</span></h3>
-      <div style="line-height:1.3">${dots}</div>
-      <div style="margin-top:.5rem;font-size:.65rem;color:#4a4030">
-        <span style="color:#44aa44">■</span> Win &nbsp;
-        <span style="color:#aa8844">■</span> Cleared 2+ gyms &nbsp;
-        <span style="color:#6a5a2a">■</span> Cleared 1+ gym &nbsp;
-        <span style="color:#2a2018">■</span> Zone 1 only
+      <h3>Win Rate Over Runs <span style="font-size:.6rem;color:#3a3020">${dotsLabel} — cumulative</span></h3>
+      ${_renderRunOutcomeGraph(results)}
+      <div style="font-size:.62rem;color:#4a4030;display:flex;gap:1rem;flex-wrap:wrap">
+        <span><span style="color:#44aa44">●</span> ≥50% line = good</span>
+        <span style="color:#5a5040">Line converges as sample grows</span>
       </div>
     </div>
 
@@ -1592,6 +2937,25 @@ function _rebuildElementDropdowns() {
       sSel.appendChild(o);
     });
     if (!spells.find(s => s.id === curS)) { sSel.value = ''; simCfg.startSpellId = null; }
+  }
+
+  // — Starting Book —
+  const bSel = _origGetById('start-book-sel');
+  if (bSel && typeof SPELLBOOK_CATALOGUE !== 'undefined') {
+    const curB = bSel.value;
+    bSel.innerHTML = '<option value="">Random / Default</option>';
+    const books = Object.values(SPELLBOOK_CATALOGUE)
+      .filter(b => !b.element || b.element === el)
+      .sort((a, b) => (a.name||'').localeCompare(b.name||''));
+    books.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b.id || b.catalogueId || '';
+      o.textContent = (b.emoji || '') + ' ' + (b.name || o.value);
+      if (b.desc) o.title = b.desc;
+      o.selected = o.value === curB;
+      bSel.appendChild(o);
+    });
+    if (!books.find(b => (b.id || b.catalogueId) === curB)) { bSel.value = ''; simCfg.startBookId = null; }
   }
 }
 

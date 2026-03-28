@@ -1,26 +1,26 @@
 {
-  "date": "2026-03-26T13:37:57.092Z",
+  "date": "2026-03-28T19:59:15.525Z",
   "cfg": {
-    "element": "Fire",
+    "element": "Air",
     "strategy": "smart",
     "artifactId": null,
     "artifactStar": 0,
-    "nRuns": 50,
+    "nRuns": 200,
     "startPassiveId": null,
     "startSpellId": null,
     "talents": {}
   },
   "stats": {
-    "winRate": 0,
-    "wins": 0,
-    "n": 50,
-    "avgBattles": 1.74,
-    "avgHPOnWin": 0,
+    "winRate": 0.3,
+    "wins": 60,
+    "n": 200,
+    "avgBattles": 16.37,
+    "avgHPOnWin": 240.76666666666668,
     "gymHist": [
-      50,
-      0,
-      0,
-      0
+      131,
+      8,
+      1,
+      60
     ],
     "z1Milestones": [
       1,
@@ -32,342 +32,169 @@
       15
     ],
     "z1Counts": [
-      22,
-      2,
-      2,
-      1,
-      0,
-      0,
-      0
+      200,
+      147,
+      112,
+      85,
+      82,
+      82,
+      69
     ],
-    "z1GymAttempted": 0,
+    "z1GymAttempted": 82,
     "battleHist": [
       [
-        "1",
-        28
-      ],
-      [
         "2",
-        17
+        38
       ],
       [
         "3",
-        3
+        15
+      ],
+      [
+        "4",
+        20
+      ],
+      [
+        "5",
+        15
+      ],
+      [
+        "6",
+        12
       ],
       [
         "7",
-        1
+        8
+      ],
+      [
+        "8",
+        6
       ],
       [
         "9",
+        3
+      ],
+      [
+        "10",
         1
+      ],
+      [
+        "14",
+        13
       ]
     ],
     "topSpells": [
       [
-        "scorch_through",
-        5
+        "wind_wall",
+        72
       ],
       [
-        "firewall",
-        3
+        "become_wind",
+        69
       ],
       [
-        "heat_surge",
-        3
+        "twin_strike",
+        63
       ],
       [
-        "crucible",
-        3
+        "tornado",
+        59
       ],
       [
-        "forge_blast",
-        2
+        "sleeper_gust",
+        50
       ],
       [
-        "melt_strike",
-        2
+        "windy_takedown",
+        46
       ],
       [
-        "ember_storm",
-        2
+        "break_momentum",
+        39
       ],
       [
-        "flame_wave",
-        1
+        "power_strike",
+        25
       ],
       [
-        "slag",
-        1
+        "shield_bash",
+        17
+      ],
+      [
+        "seismic_wave",
+        14
+      ],
+      [
+        "double_tap",
+        13
+      ],
+      [
+        "war_cry",
+        12
+      ],
+      [
+        "ignite",
+        11
+      ],
+      [
+        "vampiric_strike",
+        10
+      ],
+      [
+        "vine_strike",
+        9
       ]
     ],
     "topPassives": [
       [
-        "fire_forge_master",
-        14
+        "air_slipstream",
+        87
       ],
       [
-        "fire_pyromaniac",
-        9
+        "air_gale_force",
+        77
       ],
       [
-        "fire_slag_trail",
-        8
+        "air_rapid_tempo",
+        67
       ],
       [
-        "fire_wildfire",
-        5
+        "air_tailwind",
+        66
       ],
       [
-        "fire_combustion",
+        "nature_deep_roots",
         4
       ],
       [
-        "fire_iron_burn",
+        "earth_fissure",
         4
       ],
       [
-        "fire_armor_eater",
-        3
+        "ice_blast",
+        4
       ],
       [
         "fire_deep_heat",
-        2
+        4
       ],
       [
-        "fire_blazing_heat",
-        1
+        "nature_thorned_strikes",
+        4
+      ],
+      [
+        "air_eye_of_the_storm",
+        3
+      ],
+      [
+        "lightning_static_build",
+        3
+      ],
+      [
+        "nature_overgrowth",
+        2
       ]
     ]
   },
-  "sampleLog": [
-    {
-      "m": "══ BATTLE 1 ══",
-      "t": "_battle"
-    },
-    {
-      "m": "Pyromancer appears!",
-      "t": "system"
-    },
-    {
-      "m": "🌍 Zone Effect active: 🔥 +2 Burn per hit",
-      "t": "system"
-    },
-    {
-      "m": "Select your target. All enemies act each round.",
-      "t": "system"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (153/163)",
-      "t": "player"
-    },
-    {
-      "m": "🛡️ Pyromancer braces! (+5 Block)",
-      "t": "enemy"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (143/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer deals 16 to you. (184/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn +2 (×2)",
-      "t": "status"
-    },
-    {
-      "m": "🔥 Burn +2 (×4)",
-      "t": "status"
-    },
-    {
-      "m": "🔥 Burn deals 5 to you. (179/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (133/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer deals 16 to you. (163/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn +2 (×6)",
-      "t": "status"
-    },
-    {
-      "m": "🔥 Burn +2 (×8)",
-      "t": "status"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (123/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer waits.",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn deals 9 to you. (154/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (113/163)",
-      "t": "player"
-    },
-    {
-      "m": "💥 Pyromancer erupts in flames!",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Pyromancer deals 22 to you. (132/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn +3 (×11)",
-      "t": "status"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (103/163)",
-      "t": "player"
-    },
-    {
-      "m": "🛡️ Pyromancer braces! (+5 Block)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn deals 11 to you. (121/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (93/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer deals 16 to you. (105/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn +2 (×13)",
-      "t": "status"
-    },
-    {
-      "m": "🔥 Burn +2 (×15)",
-      "t": "status"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (83/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer waits.",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn deals 16 to you. (89/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (73/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer ignites you! (+6 Burn)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Pyromancer deals 10 to you. (79/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn +5 (×20)",
-      "t": "status"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (63/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer deals 16 to you. (63/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn +2 (×22)",
-      "t": "status"
-    },
-    {
-      "m": "🔥 Burn +2 (×24)",
-      "t": "status"
-    },
-    {
-      "m": "🔥 Burn deals 25 to you. (38/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (53/163)",
-      "t": "player"
-    },
-    {
-      "m": "🧪 Pyromancer drinks a Healing Draught! (+33 HP)",
-      "t": "enemy"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (76/163)",
-      "t": "player"
-    },
-    {
-      "m": "🛡️ Pyromancer braces! (+5 Block)",
-      "t": "enemy"
-    },
-    {
-      "m": "🔥 Burn deals 25 to you. (13/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "Initiative: 🟢Sim(2) → 🔴Pyromancer(2)",
-      "t": "system"
-    },
-    {
-      "m": "⚔ Basic deals 10 to Pyromancer. (66/163)",
-      "t": "player"
-    },
-    {
-      "m": "🔥 Pyromancer deals 16 to you. (0/200)",
-      "t": "enemy"
-    },
-    {
-      "m": "💀 All lives lost. Your run ends here.",
-      "t": "lose"
-    },
-    {
-      "m": "══ RUN ✗ DEFEAT — HP 0/200 ══",
-      "t": "_loss"
-    }
-  ]
+  "sampleLog": []
 }

@@ -40,7 +40,7 @@ const ENEMY_POOL = [
 const GYM = { Fire:{hp:280,dmg:28}, Lightning:{hp:260,dmg:32}, Nature:{hp:300,dmg:26} };
 function scaleEnemy(enc, gymIdx) {
   return {
-    hp:  Math.round(enc.hp  * (1 + gymIdx*0.28) * 1.25),
+    hp:  Math.round(enc.hp  * (1 + gymIdx*0.28) * 0.70),
     dmg: Math.max(1, Math.round(enc.dmg * (1+gymIdx*0.22)) - 5),
     ap:  Math.floor(gymIdx * 4.4),
     armor: 0,
@@ -664,7 +664,8 @@ function simulateRun(el, talCfg, zone, strategy) {
   let battlesWon = 0;
 
   for (let b=1; b<=BATTLES; b++) {
-    const enc = scaleEnemy(rnd(ENEMY_POOL), gymIdx);
+    const baseEnc = scaleEnemy(rnd(ENEMY_POOL), gymIdx);
+    const enc = b === 1 ? { ...baseEnc, hp: Math.round(baseEnc.hp * 0.5) } : baseEnc;
     const res = simulateBattle(player, enc);
     if (!res.won) return { won:false, battlesWon, diedAt:b, spells:player.spells.map(s=>s.id), passives:player.passives };
     battlesWon++;

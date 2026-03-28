@@ -28,7 +28,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   // ═══ UNIVERSAL ═══
   brace: { id:'brace', name:'Brace', emoji:'🛡️', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i];
-      const armor = 5 + Math.floor(e.scaledPower/5);
+      const armor = Math.round((5 + Math.floor(e.scaledPower/5)) * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`🛡️ ${e.name} braces! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -65,7 +65,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   fire_magma_armor: { id:'fire_magma_armor', name:'Magma Armor', emoji:'🛡️', tier:1, baseCd:4,
     fn(i){ const e=combat.enemies[i];
-      const armor = 20 + Math.floor(e.scaledPower/5);
+      const armor = Math.round((20 + Math.floor(e.scaledPower/5)) * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`🛡️ ${e.name} hardens with Magma Armor! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -88,7 +88,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   water_tidal_shield: { id:'water_tidal_shield', name:'Tidal Shield', emoji:'💧', tier:0, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = 20 + Math.floor(e.scaledPower/4);
+      const armor = Math.round((20 + Math.floor(e.scaledPower/4)) * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`💧 ${e.name} raises a Tidal Shield! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -147,7 +147,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   ice_glacial_armor: { id:'ice_glacial_armor', name:'Glacial Armor', emoji:'🧊', tier:0, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = 25 + Math.floor(e.scaledPower/4);
+      const armor = Math.round((25 + Math.floor(e.scaledPower/4)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       log(`🧊 ${e.name} encases itself in Glacial Armor! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -170,7 +170,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   ice_cryostasis: { id:'ice_cryostasis', name:'Cryostasis', emoji:'🧊', tier:2, baseCd:5,
     fn(i){ const e=combat.enemies[i];
-      const armor = 35; const heal = 30;
+      const armor = Math.round(35 * 1.3); const heal = 30;
       e.status.block = (e.status.block||0)+armor;
       e.hp = Math.min(e.enemyMaxHP, e.hp+heal);
       e.status.stunned = Math.max(e.status.stunned||0, 1); // stuns SELF for 1t (charges up)
@@ -179,7 +179,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
 
   // ═══ LIGHTNING ═══
-  lightning_zap: { id:'lightning_zap', name:'Zap', emoji:'⚡', tier:0, baseCd:1,
+  lightning_zap: { id:'lightning_zap', name:'Zap', emoji:'⚡', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i]; setActiveEnemy(i);
       log(`⚡ ${e.name} Zap!`, 'enemy');
       performHit('enemy','player',{baseDamage:12,effects:[],abilityElement:'Lightning',isEnemyAttack:true});
@@ -233,7 +233,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   // ═══ EARTH ═══
   earth_fortify: { id:'earth_fortify', name:'Fortify', emoji:'🛡️', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i];
-      const armor = 20 + Math.floor(e.scaledPower/4);
+      const armor = Math.round((20 + Math.floor(e.scaledPower/4)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       log(`🛡️ ${e.name} Fortifies! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -253,7 +253,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   earth_stone_stance: { id:'earth_stone_stance', name:'Stone Stance', emoji:'🧱', tier:1, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = 30 + Math.floor(e.scaledPower/3);
+      const armor = Math.round((30 + Math.floor(e.scaledPower/3)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       // Gain stone stacks
       e.status.stoneStacks = (e.status.stoneStacks||0)+3;
@@ -285,7 +285,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   nature_thornwall: { id:'nature_thornwall', name:'Thornwall', emoji:'🌵', tier:0, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = 25 + Math.floor(e.scaledPower/4);
+      const armor = Math.round((25 + Math.floor(e.scaledPower/4)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       e.status.thornArmor = true; // flag: thorns on hit
       log(`🌵 ${e.name} Thornwall! (+${armor} Block + Thorns)`, 'enemy');
@@ -295,7 +295,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     fn(i){ const e=combat.enemies[i];
       const heal = 20 + Math.floor(e.scaledPower/3);
       e.hp = Math.min(e.enemyMaxHP, e.hp+heal);
-      const armor = 15;
+      const armor = Math.round(15 * 1.3);
       e.status.block = (e.status.block||0)+armor;
       log(`🌱 ${e.name} Wild Growth! (+${heal} HP, +${armor} Block)`, 'enemy');
       updateHPBars(); renderStatusTags();
@@ -364,7 +364,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
 
   // ═══ AIR ═══
-  air_twin_gust: { id:'air_twin_gust', name:'Twin Gust', emoji:'🌀', tier:0, baseCd:1,
+  air_twin_gust: { id:'air_twin_gust', name:'Twin Gust', emoji:'🌀', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i]; setActiveEnemy(i);
       log(`🌀 ${e.name} Twin Gust! (×2)`, 'enemy');
       performHit('enemy','player',{baseDamage:10,effects:[],abilityElement:'Air',isEnemyAttack:true,hits:2});
@@ -382,7 +382,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   air_wind_shield: { id:'air_wind_shield', name:'Wind Shield', emoji:'🌬️', tier:1, baseCd:3,
     fn(i){ const e=combat.enemies[i];
       e.status.battleDodgeBonus = (e.status.battleDodgeBonus||0)+0.2;
-      const armor = 15;
+      const armor = Math.round(15 * 1.3);
       e.status.block=(e.status.block||0)+armor;
       log(`🌬️ ${e.name} Wind Shield! (+20% dodge, +${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -518,7 +518,7 @@ const ENEMY_ITEM_CATALOGUE = [
     }},
   { id:'enemy_iron_flask', name:'Iron Flask', emoji:'⚗️',
     fn(i){ const e=combat.enemies[i];
-      const armor = 15;
+      const armor = Math.round(15 * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`⚗️ ${e.name} uses an Iron Flask! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -527,39 +527,39 @@ const ENEMY_ITEM_CATALOGUE = [
 
 // Hint strings shown under each intent label
 const ENEMY_ABILITY_HINTS = {
-  brace:                  '+5 Block',
+  brace:                  '6+ Block',
   fire_ignite:            '8 dmg · +6 🔥 Burn',
   fire_flame_burst:       '18 dmg · +4 🔥 Burn',
   fire_combustion_strike: '14+ dmg · +3 🔥 Burn',
   fire_wildfire:          'Doubles Burn stacks',
-  fire_magma_armor:       '20+ Block',
+  fire_magma_armor:       '26+ Block',
   fire_inferno:           '30 dmg · +21 🔥 Burn',
   water_foam_burst:       '10 dmg · +3 🫧 Foam',
-  water_tidal_shield:     '20+ Block',
+  water_tidal_shield:     '26+ Block',
   water_riptide:          '8 dmg ×3 · +1 Foam each',
   water_healing_surge:    'Heals 25+ HP',
   water_drown:            'Stuns if ≥4 Foam · else +2 Foam',
   water_tsunami:          '10 dmg × Foam stacks',
   ice_frost_bolt:         '12 dmg · Stun 1t · +1 ❄️ Frost',
-  ice_glacial_armor:      '25+ Block',
+  ice_glacial_armor:      '33+ Block',
   ice_flash_freeze:       '+6 ❄️ Frost',
   ice_shatter_strike:     'Up to 40+ dmg (scales with Frost)',
-  ice_cryostasis:         '+35 Block · Heals 30 · self Stun 1t',
+  ice_cryostasis:         '+46 Block · Heals 30 · self Stun 1t',
   lightning_zap:          '12 dmg',
   lightning_chain:        '6 dmg ×4',
   lightning_overcharge:   '20 dmg · +3 ⚡ Shock',
   lightning_blitz:        'Detonates Shock stacks for big dmg',
   lightning_static_field: '+Power for 2 turns',
   lightning_charge_shot:  'Charges — massive hit next action',
-  earth_fortify:          '20+ Block',
+  earth_fortify:          '26+ Block',
   earth_boulder:          '22 dmg',
   earth_seismic:          '16 dmg · cracks 15 Armor',
-  earth_stone_stance:     '30+ Block · +3 Stone stacks',
+  earth_stone_stance:     '39+ Block · +3 Stone stacks',
   earth_petrify:          '18 dmg · Stun 2t',
   earth_cataclysm:        '50+ dmg or Stone ×25',
   nature_entangle:        '10 dmg · +2 🌿 Root',
-  nature_thornwall:       '25+ Block · Thorns on hit',
-  nature_wild_growth:     'Heals 20+ HP · +15 Block',
+  nature_thornwall:       '33+ Block · Thorns on hit',
+  nature_wild_growth:     'Heals 20+ HP · +20 Block',
   nature_vine_lash:       '8 dmg ×3 · +1 Root each',
   nature_spore_cloud:     '8 dmg · Stun 1t · +3 🌿 Root',
   nature_wrath:           'Root stacks × 20 dmg',
@@ -571,7 +571,7 @@ const ENEMY_ABILITY_HINTS = {
   air_twin_gust:          '10 dmg ×2',
   air_gale_force:         '22 dmg',
   air_cyclone:            '10 dmg ×3',
-  air_wind_shield:        '+20% dodge · +15 Block',
+  air_wind_shield:        '+20% dodge · +20 Block',
   air_sky_slam:           '20 dmg · Stun 1t',
   air_tempest:            '10 dmg ×5',
 };

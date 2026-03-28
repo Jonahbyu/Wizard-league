@@ -576,11 +576,11 @@ function _libRenderMechanics(cont) {
   _guideEntry(cont, '🔥 Burn',
     'Stacks accumulate on a target. Each turn, deals <b>stacks × damage-per-stack</b> to HP, bypassing armor.<br>'
     + 'Damage per stack = <span style="color:#a0c0ff;">1.0 + yourEFX/100 + talentBonus</span> (or 1.5 with Roaring Heat) — uses your <b>current EFX</b> each tick, so EFX buffs gained mid-battle increase burn damage immediately.<br>'
-    + 'Burn decays by a fraction each turn depending on the spell that applied it.',
+    + 'Burn does <b>not decay</b> — stacks persist until the enemy dies or is cleansed.',
     '#c86030');
   _guideEntry(cont, '❄️ Frost',
-    'Each stack reduces enemy ATK, EFX, and Armor by 1. Stacks scale with your EFX when applied: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>.<br>'
-    + 'Decays 1 stack per turn. At 10 stacks → triggers <b>Freeze</b>: enemy skips a turn, and the next Ice hit deals 1.5× damage consuming 10 stacks.',
+    'Each stack reduces enemy ATK and EFX by 1, and reduces armor absorption by 1 per hit. Stacks scale with your EFX when applied: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>.<br>'
+    + 'Decays 1 stack per turn. At 10 stacks → triggers <b>Freeze</b>: enemy skips a turn. An Ice hit on a frozen target deals 1.5× damage and consumes 10 stacks. Freeze also wears off naturally as frost decays to 0.',
     '#60a0cc');
   _guideEntry(cont, '⚡ Shock',
     'Reduces the shocked target\'s outgoing damage by <b>5% per stack</b> (max 75%). Applied by Lightning spells and abilities. Passives like Conduction add +1 shock per hit.',
@@ -605,16 +605,31 @@ function _libRenderMechanics(cont) {
     'Reduces <b>Defense by 1.5 per stack</b>. Since Defense scales Armor gains and attenuates enemy stats, heavy Foam prevents effective blocking. At negative Defense, each enemy hit deals bonus damage equal to the deficit. Stacks scale with applier\'s EFX.',
     '#4080a0');
   _guideEntry(cont, '💨 Momentum',
-    'Each stack grants <b>+0.8 ATK</b> and <b>+2% dodge chance</b> (cap 80%). Stacks scale with EFX: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>. Gained on every hit landed. Used by Air element.',
+    'Each stack grants <b>+0.8 ATK</b> and <b>+2% dodge chance</b> (cap 80%). Stacks scale with EFX: <span style="color:#a0c0ff;">stacks × (1 + EFX/50)</span>. Gained on every hit landed.<br>'
+    + 'On dodge: lose <b>25% of stacks</b> (10% with Slipstream passive). Become Wind ability prevents this decay for one dodge.',
     '#80a0c0');
+
+  _guideSection(cont, 'Dodge & Phase', '💨');
+  _guideEntry(cont, 'Dodge',
+    'Some elements and passives grant a chance to fully evade incoming hits. A dodged attack deals no damage and applies no effects.<br>'
+    + '<b>Air:</b> +2% dodge per Momentum stack (cap 80%). Each dodge costs 25% of Momentum (10% with Slipstream).<br>'
+    + '<b>Plasma:</b> Ghost Step talent grants a flat dodge chance (up to 50%).<br>'
+    + 'Dodge does not protect against DoT/effect damage (burn ticks, frost ticks, etc.).');
+  _guideEntry(cont, 'Phase',
+    'Full phase grants <b>100% dodge</b> for N turns. Every incoming hit is evaded — no damage, no effects. Phase is consumed one turn at a time.');
 
   _guideSection(cont, 'Nature Seeds', '🌱');
   _guideEntry(cont, 'Seeds — Germination System',
-    'Seeds are planted mid-combat and bloom after a 5-turn timer.<br>'
-    + '<b>Damage Seed:</b> deals 30 + EFX/2 direct damage when it blooms.<br>'
-    + '<b>Root Seed:</b> applies 3 root stacks when it blooms.<br>'
+    'Seeds are planted mid-combat and bloom after a 5-turn timer. Planting the same type again adds stacks — all bloom on the original timer (timer does not reset).<br>'
+    + '<b>Damage Seed:</b> deals 30 + EFX/2 direct damage per stack when it blooms.<br>'
+    + '<b>Root Seed:</b> applies 3 root stacks per stack when it blooms.<br>'
+    + '<b>Healing Seed:</b> planted on <i>yourself</i> — blooms to restore <b>50 + DEF HP per stack</b> (scales with incantation level).<br>'
+    + '<b>Silence Seed:</b> planted on the enemy — blooms to <b>silence</b> them, disabling their active spellbook for 1 turn (scales with incantation level). Each cast is independent and does not merge.<br>'
     + 'The Perennial passive replants any bloomed seed at a 4-turn timer. Deep Roots passive reduces seed timers by 1 every 3rd root applied.',
     '#50a050');
+  _guideEntry(cont, '🤫 Silence',
+    'A silenced enemy cannot use abilities for the duration. Basic attacks still fire. Silence is applied by Silence Seed on bloom and decays 1 turn per round.',
+    '#a050a0');
 
   _guideSection(cont, 'Fire Melt', '🔩');
   _guideEntry(cont, 'Melt — Armor Destruction',

@@ -159,6 +159,14 @@ function startRound(){
       if(fdmg>0) applyEffectDamage('player','enemy', fdmg, `❄️ Frost (×${e.status.frostStacks.toFixed(1)})`);
       if(combat.over) return;
     }
+    // Frost decay: 1 stack per round regardless of frozen state
+    if(e.status.frostStacks>0){
+      e.status.frostStacks = Math.max(0, e.status.frostStacks - 1);
+      if(e.status.frozen && e.status.frostStacks <= 0){
+        e.status.frozen = false;
+        log(`🧊 ${e.name} thaws out.`, 'status');
+      }
+    }
 
     // Frozen Ground: apply 2 Frost to all enemies for N rounds
     if(status.player.frozenGroundTurns > 0){
@@ -226,6 +234,14 @@ function startRound(){
     const frostPer = enemyHasPassive('ice_permafrost_core') ? 3 : 1;
     const fdmg = Math.floor(status.player.frostStacks) * frostPer;
     if(fdmg>0){ applyEffectDamage('enemy','player', fdmg, `❄️ Frost (×${status.player.frostStacks.toFixed(1)})`); if(combat.over) return; }
+  }
+  // Frost decay: 1 stack per round regardless of frozen state
+  if(status.player.frostStacks>0){
+    status.player.frostStacks = Math.max(0, status.player.frostStacks - 1);
+    if(status.player.frozen && status.player.frostStacks <= 0){
+      status.player.frozen = false;
+      log(`🧊 You thaw out.`, 'status');
+    }
   }
 
   // Restore target reference
@@ -952,6 +968,15 @@ function endBattle(won){
       const reviveHP = Math.floor(maxHPFor('player') * revivePct);
       player.hp = reviveHP + (player._gritHealOnRevive||0);
       player.hp = Math.min(player.hp, maxHPFor('player'));
+      // Clear all negative debuffs on revive
+      status.player.burnStacks = 0;
+      status.player.foamStacks = 0;
+      status.player.frostStacks = 0;
+      status.player.frozen = false;
+      status.player.shockStacks = 0;
+      status.player.rootStacks = 0;
+      status.player.stunned = 0;
+      status.player.frozenGroundTurns = 0;
       combat.over = false;
       log(`💀 Fatal blow! ❤️ Life lost — reviving to ${player.hp} HP. (${player.revives} lives left)`, "win");
       updateHPBars(); updateStatsUI();
