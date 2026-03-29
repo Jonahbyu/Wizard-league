@@ -269,6 +269,7 @@ function closeModal(){
 function confirmAbandon(){
   closeModal();
   _lastRunPhos = saveRunStats();
+  sendRunAnalytics('abandoned');
   showBetweenRuns();
 }
 

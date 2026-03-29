@@ -1,6 +1,7 @@
 // ===============================
 function showGameOver(){
   _lastRunPhos = saveRunStats();
+  sendRunAnalytics('loss');
   showBetweenRuns();  // routes to between-runs-screen
 
     // Canvas pixel art scene
@@ -130,6 +131,7 @@ let _victoryFreeplay = false;
 function showRunVictory() {
   _victoryFreeplay = false;
   _lastRunPhos = saveRunStats();
+  sendRunAnalytics('win');
 
   // Populate stats panel
   const statsEl = document.getElementById('victory-stats');
