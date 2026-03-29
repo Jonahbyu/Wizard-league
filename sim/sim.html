@@ -159,13 +159,14 @@
     <div class="cfg-section">
       <div class="cfg-label">Simulations</div>
       <div class="cfg-row" id="count-btns">
-        <button class="cfg-btn active" onclick="simCfg.nRuns=50; _setActive(this,this.closest('.cfg-row'))">50</button>
-        <button class="cfg-btn" onclick="simCfg.nRuns=200; _setActive(this,this.closest('.cfg-row'))">200</button>
+        <button class="cfg-btn active" onclick="simCfg.nRuns=100; _setActive(this,this.closest('.cfg-row'))">100</button>
         <button class="cfg-btn" onclick="simCfg.nRuns=500; _setActive(this,this.closest('.cfg-row'))">500</button>
         <button class="cfg-btn" onclick="simCfg.nRuns=1000; _setActive(this,this.closest('.cfg-row'))">1000</button>
+        <button class="cfg-btn" onclick="simCfg.nRuns=5000; _setActive(this,this.closest('.cfg-row'))">5000</button>
+        <button class="cfg-btn" onclick="simCfg.nRuns=10000; _setActive(this,this.closest('.cfg-row'))">10k</button>
       </div>
       <div class="cfg-row">
-        <input type="number" class="cfg-input" placeholder="custom" min="1" max="5000" style="width:100%"
+        <input type="number" class="cfg-input" placeholder="custom" min="1" max="10000" style="width:100%"
           oninput="if(+this.value>0) simCfg.nRuns=+this.value">
       </div>
     </div>
@@ -490,6 +491,7 @@ function showCampfireScreen() { showMap(); }
 function _simEnterCampfire() {
   const maxHP = maxHPFor('player');
   if (player.hp < maxHP * 0.30) _simRunLowHPCampfires++;
+  _simRunRewardLog.push({ type: 'campfire' });
   const healed = Math.floor(maxHP * 0.50);
   applyHeal('player', healed, '🔥 Campfire rest');
   restoreAllPP();
@@ -589,9 +591,11 @@ renderQueue = function() {};
 var _simRunDmgByType  = {};   // { type: totalDmg } — reset each run
 var _simRunDmgBySpell = {};   // { spellId: totalDmg } — direct hit dmg per spell
 var _simCurrentSpellId = null; // set while a spell/basic action is executing
-var _simRunSpellsLog     = [];  // [{id, zone, rarity}] — spell acquisition per zone
-var _simRunGoldSpent     = 0;   // gold spent in shops this run
-var _simRunLowHPCampfires = 0;  // campfire visits with HP < 30%
+var _simRunSpellsLog      = [];  // [{id, zone, rarity}] — spell acquisition per zone
+var _simRunGoldSpent      = 0;   // gold spent in shops this run
+var _simRunLowHPCampfires = 0;   // campfire visits with HP < 30%
+var _simRunIncantCount    = 0;   // incantation upgrades taken this run
+var _simRunRewardLog      = [];  // [{type}] — every reward slot taken this run
 
 function _simDmgType(label, spellId) {
   // Classify a damage event into a source category
@@ -887,6 +891,8 @@ function _simRecordResult(won) {
     goldAtEnd:       player.gold,
     goldSpent:       _simRunGoldSpent,
     lowHPCampfires:  _simRunLowHPCampfires,
+    incantCount:     _simRunIncantCount,
+    rewardLog:       _simRunRewardLog.slice(),
     bookCount:       player.spellbooks.length,
     archetypeGoal:   _simRunArchetypeGoal,
   };
@@ -972,9 +978,9 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
   }
 
   const rewardType = combat._chosenRewardType || getZoneRewardType(zoneBattleCount, currentGymIdx, 0);
+  _simRunRewardLog.push({ type: rewardType });
 
   if (rewardType === 'primary_spell') {
-    // Battle 1 reward: give the chosen starting spell, or pick a random primary spell
     let spell;
     if (simCfg.startSpellId) {
       spell = addSpellById(simCfg.startSpellId, false, 'dim');
@@ -1000,9 +1006,9 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
     if (eligible.length > 0) {
       const pick = eligible[Math.floor(Math.random() * eligible.length)];
       pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+      _simRunIncantCount++;
       log(`✦ Incantation upgraded: ${pick.name} → Lv${pick.incantationLevel}`, 'win');
     } else {
-      // No spells to upgrade yet — fall back to minor reward
       const pool = buildMinorUpgradePool();
       if (pool.length > 0) try { pool[Math.floor(Math.random() * pool.length)].apply(); } catch(e) {}
     }
@@ -1072,6 +1078,8 @@ showIncantationChoiceScreen = function(level) {
   if (eligible.length > 0) {
     const pick = eligible[Math.floor(Math.random() * eligible.length)];
     pick.incantationLevel = (pick.incantationLevel || 1) + 1;
+    _simRunIncantCount++;
+    _simRunRewardLog.push({ type: 'incantation_levelup' });
     log(`✦ Incantation: ${pick.emoji||'✨'} ${pick.name} → Lv${pick.incantationLevel}`, 'win');
   }
   processNextLevelUp();
@@ -1459,6 +1467,8 @@ function simInitRun(cfg) {
   _simRunSpellsLog      = [];
   _simRunGoldSpent      = 0;
   _simRunLowHPCampfires = 0;
+  _simRunIncantCount    = 0;
+  _simRunRewardLog      = [];
 
   battleNumber = 1; currentGymIdx = 0; zoneBattleCount = 0;
   gymSkips = 0; gymDefeated = false; pendingLevelUps = [];
@@ -1597,63 +1607,127 @@ async function runSims() {
 }
 
 // ── Multi-element comparison renderer ─────────────────────────────────────────
+// ── Interactive element lines chart ──────────────────────────────────────────
+// Global crosshair handlers — defined once, called via onmousemove in SVG overlay
+window._ecHover = function(uid, evt) {
+  var wrap = document.getElementById('ecw-' + uid);
+  var svg  = document.getElementById('ecsvg-' + uid);
+  var xhair = document.getElementById('ecxh-' + uid);
+  var tt    = document.getElementById('ectt-' + uid);
+  if (!svg || !xhair || !tt) return;
+  var d = svg._ecData;
+  if (!d) { try { d = JSON.parse(svg.getAttribute('data-ecjson')); svg._ecData = d; } catch(e) { return; } }
+  var rect = svg.getBoundingClientRect();
+  var scaleX = d.W / rect.width;
+  var mx = (evt.clientX - rect.left) * scaleX;
+  var idx = Math.round((mx - d.PX) / d.iW * (d.n - 1));
+  idx = Math.max(d.skip, Math.min(d.n - 1, idx));
+  var svgX = d.PX + (idx / (d.n - 1)) * d.iW;
+  xhair.setAttribute('x1', svgX.toFixed(1)); xhair.setAttribute('x2', svgX.toFixed(1));
+  xhair.removeAttribute('display');
+  var rows = d.els.map(function(e) {
+    var wr = e.wrs[idx]; var wrStr = wr != null ? (wr * 100).toFixed(1) + '%' : '—';
+    return '<span style="color:' + e.col + '">■</span> ' + e.el + ': <b>' + wrStr + '</b>';
+  }).join('<br>');
+  tt.innerHTML = '<div style="font-size:.58rem;color:#5a5040;margin-bottom:.15rem">Run ' + (idx+1) + ' · cumulative</div>' + rows;
+  tt.style.display = 'block';
+  var ttW = tt.offsetWidth || 160;
+  var csX = svgX / scaleX;
+  tt.style.left = (csX + 10 + ttW > rect.width ? csX - ttW - 10 : csX + 10) + 'px';
+};
+window._ecLeave = function(uid) {
+  var xh = document.getElementById('ecxh-' + uid);
+  var tt = document.getElementById('ectt-' + uid);
+  if (xh) xh.setAttribute('display','none');
+  if (tt) tt.style.display = 'none';
+};
+
 function _renderElementLinesChart(elementResults, n) {
   if (!elementResults || elementResults.length < 2) return '';
-  const W = 620, H = 200, PX = 30, PY = 14, PR = 14; // left/top/right padding
-  const iW = W - PX - PR, iH = H - PY - 22;
+  const W = 700, H = 280, PX = 36, PY = 14, PR = 56;
+  const iW = W - PX - PR, iH = H - PY - 20;
 
-  // Pre-compute cumulative win rates per element (avoid O(n²) slice)
+  // Pre-compute cumulative win rates (O(n) per element)
   const elemData = elementResults.map(er => {
     const col = _ELEM_COLOR[er.element] || '#888';
-    let cumulWins = 0;
+    let cw = 0;
     const pts = er.results.map((r, i) => {
-      if (r && r.won) cumulWins++;
-      const wr = cumulWins / (i + 1);
-      return { x: PX + (i / Math.max(n - 1, 1)) * iW, y: PY + (1 - wr) * iH, wr, idx: i };
+      if (r && r.won) cw++;
+      const wr = cw / (i + 1);
+      return { x: PX + (i / Math.max(n - 1, 1)) * iW, wr };
     });
-    return { element: er.element, col, pts, stats: er.stats };
+    return { element: er.element, col, pts, finalWR: er.stats.winRate };
   });
 
-  // Grid lines at 0/25/50/75/100%
-  const grids = [0, 0.25, 0.5, 0.75, 1].map(p => {
-    const y = (PY + (1 - p) * iH).toFixed(1);
-    const lc = p === 0.5 ? '#2a2a3a' : (p === 0 || p === 1) ? '#1a1a24' : '#191922';
-    return `<line x1="${PX}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="${lc}" stroke-width="${p === 0.5 ? 1.5 : 1}"/>
-      <text x="${PX - 5}" y="${(+y + 3.5).toFixed(0)}" fill="#4a4030" font-size="9" text-anchor="end">${(p * 100).toFixed(0)}%</text>`;
+  // Auto-scale Y: 0 → max win rate * 1.3, minimum 35%
+  const maxWR  = Math.max(...elemData.map(e => e.finalWR), 0.05);
+  const yMax   = Math.min(1.0, Math.max(0.35, maxWR * 1.35));
+  const toY    = wr => PY + (1 - wr / yMax) * iH;
+
+  // Apply Y to pts
+  for (const ed of elemData) for (const p of ed.pts) p.y = toY(p.wr);
+
+  // Grid lines scaled to yMax
+  const gridStep = yMax <= 0.4 ? 0.1 : yMax <= 0.75 ? 0.25 : 0.25;
+  const gridVals = [];
+  for (let v = 0; v <= yMax + 0.001; v += gridStep) gridVals.push(+(v.toFixed(3)));
+  const grids = gridVals.map(v => {
+    const y = toY(v).toFixed(1);
+    const lc = Math.abs(v - gridStep) < 0.001 ? '#2a2a3a' : '#191922';
+    const isMid = Math.abs(v / yMax - 0.5) < 0.05;
+    return `<line x1="${PX}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="${isMid?'#2a2a3a':lc}" stroke-width="${isMid?1.5:1}"/>
+      <text x="${PX-5}" y="${(+y+3.5).toFixed(0)}" fill="#4a4030" font-size="9" text-anchor="end">${(v*100).toFixed(0)}%</text>`;
   }).join('');
 
-  // Polylines + sampled hover circles + final dot per element
-  const step = Math.max(1, Math.floor(n / 50)); // ~50 hover points per element max
-  const linesHtml = elemData.map(({ element, col, pts, stats }) => {
-    const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-    const hoverDots = pts
-      .filter((_, i) => i % step === 0 || i === pts.length - 1)
-      .map(p => {
-        const tip = `Run ${p.idx + 1} · ${element} · ${(p.wr * 100).toFixed(1)}% win rate`.replace(/"/g, '&quot;');
-        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="transparent" stroke="transparent"><title>${tip}</title></circle>`;
-      }).join('');
+  // Skip first few runs to avoid spike noise
+  const skip = Math.min(4, Math.floor(n * 0.02));
+
+  // Collision-free right-edge labels
+  const sorted = elemData.slice().sort((a,b) => a.pts[n-1].y - b.pts[n-1].y);
+  let prevY = -99;
+  for (const ed of sorted) {
+    let ly = ed.pts[n-1].y;
+    if (ly - prevY < 11) ly = prevY + 11;
+    ly = Math.min(PY + iH - 2, Math.max(PY + 6, ly));
+    ed.labelY = ly; prevY = ly;
+  }
+
+  const uid = Math.random().toString(36).slice(2, 8);
+  const linesHtml = elemData.map(({ element, col, pts, finalWR, labelY }) => {
+    const draw = pts.slice(skip);
+    if (!draw.length) return '';
+    const poly = draw.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
     const last = pts[pts.length - 1];
-    const finalDot = last
-      ? `<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="${col}"/>
-         <text x="${(last.x + 5).toFixed(0)}" y="${(last.y + 3.5).toFixed(0)}" fill="${col}" font-size="8">${(stats.winRate * 100).toFixed(0)}%</text>`
-      : '';
-    return `<polyline points="${polyPoints}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
-      ${finalDot}${hoverDots}`;
+    const dot  = last ? `<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4" fill="${col}"/>` : '';
+    const lbl  = labelY != null ? `<text x="${(last.x+8).toFixed(0)}" y="${(labelY+3.5).toFixed(0)}" fill="${col}" font-size="10" font-weight="bold">${(finalWR*100).toFixed(0)}%</text>` : '';
+    return `<polyline points="${poly}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.92"/>
+      ${dot}${lbl}`;
   }).join('');
 
-  // Legend
+  // JSON data for interactive crosshair
+  const chartData = JSON.stringify({
+    W, PX, PY, iW, iH, n, skip, yMax,
+    els: elemData.map(ed => ({ el: ed.element, col: ed.col, wrs: ed.pts.map(p => +p.wr.toFixed(4)) }))
+  });
+
   const legend = elementResults.map(({ element, stats }) => {
-    const col   = _ELEM_COLOR[element] || '#888';
-    const emoji = _ELEM_EMOJI[element] || '';
-    return `<span style="color:${col};font-size:.63rem;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
-      <svg width="16" height="6" style="flex-shrink:0"><line x1="0" y1="3" x2="16" y2="3" stroke="${col}" stroke-width="2"/><circle cx="8" cy="3" r="2.5" fill="${col}"/></svg>
-      ${emoji} ${element} ${(stats.winRate * 100).toFixed(0)}%</span>`;
+    const col = _ELEM_COLOR[element] || '#888', emoji = _ELEM_EMOJI[element] || '';
+    return `<span style="color:${col};font-size:.65rem;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+      <svg width="18" height="7" style="flex-shrink:0"><line x1="0" y1="3.5" x2="18" y2="3.5" stroke="${col}" stroke-width="2.5"/><circle cx="9" cy="3.5" r="2.5" fill="${col}"/></svg>
+      ${emoji} ${element} ${(stats.winRate*100).toFixed(0)}%</span>`;
   }).join('');
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin-bottom:.4rem">
-    ${grids}${linesHtml}
-  </svg>
-  <div style="display:flex;gap:.7rem;flex-wrap:wrap">${legend}</div>`;
+  return `<div id="ecw-${uid}" style="position:relative;user-select:none">
+    <svg id="ecsvg-${uid}" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block"
+      data-ecjson="${chartData.replace(/"/g,'&quot;')}">
+      ${grids}${linesHtml}
+      <line id="ecxh-${uid}" x1="0" y1="${PY}" x2="0" y2="${PY+iH}" stroke="#ffffff28" stroke-width="1" stroke-dasharray="3,3" display="none"/>
+      <rect x="${PX}" y="${PY}" width="${iW}" height="${iH}" fill="transparent" style="cursor:crosshair"
+        onmousemove="_ecHover('${uid}',event)" onmouseleave="_ecLeave('${uid}')"/>
+    </svg>
+    <div id="ectt-${uid}" style="position:absolute;top:${PY+4}px;pointer-events:none;display:none;background:#0c0c18ee;border:1px solid #2a2a3a;border-radius:6px;padding:.4rem .6rem;font-size:.65rem;line-height:1.55;white-space:nowrap;z-index:10;box-shadow:0 3px 12px #000a"></div>
+  </div>
+  <div style="display:flex;gap:.8rem;flex-wrap:wrap;margin-top:.35rem">${legend}</div>`;
 }
 
 function _renderComparison(elementResults, n) {
@@ -1802,6 +1876,14 @@ function _aggregateResults(results, n) {
   const rarityRuns      = {};  // rarity → runs containing ≥1 of that rarity
   const rarityWins      = {};
   const raritySpellFreq = {};  // rarity → spellId → {count, wins}
+  // Rarity count impact: group by # rarity spells acquired
+  const rarityCountBuckets = { '0':{count:0,wins:0}, '1':{count:0,wins:0}, '2':{count:0,wins:0}, '3+':{count:0,wins:0} };
+  // Incantation impact: group by # incantations taken
+  const incantBuckets = { '0':{count:0,wins:0}, '1':{count:0,wins:0}, '2':{count:0,wins:0}, '3':{count:0,wins:0}, '4+':{count:0,wins:0} };
+  let incantWinSum = 0, incantLossSum = 0, incantWinCount = 0, incantLossCount = 0;
+  // Reward type mix in wins vs losses
+  const rewardWins  = {};  // rewardType → total count in winning runs
+  const rewardLoss  = {};  // rewardType → total count in losing runs
   let   goldAtEndSum   = 0, goldSpentSum = 0, goldRunCount = 0;
   let   lowHPCampSum   = 0;
   const zoneSpellFreq  = { 0:{}, 1:{}, 2:{} }; // zone → {spellId: count}
@@ -1861,6 +1943,23 @@ function _aggregateResults(results, n) {
     for (const rar of seenRarities) {
       rarityRuns[rar] = (rarityRuns[rar] || 0) + 1;
       if (r.won) rarityWins[rar] = (rarityWins[rar] || 0) + 1;
+    }
+    // Rarity count impact
+    const raritySpellCount = (r.spellsLog || []).filter(sl => sl.rarity && sl.rarity !== 'dim').length;
+    const rcBucket = raritySpellCount >= 3 ? '3+' : String(raritySpellCount);
+    rarityCountBuckets[rcBucket].count++;
+    if (r.won) rarityCountBuckets[rcBucket].wins++;
+    // Incantation impact
+    const ic = r.incantCount || 0;
+    const icBucket = ic >= 4 ? '4+' : String(ic);
+    incantBuckets[icBucket].count++;
+    if (r.won) incantBuckets[icBucket].wins++;
+    if (r.won) { incantWinSum += ic; incantWinCount++; }
+    else        { incantLossSum += ic; incantLossCount++; }
+    // Reward type mix
+    for (const rv of (r.rewardLog || [])) {
+      if (r.won) rewardWins[rv.type] = (rewardWins[rv.type] || 0) + 1;
+      else       rewardLoss[rv.type] = (rewardLoss[rv.type] || 0) + 1;
     }
     // Gold
     if (r.goldAtEnd != null) { goldAtEndSum += r.goldAtEnd; goldSpentSum += (r.goldSpent||0); goldRunCount++; }
@@ -2056,6 +2155,11 @@ function _aggregateResults(results, n) {
     bookCountStats,
     upgradedSpells,
     globalLvDist,
+    incantBuckets,
+    avgIncantWin:  incantWinCount  > 0 ? incantWinSum  / incantWinCount  : null,
+    avgIncantLoss: incantLossCount > 0 ? incantLossSum / incantLossCount : null,
+    rarityCountBuckets,
+    rewardMix: { wins: rewardWins, losses: rewardLoss, winRuns: wins, lossRuns: n - wins },
   };
 }
 
@@ -2424,17 +2528,15 @@ function _renderWinsTab(body) {
     const dmgBySpell  = r.dmgBySpell || {};
     const dmgByType   = r.dmgByType  || {};
     const totalDmg    = Object.values(dmgByType).reduce((s,v)=>s+v,0) || 1;
+    const topDmg      = Object.values(dmgBySpell)[0] || 1;
     const spellDmgRows = Object.entries(dmgBySpell)
       .sort((a,b)=>b[1]-a[1]).slice(0,6)
       .map(([id, dmg]) => {
-        let name = id;
-        if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
-          const d = SPELL_CATALOGUE[id]; name = `${d.emoji||''}${d.name}`;
-        }
-        const pct = (dmg/totalDmg*100).toFixed(0);
-        const barW = (dmg / (Object.values(dmgBySpell)[0]||1) * 100).toFixed(0);
-        return `<div style="display:flex;align-items:center;gap:.4rem;margin:.1rem 0;font-size:.62rem">
-          <span style="color:#c8a060;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+        const pct  = (dmg/totalDmg*100).toFixed(0);
+        const barW = (dmg / topDmg * 100).toFixed(0);
+        const ta   = _spellTipAttr(id, `${dmg} dmg this run (${pct}% of total)`);
+        return `<div${ta} style="display:flex;align-items:center;gap:.4rem;margin:.1rem 0;font-size:.62rem;cursor:default">
+          <span style="color:#c8a060;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_spellLabel(id)}</span>
           <div style="width:50px;height:5px;background:#1a1a22;border-radius:2px;flex-shrink:0">
             <div style="width:${barW}%;height:5px;background:#c88030;border-radius:2px"></div>
           </div>
@@ -2450,16 +2552,23 @@ function _renderWinsTab(body) {
         return `<span style="color:${m.color};font-size:.6rem">${m.label.split(' ')[0]} ${pct}%</span>`;
       }).join('<span style="color:#2a2020"> · </span>');
 
-    // Passives
-    const passiveStr = (r.passives||[]).map(id => {
-      if (typeof PASSIVE_CHOICES !== 'undefined') {
-        for (const el of Object.values(PASSIVE_CHOICES)) {
-          const p = el.find(x => x.id === id);
-          if (p) return `${p.emoji||''}${p.title}`;
-        }
-      }
-      return id;
-    }).join(', ');
+    // Passives — each with tooltip
+    const passiveSpans = (r.passives||[]).map(id => {
+      const ta  = _passiveTipAttr(id);
+      const lbl = _passiveLabel(id);
+      return `<span${ta} style="cursor:default;white-space:nowrap">${lbl}</span>`;
+    }).join('<span style="color:#3a3020">, </span>');
+    const passiveStr = passiveSpans;
+
+    // Full spell roster (for spells that dealt no direct damage — utility spells)
+    const dmgSpellIds = new Set(Object.keys(dmgBySpell));
+    const otherSpells = (r.spells||[]).filter(id => !dmgSpellIds.has(id) && id !== '_basic' && id !== '_armor');
+    const otherSpellsHtml = otherSpells.length
+      ? `<div style="margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.25rem">` +
+        otherSpells.map(id => {
+          const ta = _spellTipAttr(id, 'Utility / no direct damage');
+          return `<span${ta} style="font-size:.58rem;color:#5a5040;background:#0f0f18;border:1px solid #1a1a26;border-radius:3px;padding:1px 5px;cursor:default">${_spellLabel(id)}</span>`;
+        }).join('') + `</div>` : '';
 
     return `<div style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:8px;padding:.65rem .8rem;margin-bottom:.5rem">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem">
@@ -2473,9 +2582,10 @@ function _renderWinsTab(body) {
         </div>
       </div>
       ${spellDmgRows || '<span style="color:#3a3020;font-size:.62rem">No spell damage data</span>'}
+      ${otherSpellsHtml}
       <div style="margin-top:.35rem;font-size:.6rem;color:#5a5040;line-height:1.6">${typeDots}</div>
-      ${passiveStr ? `<div style="margin-top:.25rem;font-size:.6rem;color:#7a6a3a">Passives: ${passiveStr}</div>` : ''}
-      <div style="margin-top:.2rem;font-size:.58rem;color:#3a3020">Books: ${r.bookCount||1} · Gold left: ${r.goldAtEnd||0}</div>
+      ${passiveStr ? `<div style="margin-top:.25rem;font-size:.6rem;color:#7a6a3a;line-height:1.8">Passives: ${passiveStr}</div>` : ''}
+      <div style="margin-top:.2rem;font-size:.58rem;color:#3a3020">Books: ${r.bookCount||1} · Gold left: ${r.goldAtEnd||0}${r.incantCount ? ` · ✦ ${r.incantCount} incantations` : ''}</div>
     </div>`;
   }).join('');
 
@@ -2772,6 +2882,135 @@ function _renderSpellLevelsSection(stats) {
   </div>`;
 }
 
+// ── Incantation Impact ────────────────────────────────────────────────────────
+function _renderIncantImpactSection(stats) {
+  const b   = stats.incantBuckets || {};
+  const awi = stats.avgIncantWin;
+  const awl = stats.avgIncantLoss;
+  if (!Object.values(b).some(v => v.count > 0)) return '';
+  const ORDER = ['0','1','2','3','4+'];
+  const COLORS = { '0':'#4a4030', '1':'#7a6030', '2':'#aa8844', '3':'#e8c060', '4+':'#44cc88' };
+  const cards = ORDER.map(k => {
+    const d = b[k]; if (!d || !d.count) return '';
+    const wr  = (d.wins / d.count * 100).toFixed(0);
+    const col = COLORS[k];
+    const tot = Object.values(b).reduce((s,v)=>s+v.count,0)||1;
+    const pct = (d.count/tot*100).toFixed(0);
+    return `<div style="background:#0c0c14;border:1px solid ${col}44;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.6rem;color:#5a5040;text-transform:uppercase;letter-spacing:.07em">${k} Incantation${k==='1'?'':'s'}</div>
+      <div style="font-size:1.2rem;font-weight:bold;color:${col};font-family:serif">${wr}%</div>
+      <div style="font-size:.58rem;color:#6a5a2a">win rate</div>
+      <div style="font-size:.58rem;color:#4a4030">${d.count} runs (${pct}%)</div>
+    </div>`;
+  }).join('');
+  const delta = (awi != null && awl != null) ? (awi - awl).toFixed(2) : null;
+  const deltaHtml = delta != null
+    ? `<div style="font-size:.65rem;color:#c8a060;margin-top:.5rem">
+        Winning runs avg <b style="color:#44cc88">${awi.toFixed(2)}</b> incantations &nbsp;·&nbsp;
+        Losing runs avg <b style="color:#aa4444">${awl.toFixed(2)}</b> &nbsp;·&nbsp;
+        <span style="color:${+delta>0?'#44cc88':'#888'}">Δ ${+delta>0?'+':''}${delta}</span>
+      </div>` : '';
+  return `<div class="results-section">
+    <h3>Incantation Contribution <span style="font-size:.6rem;color:#3a3020">(win rate by # of incantations taken)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem">${cards}</div>
+    ${deltaHtml}
+  </div>`;
+}
+
+// ── Rarity Count Impact ───────────────────────────────────────────────────────
+function _renderRarityCountSection(stats) {
+  const b = stats.rarityCountBuckets || {};
+  if (!Object.values(b).some(v => v.count > 0)) return '';
+  const ORDER  = ['0','1','2','3+'];
+  const LABELS = { '0':'No Rarity Spells', '1':'1 Rarity Spell', '2':'2 Rarity Spells', '3+':'3+ Rarity Spells' };
+  const COLORS = { '0':'#4a4030', '1':'#66bbff', '2':'#ff9944', '3+':'#ffe066' };
+  const cards = ORDER.map(k => {
+    const d = b[k]; if (!d || !d.count) return '';
+    const wr  = (d.wins / d.count * 100).toFixed(0);
+    const col = COLORS[k];
+    const tot = Object.values(b).reduce((s,v)=>s+v.count,0)||1;
+    const pct = (d.count/tot*100).toFixed(0);
+    return `<div style="background:#0c0c14;border:1px solid ${col}44;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div style="font-size:.6rem;color:#5a5040;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${LABELS[k]}</div>
+      <div style="font-size:1.2rem;font-weight:bold;color:${col};font-family:serif">${wr}%</div>
+      <div style="font-size:.58rem;color:#6a5a2a">win rate</div>
+      <div style="font-size:.58rem;color:#4a4030">${d.count} runs (${pct}%)</div>
+    </div>`;
+  }).join('');
+  return `<div class="results-section">
+    <h3>Rarity Spell Count Impact <span style="font-size:.6rem;color:#3a3020">(win rate by # of rarity spells acquired)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem">${cards}</div>
+  </div>`;
+}
+
+// ── Reward Mix & Optimal Strategy ────────────────────────────────────────────
+function _renderRewardMixSection(stats) {
+  const mix = stats.rewardMix;
+  if (!mix) return '';
+  const { wins: rw, losses: rl, winRuns, lossRuns } = mix;
+  if (!winRuns && !lossRuns) return '';
+  const REWARD_LABELS = {
+    primary_spell: '📜 Starter Spell', spell: '📜 Spell', secondary_spell: '📜 Spell',
+    incantation: '✦ Incantation', incantation_levelup: '✦ Incantation (LvUp)',
+    minor: '⬆ Minor Upgrade', major: '⬆⬆ Major Upgrade',
+    campfire: '🔥 Campfire', shop: '🛒 Shop',
+  };
+  // Merge incantation types
+  const merge = (obj) => {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const key = (k === 'secondary_spell') ? 'spell' : (k === 'incantation_levelup') ? 'incantation' : k;
+      out[key] = (out[key] || 0) + v;
+    }
+    return out;
+  };
+  const mw = merge(rw), ml = merge(rl);
+  const allKeys = [...new Set([...Object.keys(mw), ...Object.keys(ml)])].filter(k => k !== 'primary_spell');
+  // Compute avg per run and delta
+  const rows = allKeys.map(k => {
+    const wAvg = winRuns  > 0 ? (mw[k]||0) / winRuns  : 0;
+    const lAvg = lossRuns > 0 ? (ml[k]||0) / lossRuns : 0;
+    return { k, wAvg, lAvg, delta: wAvg - lAvg };
+  }).sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+  const cards = rows.map(({ k, wAvg, lAvg, delta }) => {
+    const label = REWARD_LABELS[k] || k;
+    const col   = delta > 0.3 ? '#44cc88' : delta < -0.3 ? '#cc4444' : '#888';
+    const sign  = delta > 0 ? '+' : '';
+    return `<div style="background:#0c0c14;border:1px solid ${col}33;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.08rem">
+      <div style="font-size:.6rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</div>
+      <div style="display:flex;align-items:baseline;gap:.35rem;margin-top:.1rem">
+        <span style="font-size:1.0rem;font-weight:bold;color:#44cc88;font-family:serif">${wAvg.toFixed(1)}</span>
+        <span style="font-size:.58rem;color:#5a5040">win</span>
+        <span style="font-size:1.0rem;font-weight:bold;color:#cc4444;font-family:serif">${lAvg.toFixed(1)}</span>
+        <span style="font-size:.58rem;color:#5a5040">loss</span>
+      </div>
+      <div style="font-size:.62rem;color:${col};font-weight:bold">${sign}${delta.toFixed(2)} avg/run</div>
+    </div>`;
+  }).join('');
+
+  // Optimal strategy insight cards — top 3 differentiators
+  const insights = rows.filter(r => Math.abs(r.delta) > 0.1).slice(0, 4).map(({ k, wAvg, lAvg, delta }) => {
+    const label = REWARD_LABELS[k] || k;
+    const positive = delta > 0;
+    const col = positive ? '#44cc88' : '#cc4444';
+    const msg = positive
+      ? `Winning runs take <b>${(wAvg).toFixed(1)}</b> vs <b>${(lAvg).toFixed(1)}</b> in losses (+${delta.toFixed(2)})`
+      : `Losing runs take more <b>${(-delta).toFixed(2)}</b> extra`;
+    return `<div style="background:#0c0c14;border-left:3px solid ${col};border-radius:0 6px 6px 0;padding:.4rem .6rem;border-top:1px solid #1e1e2a;border-right:1px solid #1e1e2a;border-bottom:1px solid #1e1e2a">
+      <div style="font-size:.62rem;color:${col};font-weight:bold">${label}</div>
+      <div style="font-size:.6rem;color:#8a7a5a;margin-top:.1rem">${msg}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="results-section">
+    <h3>Reward Choices — Win vs Loss <span style="font-size:.6rem;color:#3a3020">(avg per run)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:.6rem">${cards}</div>
+    ${insights ? `<h3 style="margin-top:.2rem">Optimal Strategy Signals <span style="font-size:.6rem;color:#3a3020">(biggest differentiators)</span></h3>
+    <div style="display:flex;flex-direction:column;gap:.3rem">${insights}</div>` : ''}
+  </div>`;
+}
+
 function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog) {
 
   const winPct = (stats.winRate * 100).toFixed(1);
@@ -2922,6 +3161,9 @@ function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog
     ${_renderArchetypesSection(stats)}
     ${_renderSpellBalanceSection(stats)}
     ${_renderPassiveBalanceSection(stats)}
+    ${_renderIncantImpactSection(stats)}
+    ${_renderRarityCountSection(stats)}
+    ${_renderRewardMixSection(stats)}
     ${_renderBookDiversitySection(stats)}
     ${_renderRaritySection(stats)}
     ${_renderHPEfficiencySection(stats)}

@@ -1,26 +1,26 @@
 {
-  "date": "2026-03-28T19:59:15.525Z",
+  "date": "2026-03-29T05:44:20.692Z",
   "cfg": {
     "element": "Air",
     "strategy": "smart",
     "artifactId": null,
     "artifactStar": 0,
-    "nRuns": 200,
+    "nRuns": 50,
     "startPassiveId": null,
     "startSpellId": null,
     "talents": {}
   },
   "stats": {
-    "winRate": 0.3,
-    "wins": 60,
-    "n": 200,
-    "avgBattles": 16.37,
-    "avgHPOnWin": 240.76666666666668,
+    "winRate": 0.26,
+    "wins": 13,
+    "n": 50,
+    "avgBattles": 14.22,
+    "avgHPOnWin": 230.6153846153846,
     "gymHist": [
-      131,
-      8,
-      1,
-      60
+      37,
+      0,
+      0,
+      13
     ],
     "z1Milestones": [
       1,
@@ -32,167 +32,155 @@
       15
     ],
     "z1Counts": [
-      200,
-      147,
-      112,
-      85,
-      82,
-      82,
-      69
+      50,
+      32,
+      22,
+      18,
+      18,
+      18,
+      13
     ],
-    "z1GymAttempted": 82,
+    "z1GymAttempted": 18,
     "battleHist": [
       [
         "2",
-        38
-      ],
-      [
-        "3",
-        15
-      ],
-      [
-        "4",
-        20
-      ],
-      [
-        "5",
-        15
-      ],
-      [
-        "6",
-        12
-      ],
-      [
-        "7",
-        8
-      ],
-      [
-        "8",
         6
       ],
       [
-        "9",
+        "3",
+        12
+      ],
+      [
+        "4",
         3
       ],
       [
-        "10",
-        1
+        "5",
+        7
+      ],
+      [
+        "6",
+        2
+      ],
+      [
+        "7",
+        2
       ],
       [
         "14",
-        13
+        5
       ]
     ],
     "topSpells": [
       [
-        "wind_wall",
-        72
+        "tornado",
+        20
       ],
       [
         "become_wind",
-        69
+        16
       ],
       [
         "twin_strike",
-        63
+        15
       ],
       [
-        "tornado",
-        59
-      ],
-      [
-        "sleeper_gust",
-        50
-      ],
-      [
-        "windy_takedown",
-        46
-      ],
-      [
-        "break_momentum",
-        39
-      ],
-      [
-        "power_strike",
-        25
-      ],
-      [
-        "shield_bash",
-        17
-      ],
-      [
-        "seismic_wave",
+        "wind_wall",
         14
       ],
       [
-        "double_tap",
-        13
-      ],
-      [
-        "war_cry",
-        12
-      ],
-      [
-        "ignite",
-        11
-      ],
-      [
-        "vampiric_strike",
+        "windy_takedown",
         10
       ],
       [
-        "vine_strike",
+        "sleeper_gust",
         9
+      ],
+      [
+        "break_momentum",
+        8
+      ],
+      [
+        "power_strike",
+        7
+      ],
+      [
+        "war_cry",
+        4
+      ],
+      [
+        "double_tap",
+        4
+      ],
+      [
+        "shield_bash",
+        3
+      ],
+      [
+        "vampiric_strike",
+        3
+      ],
+      [
+        "zap",
+        2
+      ],
+      [
+        "ignite",
+        2
+      ],
+      [
+        "tidal_surge",
+        2
       ]
     ],
     "topPassives": [
       [
         "air_slipstream",
-        87
-      ],
-      [
-        "air_gale_force",
-        77
+        19
       ],
       [
         "air_rapid_tempo",
-        67
+        18
       ],
       [
         "air_tailwind",
-        66
+        17
       ],
       [
-        "nature_deep_roots",
-        4
+        "air_gale_force",
+        17
       ],
       [
-        "earth_fissure",
-        4
+        "water_sea_foam",
+        2
       ],
       [
         "ice_blast",
-        4
-      ],
-      [
-        "fire_deep_heat",
-        4
-      ],
-      [
-        "nature_thorned_strikes",
-        4
-      ],
-      [
-        "air_eye_of_the_storm",
-        3
-      ],
-      [
-        "lightning_static_build",
-        3
-      ],
-      [
-        "nature_overgrowth",
         2
+      ],
+      [
+        "earth_fissure",
+        2
+      ],
+      [
+        "earth_hard_shell",
+        1
+      ],
+      [
+        "fire_forge_master",
+        1
+      ],
+      [
+        "fire_slag_trail",
+        1
+      ],
+      [
+        "fire_combustion",
+        1
+      ],
+      [
+        "fire_armor_eater",
+        1
       ]
     ]
   },
