@@ -1599,46 +1599,61 @@ async function runSims() {
 // ── Multi-element comparison renderer ─────────────────────────────────────────
 function _renderElementLinesChart(elementResults, n) {
   if (!elementResults || elementResults.length < 2) return '';
-  const W = 400, H = 100, PX = 8, PY = 10;
-  const iW = W - PX * 2, iH = H - PY * 2;
+  const W = 620, H = 200, PX = 30, PY = 14, PR = 14; // left/top/right padding
+  const iW = W - PX - PR, iH = H - PY - 22;
 
-  // Grid lines
-  const grids = [0.25, 0.5, 0.75].map(p => {
+  // Pre-compute cumulative win rates per element (avoid O(n²) slice)
+  const elemData = elementResults.map(er => {
+    const col = _ELEM_COLOR[er.element] || '#888';
+    let cumulWins = 0;
+    const pts = er.results.map((r, i) => {
+      if (r && r.won) cumulWins++;
+      const wr = cumulWins / (i + 1);
+      return { x: PX + (i / Math.max(n - 1, 1)) * iW, y: PY + (1 - wr) * iH, wr, idx: i };
+    });
+    return { element: er.element, col, pts, stats: er.stats };
+  });
+
+  // Grid lines at 0/25/50/75/100%
+  const grids = [0, 0.25, 0.5, 0.75, 1].map(p => {
     const y = (PY + (1 - p) * iH).toFixed(1);
-    return `<line x1="${PX}" y1="${y}" x2="${W-PX}" y2="${y}" stroke="${p===0.5?'#252535':'#181820'}" stroke-width="1"/>
-            <text x="${PX-2}" y="${(+y+3).toFixed(0)}" fill="#3a3030" font-size="7" text-anchor="end">${(p*100).toFixed(0)}%</text>`;
+    const lc = p === 0.5 ? '#2a2a3a' : (p === 0 || p === 1) ? '#1a1a24' : '#191922';
+    return `<line x1="${PX}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="${lc}" stroke-width="${p === 0.5 ? 1.5 : 1}"/>
+      <text x="${PX - 5}" y="${(+y + 3.5).toFixed(0)}" fill="#4a4030" font-size="9" text-anchor="end">${(p * 100).toFixed(0)}%</text>`;
   }).join('');
 
-  // One polyline per element — cumulative win rate
-  const lines = elementResults.map(er => {
-    const col = _ELEM_COLOR[er.element] || '#888';
-    const pts = er.results.map((r, i) => {
-      const wins = er.results.slice(0, i + 1).filter(x => x && x.won).length;
-      const x = (PX + (i / Math.max(n - 1, 1)) * iW).toFixed(1);
-      const y = (PY + (1 - wins / (i + 1)) * iH).toFixed(1);
-      return `${x},${y}`;
-    }).join(' ');
-    // Final dot
-    const finalWR = er.stats.winRate;
-    const fx = (PX + iW).toFixed(1);
-    const fy = (PY + (1 - finalWR) * iH).toFixed(1);
-    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>
-            <circle cx="${fx}" cy="${fy}" r="2.5" fill="${col}"/>`;
+  // Polylines + sampled hover circles + final dot per element
+  const step = Math.max(1, Math.floor(n / 50)); // ~50 hover points per element max
+  const linesHtml = elemData.map(({ element, col, pts, stats }) => {
+    const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const hoverDots = pts
+      .filter((_, i) => i % step === 0 || i === pts.length - 1)
+      .map(p => {
+        const tip = `Run ${p.idx + 1} · ${element} · ${(p.wr * 100).toFixed(1)}% win rate`.replace(/"/g, '&quot;');
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" fill="transparent" stroke="transparent"><title>${tip}</title></circle>`;
+      }).join('');
+    const last = pts[pts.length - 1];
+    const finalDot = last
+      ? `<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="${col}"/>
+         <text x="${(last.x + 5).toFixed(0)}" y="${(last.y + 3.5).toFixed(0)}" fill="${col}" font-size="8">${(stats.winRate * 100).toFixed(0)}%</text>`
+      : '';
+    return `<polyline points="${polyPoints}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
+      ${finalDot}${hoverDots}`;
   }).join('');
 
   // Legend
-  const legend = elementResults.map(er => {
-    const col   = _ELEM_COLOR[er.element] || '#888';
-    const emoji = _ELEM_EMOJI[er.element] || '';
-    return `<span style="color:${col};font-size:.62rem;white-space:nowrap;display:inline-flex;align-items:center;gap:3px">
-      <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="${col}" stroke-width="2"/></svg>
-      ${emoji} ${er.element} ${(er.stats.winRate*100).toFixed(0)}%</span>`;
+  const legend = elementResults.map(({ element, stats }) => {
+    const col   = _ELEM_COLOR[element] || '#888';
+    const emoji = _ELEM_EMOJI[element] || '';
+    return `<span style="color:${col};font-size:.63rem;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+      <svg width="16" height="6" style="flex-shrink:0"><line x1="0" y1="3" x2="16" y2="3" stroke="${col}" stroke-width="2"/><circle cx="8" cy="3" r="2.5" fill="${col}"/></svg>
+      ${emoji} ${element} ${(stats.winRate * 100).toFixed(0)}%</span>`;
   }).join('');
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">
-    ${grids}${lines}
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin-bottom:.4rem">
+    ${grids}${linesHtml}
   </svg>
-  <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.3rem">${legend}</div>`;
+  <div style="display:flex;gap:.7rem;flex-wrap:wrap">${legend}</div>`;
 }
 
 function _renderComparison(elementResults, n) {
@@ -1784,8 +1799,9 @@ function _aggregateResults(results, n) {
   let totalBattles = 0, hpLeftSum = 0, hpLeftCount = 0;
   const passiveWins    = {};
   const bookCountStats = { 1:{count:0,wins:0}, 2:{count:0,wins:0}, 3:{count:0,wins:0} };
-  const rarityRuns     = {};  // rarity → runs containing ≥1 of that rarity
-  const rarityWins     = {};
+  const rarityRuns      = {};  // rarity → runs containing ≥1 of that rarity
+  const rarityWins      = {};
+  const raritySpellFreq = {};  // rarity → spellId → {count, wins}
   let   goldAtEndSum   = 0, goldSpentSum = 0, goldRunCount = 0;
   let   lowHPCampSum   = 0;
   const zoneSpellFreq  = { 0:{}, 1:{}, 2:{} }; // zone → {spellId: count}
@@ -1834,7 +1850,14 @@ function _aggregateResults(results, n) {
     if (r.won) bookCountStats[bc].wins++;
     // Rarity stats
     const seenRarities = new Set();
-    for (const sl of (r.spellsLog || [])) if (sl.rarity && sl.rarity !== 'dim') seenRarities.add(sl.rarity);
+    for (const sl of (r.spellsLog || [])) {
+      if (!sl.rarity || sl.rarity === 'dim') continue;
+      seenRarities.add(sl.rarity);
+      if (!raritySpellFreq[sl.rarity]) raritySpellFreq[sl.rarity] = {};
+      if (!raritySpellFreq[sl.rarity][sl.id]) raritySpellFreq[sl.rarity][sl.id] = { count:0, wins:0 };
+      raritySpellFreq[sl.rarity][sl.id].count++;
+      if (r.won) raritySpellFreq[sl.rarity][sl.id].wins++;
+    }
     for (const rar of seenRarities) {
       rarityRuns[rar] = (rarityRuns[rar] || 0) + 1;
       if (r.won) rarityWins[rar] = (rarityWins[rar] || 0) + 1;
@@ -1930,7 +1953,12 @@ function _aggregateResults(results, n) {
 
   // Rarity impact cards
   const rarityImpact = Object.entries(rarityRuns)
-    .map(([rar, cnt]) => [rar, { count: cnt, wins: rarityWins[rar]||0, winRate: (rarityWins[rar]||0)/cnt }])
+    .map(([rar, cnt]) => {
+      const topSpells = Object.entries(raritySpellFreq[rar] || {})
+        .map(([id, d]) => [id, { count: d.count, wins: d.wins, winRate: d.count > 0 ? d.wins/d.count : 0 }])
+        .sort((a,b) => b[1].count - a[1].count).slice(0, 6);
+      return [rar, { count: cnt, wins: rarityWins[rar]||0, winRate: (rarityWins[rar]||0)/cnt, topSpells }];
+    })
     .sort((a, b) => { const order = {radiant:0,blazing:1,kindled:2}; return (order[a[0]]??9)-(order[b[0]]??9); });
 
   // Gold stats
@@ -1965,10 +1993,12 @@ function _aggregateResults(results, n) {
   for (const r of results) {
     if (!r) continue;
     for (const { id, lv } of (r.spellLevels || [])) {
-      if (!spellLevelData[id]) spellLevelData[id] = { lvSum:0, lvCount:0, lvMax:0, lvDist:{}, wins:0, runs:0 };
+      if (!spellLevelData[id]) spellLevelData[id] = { lvSum:0, lvCount:0, lvMax:0, lvDist:{}, lvWins:{}, wins:0, runs:0 };
       const d = spellLevelData[id];
       d.lvSum += lv; d.lvCount++; d.lvMax = Math.max(d.lvMax, lv);
       d.lvDist[lv] = (d.lvDist[lv] || 0) + 1;
+      if (!d.lvWins[lv]) d.lvWins[lv] = 0;
+      if (r.won) d.lvWins[lv]++;
       d.runs++;
       if (r.won) d.wins++;
     }
@@ -1979,7 +2009,11 @@ function _aggregateResults(results, n) {
     .map(([id, d]) => {
       const avgLv = d.lvSum / d.lvCount;
       const pctUpgraded = d.lvDist[1] ? 1 - d.lvDist[1] / d.lvCount : 1;
-      return [id, { avgLv, lvMax: d.lvMax, lvDist: d.lvDist, runs: d.runs, wins: d.wins, winRate: d.wins/d.runs, pctUpgraded }];
+      // Upgrade impact: win rate at lv1 vs lv2+
+      const lv1runs = d.lvDist[1] || 0, lv1wins = d.lvWins[1] || 0;
+      const lv2plusRuns = d.runs - lv1runs, lv2plusWins = d.wins - lv1wins;
+      return [id, { avgLv, lvMax: d.lvMax, lvDist: d.lvDist, runs: d.runs, wins: d.wins, winRate: d.wins/d.runs, pctUpgraded,
+        lv1wr: lv1runs > 0 ? lv1wins/lv1runs : null, lv2plusWr: lv2plusRuns > 0 ? lv2plusWins/lv2plusRuns : null }];
     })
     .sort((a, b) => b[1].avgLv - a[1].avgLv)
     .slice(0, 18);
@@ -2026,6 +2060,48 @@ function _aggregateResults(results, n) {
 }
 
 // ── Render results ─────────────────────────────────────────────────────────────
+// ── Global spell/passive lookup helpers (usable in all render functions) ───────
+function _spellLabel(id) {
+  if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+    const d = SPELL_CATALOGUE[id];
+    return `${d.emoji || ''} ${d.name}`;
+  }
+  return id;
+}
+function _spellTipAttr(id, extra) {
+  if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
+    const d = SPELL_CATALOGUE[id];
+    const lines = [
+      d.name,
+      [d.element, d.tier, d.baseCooldown != null ? `CD ${d.baseCooldown}` : null].filter(Boolean).join('  ·  '),
+      d.desc || '',
+    ];
+    if (extra) lines.push(extra);
+    return ` title="${lines.filter(Boolean).join('\n').replace(/"/g, '&quot;')}"`;
+  }
+  return '';
+}
+function _passiveLabel(id) {
+  if (typeof PASSIVE_CHOICES !== 'undefined') {
+    for (const el of Object.values(PASSIVE_CHOICES)) {
+      const p = el.find(x => x.id === id);
+      if (p) return `${p.emoji || ''} ${p.title}`;
+    }
+  }
+  return id;
+}
+function _passiveTipAttr(id) {
+  if (typeof PASSIVE_CHOICES !== 'undefined') {
+    for (const el of Object.values(PASSIVE_CHOICES)) {
+      const p = el.find(x => x.id === id);
+      if (p) {
+        const lines = [p.title, p.desc, p.detail].filter(Boolean);
+        return ` title="${lines.join('\n').replace(/"/g, '&quot;')}"`;
+      }
+    }
+  }
+  return '';
+}
 // ── Damage type colors ────────────────────────────────────────────────────────
 const _DMG_TYPE_META = {
   burn:   { label:'🔥 Burn',         color:'#ff6622' },
@@ -2528,18 +2604,28 @@ function _renderRaritySection(stats) {
     blazing: { label:'✦✦ Blazing', color:'#ff9944' },
     radiant: { label:'✦✦✦ Radiant', color:'#ffe066' },
   };
-  const cards = data.map(([rar, {count, wins, winRate}]) => {
+  const blocks = data.map(([rar, {count, wins, winRate, topSpells}]) => {
     const m   = RARITY_META[rar] || { label: rar, color:'#888' };
     const pct = stats.n > 0 ? (count/stats.n*100).toFixed(0) : '0';
-    return `<div style="background:#0c0c14;border:1px solid ${m.color}44;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
-      <div style="font-size:.68rem;color:${m.color}">${m.label}</div>
-      <div style="font-size:1.25rem;font-weight:bold;color:${m.color};font-family:serif">${(winRate*100).toFixed(0)}%</div>
-      <div style="font-size:.58rem;color:#5a5040">win rate when present</div>
-      <div style="font-size:.58rem;color:#4a4030">${count} runs · ${pct}% freq</div>
+    const spellRows = (topSpells || []).map(([id, sd]) => {
+      const wr  = sd.count > 0 ? (sd.wins/sd.count*100).toFixed(0) : '0';
+      const ta  = _spellTipAttr(id, `Appears ${sd.count}× as ${m.label}  ·  ${wr}% win rate`);
+      return `<div${ta} style="display:flex;justify-content:space-between;align-items:center;padding:.1rem 0;border-bottom:1px solid #111;font-size:.6rem;cursor:default">
+        <span style="color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:.3rem">${_spellLabel(id)}</span>
+        <span style="color:#5a5040;white-space:nowrap">${sd.count}× <span style="color:#6a9a4a">${wr}%w</span></span>
+      </div>`;
+    }).join('');
+    return `<div style="background:#0c0c14;border:1px solid ${m.color}44;border-radius:6px;padding:.5rem .65rem">
+      <div style="display:flex;align-items:baseline;gap:.5rem;margin-bottom:.3rem">
+        <span style="font-size:.68rem;color:${m.color}">${m.label}</span>
+        <span style="font-size:1.25rem;font-weight:bold;color:${m.color};font-family:serif">${(winRate*100).toFixed(0)}%</span>
+        <span style="font-size:.58rem;color:#5a5040">win  ·  ${count} runs (${pct}%)</span>
+      </div>
+      ${spellRows || '<span style="font-size:.6rem;color:#3a3020">No spell data</span>'}
     </div>`;
   }).join('');
-  return `<div class="results-section"><h3>Rarity Impact <span style="font-size:.6rem;color:#3a3020">(win rate when ≥1 rarity spell present)</span></h3>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${cards}</div>
+  return `<div class="results-section"><h3>Rarity Impact <span style="font-size:.6rem;color:#3a3020">(win rate when ≥1 rarity spell present · top spells per rarity)</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">${blocks}</div>
   </div>`;
 }
 
@@ -2551,12 +2637,9 @@ function _renderZoneSpellsSection(stats) {
     if (!spells.length) return '';
     const rows = spells.map(([id, { count, wins }]) => {
       const wr  = count > 0 ? (wins/count*100).toFixed(0) : '0';
-      let name  = id;
-      if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
-        const d = SPELL_CATALOGUE[id]; name = `${d.emoji||''} ${d.name}`;
-      }
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;border-bottom:1px solid #111;font-size:.65rem">
-        <span style="color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:.4rem">${name}</span>
+      const ta  = _spellTipAttr(id, `Picked ${count}×  ·  ${wr}% win rate`);
+      return `<div${ta} style="display:flex;justify-content:space-between;align-items:center;padding:.15rem 0;border-bottom:1px solid #111;font-size:.65rem;cursor:default">
+        <span style="color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:.4rem">${_spellLabel(id)}</span>
         <span style="color:#5a5040;white-space:nowrap">${count}× <span style="color:#6a9a4a">${wr}%w</span></span>
       </div>`;
     }).join('');
@@ -2593,19 +2676,15 @@ function _renderHPEfficiencySection(stats) {
 function _renderSpellCombosSection(stats) {
   const data = stats.topCombos || [];
   if (!data.length) return '';
-  function sName(id) {
-    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
-      const d = SPELL_CATALOGUE[id]; return `${d.emoji||''}${d.name}`;
-    }
-    return id;
-  }
   const cards = data.map(([key, {count, wins, winRate}]) => {
     const [a, b] = key.split('|');
     const wr  = (winRate*100).toFixed(0)+'%';
     const col = winRate > (stats.overallWR||0) + 0.1 ? '#44aa44' : winRate < (stats.overallWR||0) - 0.1 ? '#aa4444' : '#aa8844';
-    return `<div style="background:#0c0c14;border:1px solid ${col}33;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem" title="${sName(a)} + ${sName(b)}">
-      <div style="font-size:.58rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sName(a)}</div>
-      <div style="font-size:.58rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">+ ${sName(b)}</div>
+    const tipA = _spellTipAttr(a);
+    const tipB = _spellTipAttr(b);
+    return `<div style="background:#0c0c14;border:1px solid ${col}33;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
+      <div${tipA} style="font-size:.58rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default">${_spellLabel(a)}</div>
+      <div${tipB} style="font-size:.58rem;color:#a88858;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default">+ ${_spellLabel(b)}</div>
       <div style="font-size:1.1rem;font-weight:bold;color:${col};font-family:serif;margin-top:.1rem">${wr}</div>
       <div style="font-size:.58rem;color:#4a4030">${count} runs together</div>
     </div>`;
@@ -2660,21 +2739,26 @@ function _renderSpellLevelsSection(stats) {
 
   // Per-spell upgraded cards (top 18, avg lv > 1.05)
   const spellCards = upg.map(([id, d]) => {
-    const nm  = (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id])
-      ? `${SPELL_CATALOGUE[id].emoji || ''} ${SPELL_CATALOGUE[id].name}` : id;
-    const tt  = (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id])
-      ? SPELL_CATALOGUE[id].desc || '' : '';
-    const ta  = tt ? ` title="${tt.replace(/"/g,'&quot;')}"` : '';
     const avgLvDisp = d.avgLv.toFixed(2);
-    const wr  = d.runs > 0 ? (d.wins / d.runs * 100).toFixed(0) : '—';
-    const pctUp = (d.pctUpgraded * 100).toFixed(0);
-    const pips = levelPips(d.avgLv, d.lvMax);
-    const col = d.avgLv >= 3 ? '#44cc88' : d.avgLv >= 2 ? '#e8c060' : '#aa8844';
-    return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.15rem">
-      <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</div>
+    const wr     = d.runs > 0 ? (d.wins / d.runs * 100).toFixed(0) : '—';
+    const pctUp  = (d.pctUpgraded * 100).toFixed(0);
+    const pips   = levelPips(d.avgLv, d.lvMax);
+    const col    = d.avgLv >= 3 ? '#44cc88' : d.avgLv >= 2 ? '#e8c060' : '#aa8844';
+    // Upgrade impact line
+    let impactLine = '';
+    if (d.lv1wr != null && d.lv2plusWr != null) {
+      const delta = ((d.lv2plusWr - d.lv1wr) * 100).toFixed(0);
+      const dc = delta > 0 ? '#44cc88' : delta < 0 ? '#cc4444' : '#888';
+      impactLine = `<div style="font-size:.58rem;color:${dc}">Lv1: ${(d.lv1wr*100).toFixed(0)}% → Lv2+: ${(d.lv2plusWr*100).toFixed(0)}% (${delta>0?'+':''}${delta}pp)</div>`;
+    }
+    const extra = `Avg Lv: ${avgLvDisp}  ·  ${pctUp}% runs upgraded  ·  max Lv${d.lvMax}`;
+    const ta = _spellTipAttr(id, extra);
+    return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.15rem;cursor:default">
+      <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_spellLabel(id)}</div>
       <div style="font-size:.72rem;letter-spacing:.05em">${pips}</div>
       <div style="font-size:1.1rem;font-weight:bold;color:${col};font-family:serif">Lv ${avgLvDisp} avg</div>
       <div style="font-size:.58rem;color:#4a4030">${pctUp}% upgraded · max Lv${d.lvMax} · <span style="color:#44aa44">${wr}%</span> win</div>
+      ${impactLine}
     </div>`;
   }).join('');
 
@@ -2714,31 +2798,15 @@ function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog
   const z1Counts = stats.z1Counts || [];
   const z1Milestones = stats.z1Milestones || [];
 
-  function spellName(id) {
-    if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
-      const d = SPELL_CATALOGUE[id]; return `${d.emoji || ''} ${d.name}`;
-    }
-    return id;
-  }
+  // Delegate to global helpers
+  const spellName   = _spellLabel;
+  const passiveName = _passiveLabel;
   function spellTooltip(id) {
     if (typeof SPELL_CATALOGUE !== 'undefined' && SPELL_CATALOGUE[id]) {
       const d = SPELL_CATALOGUE[id];
-      return [
-        d.name,
-        `${d.element || ''}  ·  ${d.tier || ''}  ·  CD ${d.baseCooldown ?? '?'}`,
-        d.desc || '',
-      ].filter(Boolean).join('\n');
+      return [d.name, [d.element, d.tier, d.baseCooldown != null ? `CD ${d.baseCooldown}` : null].filter(Boolean).join('  ·  '), d.desc||''].filter(Boolean).join('\n');
     }
     return '';
-  }
-  function passiveName(id) {
-    if (typeof PASSIVE_CHOICES !== 'undefined') {
-      for (const el of Object.values(PASSIVE_CHOICES)) {
-        const p = el.find(x => x.id === id);
-        if (p) return `${p.emoji || ''} ${p.title}`;
-      }
-    }
-    return id;
   }
   function passiveTooltip(id) {
     if (typeof PASSIVE_CHOICES !== 'undefined') {
@@ -2815,17 +2883,19 @@ function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog
     <div class="results-section">
       <h3>Most Common Spells at Run End</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem">
-        ${stats.topSpells.map(([id,c]) => {
-          const pct = stats.n > 0 ? (c/stats.n*100).toFixed(0) : '0';
-          const nm  = spellName(id);
-          const tt  = spellTooltip(id);
-          const ta  = tt ? ` title="${tt.replace(/"/g,'&quot;')}"` : '';
-          return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem">
-            <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</div>
-            <div style="font-size:1.15rem;font-weight:bold;color:#e8c060;font-family:serif">${pct}%</div>
-            <div style="font-size:.58rem;color:#4a4030">${c} / ${stats.n} runs</div>
-          </div>`;
-        }).join('') || '<span style="color:#3a3020">No data</span>'}
+        ${(()=>{
+          const dmgMap = Object.fromEntries(stats.topDmgSpells || []);
+          return stats.topSpells.map(([id,c]) => {
+            const pct  = stats.n > 0 ? (c/stats.n*100).toFixed(0) : '0';
+            const avgD = dmgMap[id] != null ? `Avg dmg/run: ${Math.round(dmgMap[id])}` : null;
+            const ta   = _spellTipAttr(id, avgD);
+            return `<div${ta} style="background:#0c0c14;border:1px solid #1e1e2a;border-radius:6px;padding:.45rem .6rem;display:flex;flex-direction:column;gap:.1rem;cursor:default">
+              <div style="font-size:.62rem;color:#c8a060;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${spellName(id)}</div>
+              <div style="font-size:1.15rem;font-weight:bold;color:#e8c060;font-family:serif">${pct}%</div>
+              <div style="font-size:.58rem;color:#4a4030">${c} / ${stats.n} runs${avgD ? ` · ${Math.round(dmgMap[id])} dmg` : ''}</div>
+            </div>`;
+          }).join('') || '<span style="color:#3a3020">No data</span>';
+        })()}
       </div>
     </div>
 
