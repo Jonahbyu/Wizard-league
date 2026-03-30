@@ -28,7 +28,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   // ═══ UNIVERSAL ═══
   brace: { id:'brace', name:'Brace', emoji:'🛡️', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((5 + Math.floor(e.scaledPower/5)) * 1.3);
+      const armor = Math.round((5 + Math.floor((e.statDef||0)/5)) * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`🛡️ ${e.name} braces! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -65,7 +65,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   fire_magma_armor: { id:'fire_magma_armor', name:'Magma Armor', emoji:'🛡️', tier:1, baseCd:4,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((20 + Math.floor(e.scaledPower/5)) * 1.3);
+      const armor = Math.round((20 + Math.floor((e.statDef||0)/5)) * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`🛡️ ${e.name} hardens with Magma Armor! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -88,7 +88,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   water_tidal_shield: { id:'water_tidal_shield', name:'Tidal Shield', emoji:'💧', tier:0, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((20 + Math.floor(e.scaledPower/4)) * 1.3);
+      const armor = Math.round((20 + Math.floor((e.statDef||0)/4)) * 1.3);
       e.status.block = (e.status.block||0) + armor;
       log(`💧 ${e.name} raises a Tidal Shield! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -105,7 +105,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   water_healing_surge: { id:'water_healing_surge', name:'Healing Surge', emoji:'💚', tier:1, baseCd:4,
     fn(i){ const e=combat.enemies[i];
-      const heal = 25 + Math.floor(e.scaledPower/3);
+      const heal = 25 + Math.floor((e.statEfx||0)/3);
       const prev = e.hp;
       e.hp = Math.min(e.enemyMaxHP, e.hp + heal);
       log(`💚 ${e.name} Healing Surge! (+${e.hp-prev} HP → ${e.hp}/${e.enemyMaxHP})`, 'enemy');
@@ -147,7 +147,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   ice_glacial_armor: { id:'ice_glacial_armor', name:'Glacial Armor', emoji:'🧊', tier:0, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((25 + Math.floor(e.scaledPower/4)) * 1.3);
+      const armor = Math.round((25 + Math.floor((e.statDef||0)/4)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       log(`🧊 ${e.name} encases itself in Glacial Armor! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -161,7 +161,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   ice_shatter_strike: { id:'ice_shatter_strike', name:'Shatter Strike', emoji:'💎', tier:1, baseCd:4,
     fn(i){ const e=combat.enemies[i]; setActiveEnemy(i);
       const frost = status.player.frostStacks||0;
-      const dmg = frost >= 10 ? 40+e.scaledPower*2 : frost*4;
+      const dmg = frost >= 10 ? 40+(e.statPow||0)*2 : frost*4;
       log(`💎 ${e.name} Shatter! ${frost>=10?'FROZEN — massive hit':'('+frost+' Frost × 4)'}`, 'enemy');
       performHit('enemy','player',{baseDamage:Math.max(8,dmg),effects:[],abilityElement:'Ice',isEnemyAttack:true});
       if(!combat.over && frost<10) applyFrost('enemy','player',1);
@@ -203,7 +203,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     fn(i){ const e=combat.enemies[i]; setActiveEnemy(i);
       const shock = status.player.shockStacks||0;
       if(shock > 0){
-        const dmg = shock * Math.max(1, Math.floor(e.scaledPower/2));
+        const dmg = shock * Math.max(1, Math.floor((e.statPow||0)/2));
         log(`💫 ${e.name} BLITZ! Detonates ${shock} Shock stacks (${dmg} dmg)`, 'enemy');
         applyDirectDamage('enemy','player', dmg, '💫 Blitz');
         status.player.shockStacks = 0;
@@ -217,9 +217,9 @@ const ENEMY_ABILITY_CATALOGUE = {
     fn(i){ const e=combat.enemies[i];
       // Self-buff: enemy deals 15% more dmg for 2 turns via temp power
       e._staticFieldTurns = 2;
-      const bonus = Math.floor(e.scaledPower * 0.3);
+      const bonus = Math.floor((e.statPow||0) * 0.3);
       e._staticPowerBonus = bonus;
-      e.scaledPower += bonus;
+      e.statPow = (e.statPow||0) + bonus;
       log(`🌩️ ${e.name} Static Field! (+${bonus} Power for 2t)`, 'enemy');
     }},
   lightning_charge_shot: { id:'lightning_charge_shot', name:'Charge Shot', emoji:'⚡', tier:2, baseCd:5,
@@ -233,7 +233,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   // ═══ EARTH ═══
   earth_fortify: { id:'earth_fortify', name:'Fortify', emoji:'🛡️', tier:0, baseCd:2,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((20 + Math.floor(e.scaledPower/4)) * 1.3);
+      const armor = Math.round((20 + Math.floor((e.statDef||0)/4)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       log(`🛡️ ${e.name} Fortifies! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -253,7 +253,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   earth_stone_stance: { id:'earth_stone_stance', name:'Stone Stance', emoji:'🧱', tier:1, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((30 + Math.floor(e.scaledPower/3)) * 1.3);
+      const armor = Math.round((30 + Math.floor((e.statDef||0)/3)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       // Gain stone stacks
       e.status.stoneStacks = (e.status.stoneStacks||0)+3;
@@ -268,7 +268,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   earth_cataclysm: { id:'earth_cataclysm', name:'Cataclysm', emoji:'💥', tier:2, baseCd:6,
     fn(i){ const e=combat.enemies[i]; setActiveEnemy(i);
       const stone = e.status.stoneStacks||0;
-      const dmg = stone>0 ? stone*25 : 50+e.scaledPower*2;
+      const dmg = stone>0 ? stone*25 : 50+(e.statPow||0)*2;
       log(`💥 ${e.name} CATACLYSM! ${stone>0?`(${stone} Stone×25)`:'Raw devastation'}`, 'enemy');
       performHit('enemy','player',{baseDamage:dmg,effects:[],abilityElement:'Earth',isEnemyAttack:true});
       e.status.stoneStacks=0;
@@ -285,7 +285,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   nature_thornwall: { id:'nature_thornwall', name:'Thornwall', emoji:'🌵', tier:0, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round((25 + Math.floor(e.scaledPower/4)) * 1.3);
+      const armor = Math.round((25 + Math.floor((e.statDef||0)/4)) * 1.3);
       e.status.block = (e.status.block||0)+armor;
       e.status.thornArmor = true; // flag: thorns on hit
       log(`🌵 ${e.name} Thornwall! (+${armor} Block + Thorns)`, 'enemy');
@@ -293,9 +293,9 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
   nature_wild_growth: { id:'nature_wild_growth', name:'Wild Growth', emoji:'🌱', tier:1, baseCd:3,
     fn(i){ const e=combat.enemies[i];
-      const heal = 20 + Math.floor(e.scaledPower/3);
+      const heal = 20 + Math.floor((e.statEfx||0)/3);
       e.hp = Math.min(e.enemyMaxHP, e.hp+heal);
-      const armor = Math.round(15 * 1.3);
+      const armor = Math.round(15 * 1.69);
       e.status.block = (e.status.block||0)+armor;
       log(`🌱 ${e.name} Wild Growth! (+${heal} HP, +${armor} Block)`, 'enemy');
       updateHPBars(); renderStatusTags();
@@ -382,7 +382,7 @@ const ENEMY_ABILITY_CATALOGUE = {
   air_wind_shield: { id:'air_wind_shield', name:'Wind Shield', emoji:'🌬️', tier:1, baseCd:3,
     fn(i){ const e=combat.enemies[i];
       e.status.battleDodgeBonus = (e.status.battleDodgeBonus||0)+0.2;
-      const armor = Math.round(15 * 1.3);
+      const armor = Math.round(15 * 1.69);
       e.status.block=(e.status.block||0)+armor;
       log(`🌬️ ${e.name} Wind Shield! (+20% dodge, +${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -463,7 +463,7 @@ function tickEnemyAbilityCDs(){
     if(e._staticFieldTurns > 0){
       e._staticFieldTurns--;
       if(e._staticFieldTurns <= 0 && e._staticPowerBonus){
-        e.scaledPower = Math.max(0, e.scaledPower - e._staticPowerBonus);
+        e.statPow = Math.max(0, (e.statPow||0) - e._staticPowerBonus);
         e._staticPowerBonus = 0;
         log(`🌩️ ${e.name}'s Static Field fades.`, 'status');
       }
@@ -518,7 +518,7 @@ const ENEMY_ITEM_CATALOGUE = [
     }},
   { id:'enemy_iron_flask', name:'Iron Flask', emoji:'⚗️',
     fn(i){ const e=combat.enemies[i];
-      const armor = Math.round(15 * 1.3);
+      const armor = Math.round(15 * 1.69);
       e.status.block = (e.status.block||0) + armor;
       log(`⚗️ ${e.name} uses an Iron Flask! (+${armor} Block)`, 'enemy');
       renderStatusTags();
@@ -583,14 +583,14 @@ function pickEnemyItem(e){
   const heal = e.items.find(it=>it.id==='enemy_healing_draught');
   if(heal && hpPct < 0.40 && Math.random() < 0.75) return heal;
   const flask = e.items.find(it=>it.id==='enemy_iron_flask');
-  if(flask && (e.status.block||0)===0 && Math.random() < 0.45) return flask;
+  if(flask && (e.status.block||0)===0 && Math.random() < 0.59) return flask;
   return null;
 }
 
 // Scale enemy base stats by zone depth (applied in makeEnemyObj)
 function scaleEnemyForZone(enc, gymIdx){
   // HP and damage scale per zone — roughly +25% HP and +20% dmg per zone
-  const hpMult  = 1 + gymIdx * 0.28;
+  const hpMult  = 1 + gymIdx * 0.336;
   const dmgMult = 1 + gymIdx * 0.22;
   return {
     enemyMaxHP: Math.round(enc.enemyMaxHP * hpMult),

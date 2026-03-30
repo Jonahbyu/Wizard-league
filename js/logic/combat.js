@@ -111,7 +111,7 @@ function startRound(){
     if(e._staticFieldTurns > 0){
       e._staticFieldTurns--;
       if(e._staticFieldTurns <= 0 && e._staticPowerBonus){
-        e.scaledPower = Math.max(0, e.scaledPower - e._staticPowerBonus);
+        e.statPow = Math.max(0, (e.statPow||0) - e._staticPowerBonus);
         e._staticPowerBonus = 0;
         log(`🌩️ ${e.name}'s Static Field fades.`, 'status');
       }
@@ -559,7 +559,7 @@ function commitEndTurn(){
     participants.push({ id:'player', queue:normalPlayerActions, hp:player.hp, power:player.attackPower });
   combat.enemies.forEach((e,i) => {
     if(!e.alive) return;
-    participants.push({ id:'enemy_'+i, idx:i, queue:allEnemyQueues[i]||[], hp:e.hp, power:e.scaledPower||0 });
+    participants.push({ id:'enemy_'+i, idx:i, queue:allEnemyQueues[i]||[], hp:e.hp, power:e.statPow||0 });
   });
 
   participants.sort((a,b) => {
@@ -931,10 +931,27 @@ function endBattle(won){
         if(def) log('🏺 Artifact Discovered: '+def.emoji+' '+def.name+' — check the Vault!', 'item');
       }
       const _beatenGymIdx = currentGymIdx; // capture before advancing
+
+      // Gauntlet boss victory — not a zone gym
+      if (combat._isGauntletBoss) {
+        _gauntletBossIdx++;
+        battleNumber++;
+        if (_gauntletBossIdx >= GAUNTLET_ROSTER.length) {
+          // All 3 gauntlet bosses defeated — run victory
+          if (typeof showRunVictory === 'function') setTimeout(showRunVictory, 1200);
+        } else {
+          // Next gauntlet boss
+          setTimeout(_loadGauntletBoss, 1400);
+        }
+        return;
+      }
+
       advanceToNextGym(); // resets zoneBattleCount and gymSkips
-      // 3rd gym (index 2) = run victory
-      if (_beatenGymIdx === 2 && typeof showRunVictory === 'function') {
-        setTimeout(showRunVictory, 1200);
+      // 3rd gym (index 2) — start gauntlet instead of ending run
+      if (_beatenGymIdx === 2) {
+        _gauntletBossIdx = 0;
+        battleNumber++;
+        setTimeout(_loadGauntletBoss, 1400);
         return;
       }
     } else if(isRival){

@@ -328,7 +328,7 @@ function _libSimulateSpell(spell) {
   const mockEnemy = {
     hp: 50, enemyMaxHP: 50, alive: true,
     status: mockEnemyStatus,
-    scaledPower: 5, element: 'Neutral', name: 'Dummy',
+    statPow: 5, statEfx: 5, statDef: 5, element: 'Neutral', name: 'Dummy',
     enemyDmg: 10, items: [], extraPassives: [],
   };
 

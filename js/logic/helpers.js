@@ -40,16 +40,19 @@ function applyHeal(side, amount, label){
   }
   return 0;
 }
-function enemyScaledStat(){
+function _enemyStat(key){
   const e = combat.enemies[combat.activeEnemyIdx];
+  if(e && e[key] != null) return e[key];
+  // legacy fallback for old saves / dummies
   if(e && e.scaledPower != null) return e.scaledPower;
-  return Math.floor((battleNumber-1)*2);
+  return Math.max(1, battleNumber);
 }
+function enemyScaledStat(){ return _enemyStat('statPow'); } // legacy alias
 
 // ── Three player stat accessors ───────────────────────────────────────────────
 // Attack Power: scales raw hit damage
 function attackPowerFor(side, targetSide){
-  let pow = (side==='player') ? player.attackPower : enemyScaledStat();
+  let pow = (side==='player') ? player.attackPower : _enemyStat('statPow');
   const s = (side==='player') ? status.player : (combat.enemies[combat.activeEnemyIdx]||{status:{}}).status;
 
   // Stone: +3 AP/stack (doubled by Stone Stance)
@@ -104,7 +107,7 @@ function attackPowerFor(side, targetSide){
 
 // Effect Power: scales status potency (burn stacks, frost, root, shock)
 function effectPowerFor(side){
-  let pow = (side==='player') ? player.effectPower : enemyScaledStat();
+  let pow = (side==='player') ? player.effectPower : _enemyStat('statEfx');
   const s = (side==='player') ? status.player : (combat.enemies[combat.activeEnemyIdx]||{status:{}}).status;
 
   // Frost on self: -1 EP/stack
@@ -125,7 +128,7 @@ function effectPowerFor(side){
 // Defense: scales armor gained, heal amounts, reduces enemy AP and EFX.
 // Foam reduces Defense — negative Defense means enemies deal bonus damage per hit.
 function defenseFor(side){
-  let def = (side==='player') ? player.defense : enemyScaledStat();
+  let def = (side==='player') ? player.defense : _enemyStat('statDef');
   const s = (side==='player') ? status.player : (combat.enemies[combat.activeEnemyIdx]||{status:{}}).status;
 
   // Frost weakens defense too
@@ -301,6 +304,10 @@ function advanceToNextGym(){
   gymSkips = 0;
   _zoneRivalDefeated = false;
   if(currentGymIdx >= GYM_ROSTER.length) gymDefeated = true;
+  // Each zone block is 15 battles wide (B1-15, B16-30, B31-45…).
+  // Jump battleNumber to the new zone's start so fighting the gym early
+  // (B12) still lands at the same next-zone start (B16) as fighting it late (B15).
+  battleNumber = currentGymIdx * 15 + 1;
   initZoneSpecial(); // schedule the campfire/shop for new zone
 }
 // ── Status application helpers ────────────────────────────────────────────────

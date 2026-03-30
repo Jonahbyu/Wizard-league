@@ -12,14 +12,27 @@ function makeEnemyObj(enc){
     const pool=(PASSIVE_CHOICES[el]||[]).filter(p=>!p.legendary);
     passive=pool.length?pool[Math.floor(Math.random()*pool.length)].id:null;
   }
-  const scaledPower=BASE_POWER+Math.floor(currentGymIdx*4.4)+(enc.isGym?8:0);
+  // Per-enemy stat variation: each stat averages battleNumber, ±50% range
+  // At B30: avg=30, could be 20 EFX / 40 DEF / 20 POW etc.
+  const _statAvg = Math.max(1, battleNumber);
+  const _vary = () => enc.isTargetDummy ? 0 : Math.round(_statAvg * (0.5 + Math.random()));
+  const statPow = _vary();
+  const statEfx = _vary();
+  const statDef = _vary();
 
-  // Scale HP and dmg by zone depth (non-gym enemies only; gym bosses and dummies have fixed stats)
-  const zoneScaled = (enc.isGym || enc.isTargetDummy) ? {} : scaleEnemyForZone(enc, currentGymIdx);
+  // Zone scale applies to all enemies except dummies and gauntlet bosses (gauntlet has fixed HP)
+  const zoneScaled = (enc.isTargetDummy || enc.isGauntletBoss) ? {} : scaleEnemyForZone(enc, currentGymIdx);
   const mistHPMult  = player._mistEnemyHPMult  || 1.0;
   const mistDmgMult = player._mistEnemyDmgMult || 1.0;
-  const finalMaxHP  = Math.round((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * mistHPMult * 0.70 * (battleNumber === 1 ? 0.5 : 1));
-  const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult) - 5);
+  // Per-battle HP ramp for regular enemies: quadratic curve to match player's compound scaling
+  // (each extra action = another spell cast — player DPS grows as actions × damage/action)
+  const _bnRaw  = (!enc.isGym && !enc.isTargetDummy && battleNumber > 6) ? (battleNumber - 6) : 0;
+  const _bnFlat = (!enc.isGym && !enc.isTargetDummy && battleNumber > 3) ? (battleNumber - 3) * 13 : 0;
+  const _bnBase = (!enc.isGym && !enc.isTargetDummy && battleNumber > 3) ? 1.20 : 1.0;
+  const _bnMult = _bnBase + (_bnRaw > 0 ? _bnRaw * 0.09 + Math.pow(_bnRaw / 12, 2) : 0);
+  const _lateBoost  = (!enc.isGym && !enc.isTargetDummy && !enc.isGauntletBoss && battleNumber >= 39) ? 1.3 : 1.0;
+  const finalMaxHP  = Math.round(((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * _bnMult + _bnFlat) * mistHPMult * 0.77 * _lateBoost * (battleNumber === 1 ? 0.5 : 1));
+  const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult * 0.80) - 5);
 
   // Build ability list based on element + zone depth
   // Derive difficulty from base HP if not specified: tankier enemies get more abilities
@@ -47,7 +60,7 @@ function makeEnemyObj(enc){
     ...enc,
     enemyMaxHP: finalMaxHP, enemyDmg: finalDmg,
     hp: finalMaxHP, alive:true, basicCD:0,
-    passive, extraPassives, scaledPower, status:freshEnemyStatus(),
+    passive, extraPassives, statPow, statEfx, statDef, status:freshEnemyStatus(),
     abilities, items,
     gymHitCounter:enc.gymHitCounter||0, gymPhase2:enc.gymPhase2||false,
   };
@@ -117,10 +130,10 @@ function loadBattle(enc){
       enemyMaxHP: Math.round(m.enemyMaxHP * hpScale),
       enemyDmg:   Math.round(m.enemyDmg   * dmgScale),
       gold:Math.floor(enc.gold/enc.members.length),isGym:false}));
-    combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
+    combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false; combat._isGauntletBoss=enc.isGauntletBoss||false;
   } else {
     combat.enemies=[makeEnemyObj(enc)];
-    combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false;
+    combat.totalGold=enc.gold; combat._isSpellBattle=enc._isSpellBattle||false; combat._isRival=enc.isRival||false; combat._isGauntletBoss=enc.isGauntletBoss||false;
   }
   combat.targetIdx=0; setActiveEnemy(0);
   // Apply talent-granted battle-start stacks to enemies
@@ -192,6 +205,12 @@ function loadBattle(enc){
     setTimeout(()=>applyGymEntryEffect(enc.gymEntryEffect,enc),600);
   }
   setTimeout(startRound, enc.isGym&&enc.gymEntryEffect?1100:400);
+}
+
+function _loadGauntletBoss(){
+  if(_gauntletBossIdx >= GAUNTLET_ROSTER.length) return;
+  const enc = GAUNTLET_ROSTER[_gauntletBossIdx];
+  loadBattle({ ...enc, _rewardType: 'gym' });
 }
 
 function applyGymEntryEffect(effect, enc){

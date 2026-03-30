@@ -596,6 +596,10 @@ var _simRunGoldSpent      = 0;   // gold spent in shops this run
 var _simRunLowHPCampfires = 0;   // campfire visits with HP < 30%
 var _simRunIncantCount    = 0;   // incantation upgrades taken this run
 var _simRunRewardLog      = [];  // [{type}] — every reward slot taken this run
+var _simRunTotalTurns     = 0;   // sum of turns across all battles this run
+var _simRunTotalActions   = 0;   // sum of player actions taken across all turns this run
+var _simRunBattleTurns    = {};  // battleNumber → {turns, actions} for per-battle graph
+var _simRunBattleStatAgg  = {};  // battleNumber → {hpSum, powSum, efxSum, defSum, count} — enemy stat snapshot
 
 function _simDmgType(label, spellId) {
   // Classify a damage event into a source category
@@ -893,6 +897,10 @@ function _simRecordResult(won) {
     lowHPCampfires:  _simRunLowHPCampfires,
     incantCount:     _simRunIncantCount,
     rewardLog:       _simRunRewardLog.slice(),
+    totalTurns:      _simRunTotalTurns,
+    totalActions:    _simRunTotalActions,
+    battleTurns:     { ..._simRunBattleTurns },
+    battleStatAgg:   { ..._simRunBattleStatAgg },
     bookCount:       player.spellbooks.length,
     archetypeGoal:   _simRunArchetypeGoal,
   };
@@ -1373,6 +1381,27 @@ function _simAutoPlay() {
   // Safety: ensure at least one action is queued
   if ((combat.actionQueue || []).length === 0) queueBasic();
 
+  // Track turns and actions for stats (use `queued` — exact count chosen this turn)
+  _simRunTotalTurns++;
+  _simRunTotalActions += queued;
+  const _bn = battleNumber || 1;
+  const _isFirstTurn = !_simRunBattleTurns[_bn];
+  if (!_simRunBattleTurns[_bn]) _simRunBattleTurns[_bn] = { turns: 0, actions: 0 };
+  _simRunBattleTurns[_bn].turns++;
+  _simRunBattleTurns[_bn].actions += queued;
+  // On first turn of each battle, snapshot enemy HP and stats
+  if (_isFirstTurn) {
+    const _e = (combat.enemies || [])[0];
+    if (_e) {
+      if (!_simRunBattleStatAgg[_bn]) _simRunBattleStatAgg[_bn] = { hpSum:0, powSum:0, efxSum:0, defSum:0, count:0 };
+      _simRunBattleStatAgg[_bn].hpSum  += _e.enemyMaxHP || 0;
+      _simRunBattleStatAgg[_bn].powSum += _e.statPow    || 0;
+      _simRunBattleStatAgg[_bn].efxSum += _e.statEfx    || 0;
+      _simRunBattleStatAgg[_bn].defSum += _e.statDef    || 0;
+      _simRunBattleStatAgg[_bn].count++;
+    }
+  }
+
   commitEndTurn();
 }
 
@@ -1469,6 +1498,10 @@ function simInitRun(cfg) {
   _simRunLowHPCampfires = 0;
   _simRunIncantCount    = 0;
   _simRunRewardLog      = [];
+  _simRunTotalTurns     = 0;
+  _simRunTotalActions   = 0;
+  _simRunBattleTurns    = {};
+  _simRunBattleStatAgg  = {};
 
   battleNumber = 1; currentGymIdx = 0; zoneBattleCount = 0;
   gymSkips = 0; gymDefeated = false; pendingLevelUps = [];
@@ -1886,6 +1919,9 @@ function _aggregateResults(results, n) {
   const rewardLoss  = {};  // rewardType → total count in losing runs
   let   goldAtEndSum   = 0, goldSpentSum = 0, goldRunCount = 0;
   let   lowHPCampSum   = 0;
+  let   totalTurnsSum  = 0, totalActionsSum = 0, turnRunCount = 0;
+  const battleTurnsAgg = {}; // battleNum → {turnsSum, actionsSum, count}
+  const battleStatAgg  = {}; // battleNum → {hpSum, powSum, efxSum, defSum, count}
   const zoneSpellFreq  = { 0:{}, 1:{}, 2:{} }; // zone → {spellId: count}
   const zoneSpellWins  = { 0:{}, 1:{}, 2:{} };
   const hpByZone       = {};  // gymsCleared → {sum, count}
@@ -1965,6 +2001,22 @@ function _aggregateResults(results, n) {
     if (r.goldAtEnd != null) { goldAtEndSum += r.goldAtEnd; goldSpentSum += (r.goldSpent||0); goldRunCount++; }
     // Low-HP campfires
     lowHPCampSum += (r.lowHPCampfires || 0);
+    // Turns & actions
+    if (r.totalTurns != null) { totalTurnsSum += r.totalTurns; totalActionsSum += (r.totalActions||0); turnRunCount++; }
+    for (const [bn, bd] of Object.entries(r.battleTurns || {})) {
+      if (!battleTurnsAgg[bn]) battleTurnsAgg[bn] = { turnsSum:0, actionsSum:0, count:0 };
+      battleTurnsAgg[bn].turnsSum   += bd.turns;
+      battleTurnsAgg[bn].actionsSum += bd.actions;
+      battleTurnsAgg[bn].count++;
+    }
+    for (const [bn, bd] of Object.entries(r.battleStatAgg || {})) {
+      if (!battleStatAgg[bn]) battleStatAgg[bn] = { hpSum:0, powSum:0, efxSum:0, defSum:0, count:0 };
+      battleStatAgg[bn].hpSum  += bd.hpSum;
+      battleStatAgg[bn].powSum += bd.powSum;
+      battleStatAgg[bn].efxSum += bd.efxSum;
+      battleStatAgg[bn].defSum += bd.defSum;
+      battleStatAgg[bn].count  += bd.count;
+    }
     // Zone spell acquisition
     for (const sl of (r.spellsLog || [])) {
       const z = Math.min(sl.zone || 0, 2);
@@ -2064,6 +2116,27 @@ function _aggregateResults(results, n) {
   const avgGoldAtEnd  = goldRunCount > 0 ? goldAtEndSum  / goldRunCount : 0;
   const avgGoldSpent  = goldRunCount > 0 ? goldSpentSum  / goldRunCount : 0;
   const avgLowHPCamps = n > 0 ? lowHPCampSum / n : 0;
+  const avgTurnsPerBattle  = (turnRunCount > 0 && totalBattles > 0) ? totalTurnsSum  / totalBattles : 0;
+  const avgActionsPerTurn  = (totalTurnsSum > 0) ? totalActionsSum / totalTurnsSum : 0;
+  // Per-battle-number graph data — sorted by battle number, min 3 runs to be meaningful
+  const battleTurnGraph = Object.entries(battleTurnsAgg)
+    .filter(([, d]) => d.count >= 3)
+    .map(([bn, d]) => ({ bn: +bn, avgTurns: d.turnsSum/d.count, avgActions: d.turnsSum > 0 ? d.actionsSum/d.turnsSum : 0, count: d.count }))
+    .sort((a,b) => a.bn - b.bn)
+    .slice(0, 50);
+  // Per-battle enemy stat table
+  const battleStatTable = Object.entries(battleStatAgg)
+    .filter(([, d]) => d.count >= 3)
+    .map(([bn, d]) => ({
+      bn:     +bn,
+      avgHP:  Math.round(d.hpSum  / d.count),
+      avgPow: Math.round(d.powSum / d.count),
+      avgEfx: Math.round(d.efxSum / d.count),
+      avgDef: Math.round(d.defSum / d.count),
+      count:  d.count,
+    }))
+    .sort((a, b) => a.bn - b.bn)
+    .slice(0, 50);
 
   // Zone spell acquisition — top 5 per zone
   const zoneSpells = [0, 1, 2].map(z => {
@@ -2149,6 +2222,7 @@ function _aggregateResults(results, n) {
     passiveBalance,
     rarityImpact,
     avgGoldAtEnd, avgGoldSpent, avgLowHPCamps,
+    avgTurnsPerBattle, avgActionsPerTurn, battleTurnGraph, battleStatTable,
     zoneSpells,
     hpByZoneCards,
     topCombos,
@@ -2882,6 +2956,138 @@ function _renderSpellLevelsSection(stats) {
   </div>`;
 }
 
+// ── Battle Scaling Graph ──────────────────────────────────────────────────────
+function _renderBattleScalingGraph(stats) {
+  const data = stats.battleTurnGraph || [];
+  if (data.length < 3) return '';
+  const W = 820, H = 180, PX = 32, PY = 12, PR = 12;
+  const iW = W - PX - PR, iH = H - PY - 28;
+  const maxBn = data[data.length - 1].bn;
+  const maxT  = Math.max(...data.map(d => d.avgTurns), 1);
+  const maxA  = Math.max(...data.map(d => d.avgActions), 1);
+  const toX   = bn  => PX + ((bn - 1) / Math.max(maxBn - 1, 1)) * iW;
+  const toYT  = val => PY + (1 - val / (maxT * 1.15)) * iH;
+  const toYA  = val => PY + (1 - val / (maxA * 1.15)) * iH;
+
+  // Axis labels
+  const xLabels = data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 8)) === 0 || i === data.length - 1)
+    .map(d => `<text x="${toX(d.bn).toFixed(0)}" y="${(PY + iH + 14).toFixed(0)}" fill="#4a4030" font-size="8.5" text-anchor="middle">B${d.bn}</text>`).join('');
+
+  // Zone bands: B1-15 zone 1, B16-30 zone 2, B31-45 zone 3, B46-48 gauntlet
+  const zoneBands = [
+    { start:1,  end:15, color:'#1a1a2a' },
+    { start:16, end:30, color:'#0e1a1e' },
+    { start:31, end:45, color:'#1a1a2a' },
+    { start:46, end:50, color:'#1a0a0a' },  // gauntlet — red-tinted
+  ].filter(b => b.start <= maxBn).map(b => {
+    const x1 = toX(Math.max(b.start, 1)).toFixed(1);
+    const x2 = toX(Math.min(b.end, maxBn)).toFixed(1);
+    const w  = Math.max(0, +x2 - +x1);
+    return `<rect x="${x1}" y="${PY}" width="${w}" height="${iH}" fill="${b.color}" rx="0"/>`;
+  }).join('');
+  // Gym lines at B15, B30, B45 (static gym battles)
+  const gymBoundaries = [
+    { bn:15, label:'Gym 1' }, { bn:30, label:'Gym 2' }, { bn:45, label:'Gym 3' },
+    { bn:46, label:'Warden' }, { bn:47, label:'Archon' }, { bn:48, label:'Dark One' },
+  ].filter(g => g.bn <= maxBn).map((g, i) => {
+    const x = toX(g.bn).toFixed(1);
+    const isGauntlet = i >= 3;
+    const lineColor = isGauntlet ? '#8a1a1a' : '#6a4a1a';
+    const textColor = isGauntlet ? '#cc4444' : '#b08030';
+    return `<line x1="${x}" y1="${PY}" x2="${x}" y2="${(PY+iH).toFixed(1)}" stroke="${lineColor}" stroke-width="1.5" stroke-dasharray="3,3"/>
+            <text x="${(+x+3).toFixed(0)}" y="${(PY+9).toFixed(0)}" fill="${textColor}" font-size="7.5">${g.label}</text>`;
+  }).join('');
+  // Zone transition lines at B16, B31, B46
+  const zoneLines = [16, 31, 46].filter(bn => bn <= maxBn).map(bn => {
+    const x = toX(bn).toFixed(1);
+    return `<line x1="${x}" y1="${PY}" x2="${x}" y2="${(PY+iH).toFixed(1)}" stroke="#2a4a6a" stroke-width="1" stroke-dasharray="5,2"/>`;
+  }).join('');
+  // Grid lines (horizontal)
+  const gridVals = [0.25, 0.5, 0.75, 1.0];
+  const grids = gridVals.map(f =>
+    `<line x1="${PX}" y1="${toYT(maxT*f).toFixed(1)}" x2="${W-PR}" y2="${toYT(maxT*f).toFixed(1)}" stroke="#191922" stroke-width="1"/>`
+  ).join('');
+
+  // Turns line (orange)
+  const turnPoly = data.map(d => `${toX(d.bn).toFixed(1)},${toYT(d.avgTurns).toFixed(1)}`).join(' ');
+  const turnDots = data.map(d => {
+    const tip = `Battle ${d.bn}: ${d.avgTurns.toFixed(2)} avg turns (${d.count} samples)`.replace(/"/g,'&quot;');
+    return `<circle cx="${toX(d.bn).toFixed(1)}" cy="${toYT(d.avgTurns).toFixed(1)}" r="4" fill="#e8a030"><title>${tip}</title></circle>`;
+  }).join('');
+
+  // Actions/turn line (teal)
+  const actPoly = data.map(d => `${toX(d.bn).toFixed(1)},${toYA(d.avgActions).toFixed(1)}`).join(' ');
+  const actDots = data.map(d => {
+    const tip = `Battle ${d.bn}: ${d.avgActions.toFixed(2)} avg actions/turn (${d.count} samples)`.replace(/"/g,'&quot;');
+    return `<circle cx="${toX(d.bn).toFixed(1)}" cy="${toYA(d.avgActions).toFixed(1)}" r="4" fill="#44bbaa"><title>${tip}</title></circle>`;
+  }).join('');
+
+  // Y-axis labels (turns scale, left)
+  const yLabels = [0, 0.5, 1.0].map(f => {
+    const val = maxT * f;
+    const y   = toYT(val).toFixed(1);
+    return `<text x="${PX - 4}" y="${(+y + 3).toFixed(0)}" fill="#5a4030" font-size="8" text-anchor="end">${val.toFixed(1)}</text>`;
+  }).join('');
+
+  return `<div class="results-section">
+    <h3>Battle Scaling — Turns &amp; Actions Per Battle <span style="font-size:.6rem;color:#3a3020">(avg across all runs · lower turns = damage outscaling HP)</span></h3>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;margin-bottom:.4rem">
+      ${zoneBands}${grids}${zoneLines}${gymBoundaries}${xLabels}${yLabels}
+      <polyline points="${turnPoly}" fill="none" stroke="#e8a030" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${turnDots}
+      <polyline points="${actPoly}" fill="none" stroke="#44bbaa" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4,3"/>
+      ${actDots}
+    </svg>
+    <div style="display:flex;gap:1.2rem;font-size:.62rem">
+      <span style="color:#e8a030">━ Avg Turns / Battle</span>
+      <span style="color:#44bbaa">╌ Avg Actions / Turn</span>
+      <span style="color:#4a4030">Hover dots for values · Battle number on X axis</span>
+    </div>
+  </div>`;
+}
+
+// ── Enemy Stat Breakdown ──────────────────────────────────────────────────────
+function _renderBattleStatTable(stats) {
+  const rows = stats.battleStatTable || [];
+  if (rows.length < 3) return '';
+  const zoneColor = bn => bn <= 15 ? '#2a1a0a' : bn <= 30 ? '#0a1a1e' : '#1a1a2a';
+  const zoneBorder = bn => bn <= 15 ? '#6a3a1a' : bn <= 30 ? '#1a5a6a' : '#3a3a7a';
+  const zoneLabel = bn => {
+    if ((bn >= 12 && bn <= 15) || (bn >= 27 && bn <= 30) || (bn >= 42 && bn <= 45)) return '🏛';
+    return '';
+  };
+  const tbl = rows.map(r => `
+    <tr style="background:${zoneColor(r.bn)};border-bottom:1px solid #1a1a22">
+      <td style="padding:2px 6px;color:#888;font-size:.62rem;border-right:1px solid #1a1a22">${zoneLabel(r.bn)} B${r.bn}</td>
+      <td style="padding:2px 8px;color:#aaa;font-size:.62rem;text-align:right">${r.avgHP}</td>
+      <td style="padding:2px 8px;color:#e8a030;font-size:.62rem;text-align:right">${r.avgPow}</td>
+      <td style="padding:2px 8px;color:#aa60cc;font-size:.62rem;text-align:right">${r.avgEfx}</td>
+      <td style="padding:2px 8px;color:#60aacc;font-size:.62rem;text-align:right">${r.avgDef}</td>
+      <td style="padding:2px 8px;color:#555;font-size:.58rem;text-align:right">${r.count}</td>
+    </tr>`).join('');
+  return `<div class="results-section">
+    <h3>Enemy Stats Per Battle <span style="font-size:.6rem;color:#3a3020">(avg across all runs · 🏛 = gym window)</span></h3>
+    <div style="overflow-x:auto">
+    <table style="border-collapse:collapse;width:100%;font-family:'Cinzel',serif">
+      <thead><tr style="background:#0a0a12;border-bottom:1px solid #333">
+        <th style="padding:3px 6px;color:#555;font-size:.6rem;text-align:left">Battle</th>
+        <th style="padding:3px 8px;color:#888;font-size:.6rem;text-align:right">Avg HP</th>
+        <th style="padding:3px 8px;color:#e8a030;font-size:.6rem;text-align:right">Avg POW</th>
+        <th style="padding:3px 8px;color:#aa60cc;font-size:.6rem;text-align:right">Avg EFX</th>
+        <th style="padding:3px 8px;color:#60aacc;font-size:.6rem;text-align:right">Avg DEF</th>
+        <th style="padding:3px 8px;color:#555;font-size:.6rem;text-align:right">Samples</th>
+      </tr></thead>
+      <tbody>${tbl}</tbody>
+    </table>
+    </div>
+    <div style="display:flex;gap:1.2rem;font-size:.58rem;margin-top:.4rem">
+      <span style="color:#6a3a1a">━ Zone 1 (B1–15)</span>
+      <span style="color:#1a5a6a">━ Zone 2 (B16–30)</span>
+      <span style="color:#3a3a7a">━ Zone 3 (B31–45)</span>
+    </div>
+  </div>`;
+}
+
 // ── Incantation Impact ────────────────────────────────────────────────────────
 function _renderIncantImpactSection(stats) {
   const b   = stats.incantBuckets || {};
@@ -3090,6 +3296,8 @@ function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog
         ${stats.avgGoldAtEnd > 0 ? `<div class="stat-card"><div class="sc-val">${Math.round(stats.avgGoldAtEnd)}</div><div class="sc-label">Avg Gold at End</div></div>` : ''}
         ${stats.avgGoldSpent > 0 ? `<div class="stat-card"><div class="sc-val">${Math.round(stats.avgGoldSpent)}</div><div class="sc-label">Avg Gold Spent</div></div>` : ''}
         ${stats.avgLowHPCamps > 0 ? `<div class="stat-card"><div class="sc-val">${stats.avgLowHPCamps.toFixed(2)}</div><div class="sc-label">Avg Low-HP Campfires</div></div>` : ''}
+        ${stats.avgTurnsPerBattle > 0 ? `<div class="stat-card"><div class="sc-val">${stats.avgTurnsPerBattle.toFixed(1)}</div><div class="sc-label">Avg Turns / Battle</div></div>` : ''}
+        ${stats.avgActionsPerTurn > 0 ? `<div class="stat-card"><div class="sc-val">${stats.avgActionsPerTurn.toFixed(2)}</div><div class="sc-label">Avg Actions / Turn</div></div>` : ''}
       </div>
     </div>
 
@@ -3161,6 +3369,8 @@ function _renderResultsHTML(panel, stats, results, errors, inProgress, sampleLog
     ${_renderArchetypesSection(stats)}
     ${_renderSpellBalanceSection(stats)}
     ${_renderPassiveBalanceSection(stats)}
+    ${_renderBattleScalingGraph(stats)}
+    ${_renderBattleStatTable(stats)}
     ${_renderIncantImpactSection(stats)}
     ${_renderRarityCountSection(stats)}
     ${_renderRewardMixSection(stats)}
