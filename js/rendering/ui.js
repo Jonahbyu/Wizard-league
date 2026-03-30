@@ -101,16 +101,16 @@ function renderEnemyCards(){
     const row = document.getElementById(`estatus-${i}`);
     if(!row) return;
     const s = e.status;
-    if(s.burnStacks>0)       row.appendChild(tag(`🔥${s.burnStacks}`,'tag-burn',`Burn ×${s.burnStacks} — deals ${s.burnStacks} dmg/turn`));
+    if(s.burnStacks>0)       { const v=Math.round(s.burnStacks); row.appendChild(tag(`🔥${v}`,'tag-burn',`Burn ×${v} — deals ${v} dmg/turn`)); }
     if(s.stunned>0)          row.appendChild(tag(`❄${s.stunned}t`,'tag-stun',`Stunned — skips ${s.stunned} turn(s)`));
-    if(s.rootStacks>0)       row.appendChild(tag(`🌿${s.rootStacks}`,'tag-root',`Root ×${s.rootStacks} — takes +${s.rootStacks*ROOT_POWER_PER_STACK} bonus damage`));
-    if(s.overgrowthStacks>0) row.appendChild(tag(`🌿G${s.overgrowthStacks}`,'tag-root',`Overgrowth ×${s.overgrowthStacks} — +${s.overgrowthStacks*ROOT_POWER_PER_STACK} bonus damage`));
-    if(s.foamStacks>0)       row.appendChild(tag(`🫧${Math.floor(s.foamStacks)}`,'tag-block',`Foam ×${Math.floor(s.foamStacks)} — -${Math.floor(s.foamStacks*1.5)} Defense (less Armor gained; at negative Defense, enemy hits deal bonus damage)`));
-    if(s.shockStacks>0)      row.appendChild(tag(`⚡${s.shockStacks}`,'tag-stun',`Shock ×${s.shockStacks} — reduces outgoing damage by ${s.shockStacks*5}%`));
-    if(s.block>0)            row.appendChild(tag(`🛡${s.block}`,'tag-block',`Armor ${s.block} — absorbs ${s.block} damage`));
+    if(s.rootStacks>0)       { const v=Math.round(s.rootStacks); row.appendChild(tag(`🌿${v}`,'tag-root',`Root ×${v} — takes +${v*ROOT_POWER_PER_STACK} bonus damage`)); }
+    if(s.overgrowthStacks>0) { const v=Math.round(s.overgrowthStacks); row.appendChild(tag(`🌿G${v}`,'tag-root',`Overgrowth ×${v} — +${v*ROOT_POWER_PER_STACK} bonus damage`)); }
+    if(s.foamStacks>0)       { const v=Math.floor(s.foamStacks); row.appendChild(tag(`🫧${v}`,'tag-block',`Foam ×${v} — -${Math.floor(v*1.5)} Defense (less Armor gained; at negative Defense, enemy hits deal bonus damage)`)); }
+    if(s.shockStacks>0)      { const v=Math.round(s.shockStacks); row.appendChild(tag(`⚡${v}`,'tag-stun',`Shock ×${v} — reduces outgoing damage by ${v*5}%`)); }
+    if(s.block>0)            { const v=Math.round(s.block); row.appendChild(tag(`🛡${v}`,'tag-block',`Armor ${v} — absorbs ${v} damage`)); }
     if(s.phaseTurns>0)       row.appendChild(tag(`🔮`,'tag-phase',`Phase — immune to damage for ${s.phaseTurns} turn(s)`));
-    if(s.frostStacks>0)      row.appendChild(tag(`❄️${s.frostStacks}`,'tag-stun',`Frost ×${s.frostStacks} — -${s.frostStacks} ATK/Armor`));
-    if(s.stoneStacks>0)      row.appendChild(tag(`🪨${Math.floor(s.stoneStacks)}`,'tag-block',`Stone ×${Math.floor(s.stoneStacks)} — +${Math.floor(s.stoneStacks)*3} ATK, +${Math.floor(s.stoneStacks)*2} Armor`));
+    if(s.frostStacks>0)      { const v=Math.round(s.frostStacks); row.appendChild(tag(`❄️${v}`,'tag-stun',`Frost ×${v} — -${v} ATK/Armor`)); }
+    if(s.stoneStacks>0)      { const v=Math.floor(s.stoneStacks); row.appendChild(tag(`🪨${v}`,'tag-block',`Stone ×${v} — +${v*3} ATK, +${v*2} Armor`)); }
     // Mist HP bonus: undispellable indicator
     if(_mistHPPct > 0){ const t=tag(`🌫+${_mistHPPct}%HP`,'tag-block',`Mist — The Veil grants this enemy +${_mistHPPct}% max HP (cannot be removed)`); t.style.opacity='.7'; row.appendChild(t); }
   });
@@ -164,16 +164,16 @@ function renderStatusTags(){
   if(pr){
     pr.innerHTML = '';
     const s = status.player;
-    if(s.burnStacks>0)       pr.appendChild(tag(`🔥${s.burnStacks}`,'tag-burn',`Burn ×${s.burnStacks} — deals ${s.burnStacks} dmg/turn (1 per stack)`));
+    if(s.burnStacks>0)       { const v=Math.round(s.burnStacks); pr.appendChild(tag(`🔥${v}`,'tag-burn',`Burn ×${v} — deals ${v} dmg/turn (1 per stack)`)); }
     if(s.stunned>0)          pr.appendChild(tag(`❄${s.stunned}t`,'tag-stun',`Stunned — skip ${s.stunned} turn(s)`));
-    if(s.rootStacks>0)       pr.appendChild(tag(`🌿${s.rootStacks}`,'tag-root',`Root ×${s.rootStacks} — you take +${s.rootStacks*ROOT_POWER_PER_STACK} bonus damage from attacks`));
-    if(s.overgrowthStacks>0) pr.appendChild(tag(`🌿G${s.overgrowthStacks}`,'tag-root',`Overgrowth ×${s.overgrowthStacks} — enhanced root, +${s.overgrowthStacks*ROOT_POWER_PER_STACK} bonus damage`));
-    if(s.foamStacks>0)       pr.appendChild(tag(`🫧${Math.floor(s.foamStacks)}`,'tag-block',`Foam ×${Math.floor(s.foamStacks)} — -${Math.floor(s.foamStacks*1.5)} Defense (less Armor gained; at negative Defense, enemy hits deal bonus damage)`));
-    if(s.shockStacks>0)      pr.appendChild(tag(`⚡${s.shockStacks}`,'tag-stun',`Shock ×${s.shockStacks} — reduces your outgoing damage by ${s.shockStacks*5}%`));
-    if(s.block>0)            pr.appendChild(tag(`🛡${s.block}`,'tag-block',`Armor ${s.block} — absorbs ${s.block} incoming damage`));
+    if(s.rootStacks>0)       { const v=Math.round(s.rootStacks); pr.appendChild(tag(`🌿${v}`,'tag-root',`Root ×${v} — you take +${v*ROOT_POWER_PER_STACK} bonus damage from attacks`)); }
+    if(s.overgrowthStacks>0) { const v=Math.round(s.overgrowthStacks); pr.appendChild(tag(`🌿G${v}`,'tag-root',`Overgrowth ×${v} — enhanced root, +${v*ROOT_POWER_PER_STACK} bonus damage`)); }
+    if(s.foamStacks>0)       { const v=Math.floor(s.foamStacks); pr.appendChild(tag(`🫧${v}`,'tag-block',`Foam ×${v} — -${Math.floor(v*1.5)} Defense (less Armor gained; at negative Defense, enemy hits deal bonus damage)`)); }
+    if(s.shockStacks>0)      { const v=Math.round(s.shockStacks); pr.appendChild(tag(`⚡${v}`,'tag-stun',`Shock ×${v} — reduces your outgoing damage by ${v*5}%`)); }
+    if(s.block>0)            { const v=Math.round(s.block); pr.appendChild(tag(`🛡${v}`,'tag-block',`Armor ${v} — absorbs ${v} incoming damage`)); }
     if(s.phaseTurns>0)       pr.appendChild(tag('🔮','tag-phase',`Phase — immune to damage for ${s.phaseTurns} turn(s)`));
-    if(s.frostStacks>0)      pr.appendChild(tag(`❄️${s.frostStacks}`,'tag-stun',`Frost ×${s.frostStacks} — -${s.frostStacks} ATK/EFX/Armor; at 10 stacks: Frozen (stunned)`));
-    if(s.stoneStacks>0)      pr.appendChild(tag(`🪨${Math.floor(s.stoneStacks)}`,'tag-block',`Stone ×${Math.floor(s.stoneStacks)} — +${Math.floor(s.stoneStacks)*3} ATK, +${Math.floor(s.stoneStacks)*2} Armor; decays 25%/turn`));
+    if(s.frostStacks>0)      { const v=Math.round(s.frostStacks); pr.appendChild(tag(`❄️${v}`,'tag-stun',`Frost ×${v} — -${v} ATK/EFX/Armor; at 10 stacks: Frozen (stunned)`)); }
+    if(s.stoneStacks>0)      { const v=Math.floor(s.stoneStacks); pr.appendChild(tag(`🪨${v}`,'tag-block',`Stone ×${v} — +${v*3} ATK, +${v*2} Armor; decays 25%/turn`)); }
     // Plasma
     if(playerElement==='Plasma'){
       if(s.stallActive)           pr.appendChild(tag('🫧 Stall','tag-phase','Stall — enemy action delayed, charge refunded next turn'));

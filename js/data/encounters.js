@@ -140,7 +140,7 @@ const ZONE_EFFECTS = {
 const GYM_ROSTER_FIXED = [
   {
     gymIdx:0, element:'Fire', name:'Leader Ignis', emoji:'🧙‍♂️', color:'#FF4500',
-    baseHP:750, baseDmg:30, phase2Dmg:46, chargeInterval:3,
+    baseHP:700, baseDmg:30, phase2Dmg:46, chargeInterval:3,
     passive:'fire_combustion', phase2Passive:'fire_pyromaniac',
     entryEffect: null,
     signature:'Burn stacks grow over time. Charges every 3 hits. Phase 2: Pyromaniac.',
@@ -149,7 +149,7 @@ const GYM_ROSTER_FIXED = [
   },
   {
     gymIdx:1, element:'Ice', name:'Leader Glacius', emoji:'🧊', color:'#A0EFFF',
-    baseHP:1300, baseDmg:34, phase2Dmg:52, chargeInterval:0,
+    baseHP:600, baseDmg:34, phase2Dmg:52, chargeInterval:0,
     passive:'ice_stay_frosty', phase2Passive:'ice_blast',
     entryEffect:'frozen_ground',
     signature:'Opens with Frozen Ground. Phase 2 executes below 25% HP.',
@@ -158,7 +158,7 @@ const GYM_ROSTER_FIXED = [
   },
   {
     gymIdx:2, element:'Lightning', name:'Leader Volta', emoji:'⚡', color:'#FFD700',
-    baseHP:2000, baseDmg:38, phase2Dmg:58, chargeInterval:4,
+    baseHP:400, baseDmg:38, phase2Dmg:58, chargeInterval:4,
     passive:'lightning_overload', phase2Passive:'lightning_conduction',
     entryEffect:'chain_shock',
     signature:'Starts at 200% Overload damage. Phase 2 gains Conduction (Shock reduces your damage).',

@@ -24,13 +24,13 @@ function makeEnemyObj(enc){
   const zoneScaled = (enc.isTargetDummy || enc.isGauntletBoss) ? {} : scaleEnemyForZone(enc, currentGymIdx);
   const mistHPMult  = player._mistEnemyHPMult  || 1.0;
   const mistDmgMult = player._mistEnemyDmgMult || 1.0;
-  // Per-battle HP ramp for regular enemies: quadratic curve to match player's compound scaling
-  // (each extra action = another spell cast — player DPS grows as actions × damage/action)
-  const _bnRaw  = (!enc.isGym && !enc.isTargetDummy && battleNumber > 6) ? (battleNumber - 6) : 0;
-  const _bnFlat = (!enc.isGym && !enc.isTargetDummy && battleNumber > 3) ? (battleNumber - 3) * 13 : 0;
-  const _bnBase = (!enc.isGym && !enc.isTargetDummy && battleNumber > 3) ? 1.20 : 1.0;
+  // Per-battle HP ramp: quadratic curve applies to regular enemies AND gym bosses.
+  // Gauntlet bosses have fixed HP, target dummies unchanged.
+  const _bnRaw  = (!enc.isTargetDummy && !enc.isGauntletBoss && battleNumber > 6) ? (battleNumber - 6) : 0;
+  const _bnFlat = (!enc.isTargetDummy && !enc.isGauntletBoss && battleNumber > 3) ? (battleNumber - 3) * 13 : 0;
+  const _bnBase = (!enc.isTargetDummy && !enc.isGauntletBoss && battleNumber > 3) ? 1.20 : 1.0;
   const _bnMult = _bnBase + (_bnRaw > 0 ? _bnRaw * 0.09 + Math.pow(_bnRaw / 12, 2) : 0);
-  const _lateBoost  = (!enc.isGym && !enc.isTargetDummy && !enc.isGauntletBoss && battleNumber >= 39) ? 1.3 : 1.0;
+  const _lateBoost  = (!enc.isTargetDummy && !enc.isGauntletBoss && battleNumber >= 39) ? 1.3 : 1.0;
   const finalMaxHP  = Math.round(((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * _bnMult + _bnFlat) * mistHPMult * 0.77 * _lateBoost * (battleNumber === 1 ? 0.5 : 1));
   const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult * 0.80) - 5);
 

@@ -9,7 +9,7 @@
 // Returns true if Seed Surge was consumed (spell should reset its own CD).
 function _plantSeed(targetSide, type, stacks, timer, opts) {
   stacks = stacks || 1;
-  timer  = timer  || 5;
+  timer  = timer  || 4;
   const incantLevel = (opts && opts.incantLevel) || 1;
 
   // Seed Surge: +2 free stacks, next seed costs no CD
@@ -139,10 +139,10 @@ function _bloomSeed(targetSide, seed, enemyIdx) {
     return;
   }
 
-  // ── Perennial: replant with 1 stack at timer 4 ──
+  // ── Perennial: replant with 1 stack at timer 3 ──
   if (hasPassive('nature_perennial')) {
-    _plantSeed(targetSide, seed.type, 1, 4, { incantLevel: il });
-    log(`🌸 Perennial: ${_seedLabel(seed.type)} Seed replanted (timer 4).`, 'status');
+    _plantSeed(targetSide, seed.type, 1, 3, { incantLevel: il });
+    log(`🌸 Perennial: ${_seedLabel(seed.type)} Seed replanted (timer 3).`, 'status');
   }
 
   if (targetSide === 'enemy') setActiveEnemy(prevActive);

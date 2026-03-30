@@ -51,7 +51,7 @@ const PASSIVE_CHOICES = {
     { id:'nature_bramble_guard',   title:'Bramble Guard',   emoji:'🌿', desc:'When you gain Armor, apply 1 Root to all enemies.' },
     { id:'nature_verdant_legion', legendary:true, title:'Verdant Legion', emoji:'🌳', desc:'LEGENDARY: Treants gain +25 HP, +10 damage, and always apply Root on hit.' },
     // ── Seed passives ──
-    { id:'nature_perennial',        title:'Perennial',        emoji:'🌸', desc:'When a Seed blooms, automatically replant a new Seed of the same type with a 4-turn timer.' },
+    { id:'nature_perennial',        title:'Perennial',        emoji:'🌸', desc:'When a Seed blooms, automatically replant a new Seed of the same type with a 3-turn timer.' },
     { id:'nature_deep_roots',       title:'Deep Roots',       emoji:'🌳', desc:'Every 3rd Root stack applied to a target reduces that target\'s Seed timers by 1.' },
     { id:'nature_thorn_bloom',      title:'Thorn Bloom',      emoji:'🌹', desc:'When a Seed blooms on a Rooted target, apply 2 additional Root stacks.' },
     { id:'nature_verdant_patience', title:'Verdant Patience', emoji:'🛡️', desc:'At the start of each turn, if any Seed has been active 3+ turns without blooming, gain 15 Armor and all Seed timers reduce by 1.' },

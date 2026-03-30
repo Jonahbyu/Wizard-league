@@ -455,7 +455,7 @@ function renderQueue(){
   if(typeof renderEnemyCards === 'function') renderEnemyCards();
   if(endBtn){
     const hasActions=combat.actionQueue&&combat.actionQueue.length>0;
-    endBtn.disabled=!combat.playerTurn||combat.over||!hasActions;
+    endBtn.disabled=!combat.playerTurn||combat.over;
     endBtn.className=hasActions?'end-turn-btn ready':'end-turn-btn';
     const totalQ = combat.actionQueue.length;
     endBtn.textContent=hasActions
