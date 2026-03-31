@@ -714,7 +714,9 @@ function _autoExport(cfg, stats, sampleLog) {
                 z1GymAttempted: stats.z1GymAttempted,
                 battleHist: stats.battleHist,
                 topSpells:   stats.topSpells,
-                topPassives: stats.topPassives },
+                topPassives: stats.topPassives,
+                battleStatTable: stats.battleStatTable,
+                battleTurnGraph: stats.battleTurnGraph },
     sampleLog,
   };
   fetch('http://127.0.0.1:3456/save', {
@@ -2124,17 +2126,26 @@ function _aggregateResults(results, n) {
     .map(([bn, d]) => ({ bn: +bn, avgTurns: d.turnsSum/d.count, avgActions: d.turnsSum > 0 ? d.actionsSum/d.turnsSum : 0, count: d.count }))
     .sort((a,b) => a.bn - b.bn)
     .slice(0, 50);
-  // Per-battle enemy stat table
+  // Per-battle enemy stat table — joined with turn data for dmg/turn and dmg/action
   const battleStatTable = Object.entries(battleStatAgg)
     .filter(([, d]) => d.count >= 3)
-    .map(([bn, d]) => ({
-      bn:     +bn,
-      avgHP:  Math.round(d.hpSum  / d.count),
-      avgPow: Math.round(d.powSum / d.count),
-      avgEfx: Math.round(d.efxSum / d.count),
-      avgDef: Math.round(d.defSum / d.count),
-      count:  d.count,
-    }))
+    .map(([bn, d]) => {
+      const avgHP  = Math.round(d.hpSum  / d.count);
+      const td = battleTurnsAgg[bn];
+      const avgTurns   = td && td.count > 0 ? td.turnsSum / td.count : 0;
+      const avgActPT   = td && td.turnsSum > 0 ? td.actionsSum / td.turnsSum : 0;
+      const dmgPerTurn = avgTurns > 0 ? Math.round(avgHP / avgTurns) : 0;
+      const dmgPerAct  = (avgTurns * avgActPT) > 0 ? Math.round(avgHP / (avgTurns * avgActPT)) : 0;
+      return {
+        bn, avgHP,
+        avgPow: Math.round(d.powSum / d.count),
+        avgEfx: Math.round(d.efxSum / d.count),
+        avgDef: Math.round(d.defSum / d.count),
+        avgTurns: avgTurns.toFixed(1),
+        dmgPerTurn, dmgPerAct,
+        count: d.count,
+      };
+    })
     .sort((a, b) => a.bn - b.bn)
     .slice(0, 50);
 
@@ -3050,40 +3061,50 @@ function _renderBattleScalingGraph(stats) {
 function _renderBattleStatTable(stats) {
   const rows = stats.battleStatTable || [];
   if (rows.length < 3) return '';
-  const zoneColor = bn => bn <= 15 ? '#2a1a0a' : bn <= 30 ? '#0a1a1e' : '#1a1a2a';
-  const zoneBorder = bn => bn <= 15 ? '#6a3a1a' : bn <= 30 ? '#1a5a6a' : '#3a3a7a';
-  const zoneLabel = bn => {
-    if ((bn >= 12 && bn <= 15) || (bn >= 27 && bn <= 30) || (bn >= 42 && bn <= 45)) return '🏛';
-    return '';
-  };
-  const tbl = rows.map(r => `
-    <tr style="background:${zoneColor(r.bn)};border-bottom:1px solid #1a1a22">
-      <td style="padding:2px 6px;color:#888;font-size:.62rem;border-right:1px solid #1a1a22">${zoneLabel(r.bn)} B${r.bn}</td>
-      <td style="padding:2px 8px;color:#aaa;font-size:.62rem;text-align:right">${r.avgHP}</td>
+  const GYM_BNS = new Set([15, 30, 45]);
+  const zoneColor  = bn => GYM_BNS.has(bn) ? '#1a0a00' : bn <= 15 ? '#2a1a0a' : bn <= 30 ? '#0a1a1e' : '#1a1a2a';
+  const tbl = rows.map(r => {
+    const isGym = GYM_BNS.has(r.bn);
+    const label = isGym ? `🏛 B${r.bn}` : `B${r.bn}`;
+    const labelColor = isGym ? '#e8c060' : '#888';
+    const hpColor    = isGym ? '#e8c060' : '#aaa';
+    const dptColor   = isGym ? '#cc8844' : '#44aa88';
+    return `
+    <tr style="background:${zoneColor(r.bn)};border-bottom:1px solid ${isGym?'#4a3010':'#1a1a22'}${isGym?';border-top:1px solid #4a3010':''}">
+      <td style="padding:2px 6px;color:${labelColor};font-size:.62rem;border-right:1px solid #1a1a22;white-space:nowrap">${label}</td>
+      <td style="padding:2px 8px;color:${hpColor};font-size:.62rem;text-align:right;font-weight:${isGym?'bold':'normal'}">${r.avgHP}</td>
+      <td style="padding:2px 8px;color:#666;font-size:.62rem;text-align:right">${r.avgTurns}</td>
+      <td style="padding:2px 8px;color:${dptColor};font-size:.62rem;text-align:right;font-weight:${isGym?'bold':'normal'}">${r.dmgPerTurn}</td>
+      <td style="padding:2px 8px;color:#6a9a88;font-size:.62rem;text-align:right">${r.dmgPerAct}</td>
       <td style="padding:2px 8px;color:#e8a030;font-size:.62rem;text-align:right">${r.avgPow}</td>
       <td style="padding:2px 8px;color:#aa60cc;font-size:.62rem;text-align:right">${r.avgEfx}</td>
       <td style="padding:2px 8px;color:#60aacc;font-size:.62rem;text-align:right">${r.avgDef}</td>
       <td style="padding:2px 8px;color:#555;font-size:.58rem;text-align:right">${r.count}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   return `<div class="results-section">
-    <h3>Enemy Stats Per Battle <span style="font-size:.6rem;color:#3a3020">(avg across all runs · 🏛 = gym window)</span></h3>
+    <h3>Battle Stats — HP &amp; Damage Output <span style="font-size:.6rem;color:#3a3020">(avg across all runs · 🏛 = gym boss)</span></h3>
     <div style="overflow-x:auto">
     <table style="border-collapse:collapse;width:100%;font-family:'Cinzel',serif">
       <thead><tr style="background:#0a0a12;border-bottom:1px solid #333">
         <th style="padding:3px 6px;color:#555;font-size:.6rem;text-align:left">Battle</th>
         <th style="padding:3px 8px;color:#888;font-size:.6rem;text-align:right">Avg HP</th>
+        <th style="padding:3px 8px;color:#666;font-size:.6rem;text-align:right">Avg Turns</th>
+        <th style="padding:3px 8px;color:#44aa88;font-size:.6rem;text-align:right">Dmg/Turn</th>
+        <th style="padding:3px 8px;color:#6a9a88;font-size:.6rem;text-align:right">Dmg/Act</th>
         <th style="padding:3px 8px;color:#e8a030;font-size:.6rem;text-align:right">Avg POW</th>
         <th style="padding:3px 8px;color:#aa60cc;font-size:.6rem;text-align:right">Avg EFX</th>
         <th style="padding:3px 8px;color:#60aacc;font-size:.6rem;text-align:right">Avg DEF</th>
-        <th style="padding:3px 8px;color:#555;font-size:.6rem;text-align:right">Samples</th>
+        <th style="padding:3px 8px;color:#555;font-size:.6rem;text-align:right">n</th>
       </tr></thead>
       <tbody>${tbl}</tbody>
     </table>
     </div>
-    <div style="display:flex;gap:1.2rem;font-size:.58rem;margin-top:.4rem">
+    <div style="display:flex;gap:1.2rem;font-size:.58rem;margin-top:.4rem;flex-wrap:wrap">
       <span style="color:#6a3a1a">━ Zone 1 (B1–15)</span>
       <span style="color:#1a5a6a">━ Zone 2 (B16–30)</span>
       <span style="color:#3a3a7a">━ Zone 3 (B31–45)</span>
+      <span style="color:#e8c060">🏛 Gym boss rows highlighted — compare Dmg/Turn to adjacent regular battles</span>
     </div>
   </div>`;
 }

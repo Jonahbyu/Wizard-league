@@ -9,9 +9,8 @@
 // Called at run end in saveRunStats
 function calcPhosEarned() {
   let phos = 0;
-  phos += battleNumber;                          // 1 per battle survived
-  phos += (currentGymIdx || 0) * 10;             // 10 per gym beaten this run
-  phos += Math.floor(player.gold / 20);          // 1 per 20 gold accumulated
+  phos += Math.floor(battleNumber / 5);          // 1 per 5 battles survived
+  phos += (currentGymIdx || 0) * 5;              // 5 per gym beaten this run
   return Math.max(1, Math.round(phos));
 }
 
@@ -48,10 +47,10 @@ const TALENT_TREE = {
         id: 'base_atk',
         name: 'Attack Training',
         emoji: '⚔️',
-        desc: '+3 Attack Power per level.',
+        desc: '+2 Attack Power per level.',
         maxLevel: 6,
         cost: lvl => lvl * 2,
-        apply(lvl) { player.attackPower += lvl * 3; },
+        apply(lvl) { player.attackPower += lvl * 2; },
       },
       {
         id: 'base_efx',

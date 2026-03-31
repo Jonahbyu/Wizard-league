@@ -80,10 +80,10 @@ const SPELLBOOK_CATALOGUE = {
       '+1 Frost per spell. −5 DEF aura.',
       '+1 Frost per spell. −5 DEF aura.',
       '+2 Frost per spell. −5 DEF aura.',
-      '+2 Frost. +8 ATK aura. −5 DEF.',
-      '+3 Frost. +12 ATK aura. −5 DEF.',
+      '+2 Frost. +6 ATK aura. −5 DEF.',
+      '+3 Frost. +10 ATK aura. −5 DEF.',
     ],
-    aura(lvl){ return {atk:[0,0,0,8,12][lvl]||0, def:-5, efx:0}; },
+    aura(lvl){ return {atk:[0,0,0,6,10][lvl]||0, def:-5, efx:0}; },
     onSpellExecute(spell,lvl){
       if(spell.isBuiltin) return;
       const frost=[1,1,2,2,3][lvl]||1;
@@ -180,10 +180,10 @@ const SPELLBOOK_CATALOGUE = {
       '20% chance: +1 action next turn. −5 DEF aura.',
       '25% chance: +1 action next turn. −5 DEF aura.',
       '30% chance: +1 action next turn. −5 DEF aura.',
-      '35% chance. +5 ATK aura. −5 DEF.',
-      '40% chance. +10 ATK aura. −5 DEF.',
+      '35% chance. +4 ATK aura. −5 DEF.',
+      '40% chance. +8 ATK aura. −5 DEF.',
     ],
-    aura(lvl){ return {atk:[0,0,0,5,10][lvl]||0, def:-5, efx:0}; },
+    aura(lvl){ return {atk:[0,0,0,4,8][lvl]||0, def:-5, efx:0}; },
     onSpellExecute(spell,lvl){
       if(spell.isBuiltin) return;
       const chance=[0.20,0.25,0.30,0.35,0.40][lvl]||0.20;
@@ -236,13 +236,13 @@ const SPELLBOOK_CATALOGUE = {
     spellSlots:-1, passiveSlots:0,
     upgradeCosts:[20,35,55,80],
     levelDescs:[
-      '+12 ATK aura. 5 spell slots.',
+      '+10 ATK aura. 5 spell slots.',
+      '+13 ATK aura. 5 spell slots.',
       '+16 ATK aura. 5 spell slots.',
       '+20 ATK aura. 5 spell slots.',
-      '+25 ATK aura. 5 spell slots.',
-      '+32 ATK aura. 5 spell slots.',
+      '+26 ATK aura. 5 spell slots.',
     ],
-    aura(lvl){ return {atk:[12,16,20,25,32][lvl]||12, def:0, efx:0}; },
+    aura(lvl){ return {atk:[10,13,16,20,26][lvl]||10, def:0, efx:0}; },
     onSpellExecute(spell,lvl){},
     onSwitchTo(lvl){},
     onSwitchAway(lvl){},
@@ -283,13 +283,13 @@ const SPELLBOOK_CATALOGUE = {
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[20,35,55,80],
     levelDescs:[
-      'Free switch. First switch per battle: +1 action. +10 ATK aura. −5 DEF.',
-      'Free switch. First switch: +1 action. +14 ATK aura. −5 DEF.',
+      'Free switch. First switch per battle: +1 action. +8 ATK aura. −5 DEF.',
+      'Free switch. First switch: +1 action. +11 ATK aura. −5 DEF.',
+      'Free switch. First 2 switches: +1 action each. +14 ATK aura. −5 DEF.',
       'Free switch. First 2 switches: +1 action each. +18 ATK aura. −5 DEF.',
-      'Free switch. First 2 switches: +1 action each. +22 ATK aura. −5 DEF.',
-      'Free switch. Every switch: +1 action. +28 ATK aura. −5 DEF.',
+      'Free switch. Every switch: +1 action. +22 ATK aura. −5 DEF.',
     ],
-    aura(lvl){ return {atk:[10,14,18,22,28][lvl]||10, def:-5, efx:0}; },
+    aura(lvl){ return {atk:[8,11,14,18,22][lvl]||8, def:-5, efx:0}; },
     onSpellExecute(spell,lvl){},
     onSwitchTo(lvl){
       if(typeof combat==='undefined'||!combat.playerTurn) return;
@@ -343,13 +343,13 @@ const SPELLBOOK_CATALOGUE = {
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[20,35,55,80],
     levelDescs:[
-      '+2 HP per spell cast. +8 ATK aura. −5 DEF.',
-      '+3 HP per cast. +10 ATK aura. −5 DEF.',
-      '+4 HP per cast. +12 ATK aura. −5 DEF.',
-      '+5 HP per cast. +14 ATK aura. −5 DEF.',
-      '+7 HP per cast. +18 ATK aura. −5 DEF.',
+      '+2 HP per spell cast. +6 ATK aura. −5 DEF.',
+      '+3 HP per cast. +8 ATK aura. −5 DEF.',
+      '+4 HP per cast. +10 ATK aura. −5 DEF.',
+      '+5 HP per cast. +11 ATK aura. −5 DEF.',
+      '+7 HP per cast. +14 ATK aura. −5 DEF.',
     ],
-    aura(lvl){ return {atk:[8,10,12,14,18][lvl]||8, def:-5, efx:0}; },
+    aura(lvl){ return {atk:[6,8,10,11,14][lvl]||6, def:-5, efx:0}; },
     onSpellExecute(spell,lvl){
       if(spell.isBuiltin) return;
       const heal=[2,3,4,5,7][lvl]||2;
@@ -371,12 +371,12 @@ const SPELLBOOK_CATALOGUE = {
     upgradeCosts:[40,70,110,160],
     levelDescs:[
       '−1 CD every 3 turns. Sticky: switch-away costs +1 action.',
-      '−1 CD every 3 turns. +5 ATK aura. Sticky.',
-      '−1 CD every 2 turns. +8 ATK aura. Sticky.',
-      '−1 CD every 2 turns. +12 ATK aura. Sticky.',
-      '−1 CD every turn. +16 ATK aura. Sticky.',
+      '−1 CD every 3 turns. +4 ATK aura. Sticky.',
+      '−1 CD every 2 turns. +6 ATK aura. Sticky.',
+      '−1 CD every 2 turns. +10 ATK aura. Sticky.',
+      '−1 CD every turn. +13 ATK aura. Sticky.',
     ],
-    aura(lvl){ return {atk:[0,5,8,12,16][lvl]||0, def:0, efx:0}; },
+    aura(lvl){ return {atk:[0,4,6,10,13][lvl]||0, def:0, efx:0}; },
     onSpellExecute(spell,lvl){},
     onTurnStart(lvl){
       const interval = [3,3,2,2,1][lvl]||3;
@@ -399,13 +399,13 @@ const SPELLBOOK_CATALOGUE = {
     spellSlots:-1, passiveSlots:-1,
     upgradeCosts:[40,70,110,160],
     levelDescs:[
-      'First spell/turn: +50% ATK echo hit. 5 slots, 1 passive.',
-      'First spell/turn: +60% ATK echo hit. 5 slots, 1 passive.',
-      'First spell/turn: +70% ATK echo hit. 5 slots, 1 passive.',
+      'First spell/turn: +40% ATK echo hit. 5 slots, 1 passive.',
+      'First spell/turn: +48% ATK echo hit. 5 slots, 1 passive.',
+      'First spell/turn: +56% ATK echo hit. 5 slots, 1 passive.',
+      'First spell/turn: +64% ATK echo hit. 5 slots, 1 passive.',
       'First spell/turn: +80% ATK echo hit. 5 slots, 1 passive.',
-      'First spell/turn: +100% ATK echo hit (full double). 5 slots, 1 passive.',
     ],
-    aura(lvl){ return {atk:0, def:0, efx:0, echoBonus:[0.5,0.6,0.7,0.8,1.0][lvl]||0.5}; },
+    aura(lvl){ return {atk:0, def:0, efx:0, echoBonus:[0.4,0.48,0.56,0.64,0.8][lvl]||0.4}; },
     onSpellExecute(spell,lvl){
       // Echo logic applied in _applyBookSpellEffect via aura.echoBonus
     },
@@ -422,13 +422,13 @@ const SPELLBOOK_CATALOGUE = {
     spellSlots:0, passiveSlots:0,
     upgradeCosts:[40,70,110,160],
     levelDescs:[
+      'Each spell: −5 HP, +16 ATK aura (both sides).',
       'Each spell: −5 HP, +20 ATK aura (both sides).',
-      'Each spell: −5 HP, +25 ATK aura (both sides).',
-      'Each spell: −4 HP, +30 ATK aura (both sides).',
-      'Each spell: −4 HP, +35 ATK aura (both sides).',
-      'Each spell: −3 HP, +40 ATK aura (both sides).',
+      'Each spell: −4 HP, +24 ATK aura (both sides).',
+      'Each spell: −4 HP, +28 ATK aura (both sides).',
+      'Each spell: −3 HP, +32 ATK aura (both sides).',
     ],
-    aura(lvl){ return {atk:[20,25,30,35,40][lvl]||20, def:0, efx:0, mutualAura:true}; },
+    aura(lvl){ return {atk:[16,20,24,28,32][lvl]||16, def:0, efx:0, mutualAura:true}; },
     onSpellExecute(spell,lvl){
       if(spell.isBuiltin) return;
       const cost=[5,5,4,4,3][lvl]||5;

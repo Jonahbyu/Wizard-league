@@ -1,5 +1,5 @@
 {
-  "date": "2026-03-29T05:44:20.692Z",
+  "date": "2026-03-30T05:16:02.179Z",
   "cfg": {
     "element": "Air",
     "strategy": "smart",
@@ -8,19 +8,24 @@
     "nRuns": 50,
     "startPassiveId": null,
     "startSpellId": null,
-    "talents": {}
+    "talents": {
+      "lives": 4,
+      "base_atk": 6,
+      "base_def": 6,
+      "gold_find": 4
+    }
   },
   "stats": {
-    "winRate": 0.26,
-    "wins": 13,
+    "winRate": 0.94,
+    "wins": 47,
     "n": 50,
-    "avgBattles": 14.22,
-    "avgHPOnWin": 230.6153846153846,
+    "avgBattles": 48.9,
+    "avgHPOnWin": 274.8085106382979,
     "gymHist": [
-      37,
       0,
-      0,
-      13
+      2,
+      1,
+      47
     ],
     "z1Milestones": [
       1,
@@ -33,155 +38,963 @@
     ],
     "z1Counts": [
       50,
-      32,
-      22,
-      18,
-      18,
-      18,
-      13
+      50,
+      50,
+      50,
+      50,
+      50,
+      50
     ],
-    "z1GymAttempted": 18,
-    "battleHist": [
-      [
-        "2",
-        6
-      ],
-      [
-        "3",
-        12
-      ],
-      [
-        "4",
-        3
-      ],
-      [
-        "5",
-        7
-      ],
-      [
-        "6",
-        2
-      ],
-      [
-        "7",
-        2
-      ],
-      [
-        "14",
-        5
-      ]
-    ],
+    "z1GymAttempted": 50,
+    "battleHist": [],
     "topSpells": [
       [
-        "tornado",
-        20
-      ],
-      [
-        "become_wind",
-        16
-      ],
-      [
         "twin_strike",
-        15
-      ],
-      [
-        "wind_wall",
-        14
+        38
       ],
       [
         "windy_takedown",
-        10
+        29
       ],
       [
         "sleeper_gust",
-        9
-      ],
-      [
-        "break_momentum",
-        8
+        26
       ],
       [
         "power_strike",
-        7
+        24
       ],
       [
-        "war_cry",
-        4
+        "break_momentum",
+        21
       ],
       [
-        "double_tap",
-        4
-      ],
-      [
-        "shield_bash",
-        3
+        "tornado",
+        19
       ],
       [
         "vampiric_strike",
-        3
+        19
+      ],
+      [
+        "wind_wall",
+        16
+      ],
+      [
+        "shield_bash",
+        16
+      ],
+      [
+        "become_wind",
+        15
+      ],
+      [
+        "double_tap",
+        13
+      ],
+      [
+        "war_cry",
+        12
+      ],
+      [
+        "frost_bolt",
+        10
       ],
       [
         "zap",
-        2
+        7
       ],
       [
-        "ignite",
-        2
-      ],
-      [
-        "tidal_surge",
-        2
+        "seismic_wave",
+        7
       ]
     ],
     "topPassives": [
       [
-        "air_slipstream",
-        19
+        "air_gale_force",
+        31
       ],
       [
         "air_rapid_tempo",
-        18
+        28
+      ],
+      [
+        "air_slipstream",
+        26
       ],
       [
         "air_tailwind",
-        17
-      ],
-      [
-        "air_gale_force",
-        17
-      ],
-      [
-        "water_sea_foam",
-        2
+        24
       ],
       [
         "ice_blast",
-        2
-      ],
-      [
-        "earth_fissure",
-        2
+        12
       ],
       [
         "earth_hard_shell",
-        1
+        8
       ],
       [
-        "fire_forge_master",
-        1
+        "water_sea_foam",
+        6
       ],
       [
-        "fire_slag_trail",
-        1
+        "air_eye_of_the_storm",
+        5
       ],
       [
-        "fire_combustion",
-        1
+        "water_flow",
+        5
       ],
       [
-        "fire_armor_eater",
-        1
+        "earth_fissure",
+        5
+      ],
+      [
+        "ice_embrittlement",
+        4
+      ],
+      [
+        "water_ebb",
+        4
       ]
+    ],
+    "battleStatTable": [
+      {
+        "bn": "1",
+        "avgHP": 43,
+        "avgPow": 1,
+        "avgEfx": 1,
+        "avgDef": 1,
+        "avgTurns": "1.5",
+        "dmgPerTurn": 29,
+        "dmgPerAct": 14,
+        "count": 50
+      },
+      {
+        "bn": "2",
+        "avgHP": 87,
+        "avgPow": 2,
+        "avgEfx": 2,
+        "avgDef": 2,
+        "avgTurns": "6.7",
+        "dmgPerTurn": 13,
+        "dmgPerAct": 7,
+        "count": 50
+      },
+      {
+        "bn": "3",
+        "avgHP": 87,
+        "avgPow": 3,
+        "avgEfx": 3,
+        "avgDef": 3,
+        "avgTurns": "4.2",
+        "dmgPerTurn": 21,
+        "dmgPerAct": 10,
+        "count": 50
+      },
+      {
+        "bn": "4",
+        "avgHP": 117,
+        "avgPow": 4,
+        "avgEfx": 4,
+        "avgDef": 4,
+        "avgTurns": "4.6",
+        "dmgPerTurn": 26,
+        "dmgPerAct": 12,
+        "count": 50
+      },
+      {
+        "bn": "5",
+        "avgHP": 122,
+        "avgPow": 5,
+        "avgEfx": 5,
+        "avgDef": 5,
+        "avgTurns": "3.7",
+        "dmgPerTurn": 33,
+        "dmgPerAct": 15,
+        "count": 50
+      },
+      {
+        "bn": "6",
+        "avgHP": 134,
+        "avgPow": 6,
+        "avgEfx": 6,
+        "avgDef": 6,
+        "avgTurns": "4.2",
+        "dmgPerTurn": 32,
+        "dmgPerAct": 14,
+        "count": 50
+      },
+      {
+        "bn": "7",
+        "avgHP": 174,
+        "avgPow": 7,
+        "avgEfx": 7,
+        "avgDef": 7,
+        "avgTurns": "4.0",
+        "dmgPerTurn": 43,
+        "dmgPerAct": 19,
+        "count": 50
+      },
+      {
+        "bn": "8",
+        "avgHP": 183,
+        "avgPow": 8,
+        "avgEfx": 8,
+        "avgDef": 8,
+        "avgTurns": "3.7",
+        "dmgPerTurn": 50,
+        "dmgPerAct": 19,
+        "count": 50
+      },
+      {
+        "bn": "9",
+        "avgHP": 229,
+        "avgPow": 9,
+        "avgEfx": 9,
+        "avgDef": 9,
+        "avgTurns": "3.8",
+        "dmgPerTurn": 61,
+        "dmgPerAct": 21,
+        "count": 50
+      },
+      {
+        "bn": "10",
+        "avgHP": 243,
+        "avgPow": 10,
+        "avgEfx": 9,
+        "avgDef": 10,
+        "avgTurns": "3.0",
+        "dmgPerTurn": 80,
+        "dmgPerAct": 23,
+        "count": 50
+      },
+      {
+        "bn": "11",
+        "avgHP": 238,
+        "avgPow": 11,
+        "avgEfx": 11,
+        "avgDef": 11,
+        "avgTurns": "2.8",
+        "dmgPerTurn": 84,
+        "dmgPerAct": 20,
+        "count": 50
+      },
+      {
+        "bn": "12",
+        "avgHP": 265,
+        "avgPow": 12,
+        "avgEfx": 11,
+        "avgDef": 11,
+        "avgTurns": "2.4",
+        "dmgPerTurn": 109,
+        "dmgPerAct": 22,
+        "count": 50
+      },
+      {
+        "bn": "13",
+        "avgHP": 285,
+        "avgPow": 13,
+        "avgEfx": 14,
+        "avgDef": 13,
+        "avgTurns": "2.4",
+        "dmgPerTurn": 117,
+        "dmgPerAct": 23,
+        "count": 50
+      },
+      {
+        "bn": "14",
+        "avgHP": 314,
+        "avgPow": 13,
+        "avgEfx": 14,
+        "avgDef": 15,
+        "avgTurns": "2.3",
+        "dmgPerTurn": 137,
+        "dmgPerAct": 24,
+        "count": 50
+      },
+      {
+        "bn": "15",
+        "avgHP": 339,
+        "avgPow": 15,
+        "avgEfx": 15,
+        "avgDef": 15,
+        "avgTurns": "2.3",
+        "dmgPerTurn": 150,
+        "dmgPerAct": 24,
+        "count": 50
+      },
+      {
+        "bn": "16",
+        "avgHP": 1476,
+        "avgPow": 16,
+        "avgEfx": 16,
+        "avgDef": 15,
+        "avgTurns": "9.6",
+        "dmgPerTurn": 154,
+        "dmgPerAct": 25,
+        "count": 50
+      },
+      {
+        "bn": "17",
+        "avgHP": 506,
+        "avgPow": 16,
+        "avgEfx": 18,
+        "avgDef": 18,
+        "avgTurns": "2.7",
+        "dmgPerTurn": 189,
+        "dmgPerAct": 30,
+        "count": 50
+      },
+      {
+        "bn": "18",
+        "avgHP": 525,
+        "avgPow": 19,
+        "avgEfx": 18,
+        "avgDef": 19,
+        "avgTurns": "2.5",
+        "dmgPerTurn": 210,
+        "dmgPerAct": 33,
+        "count": 50
+      },
+      {
+        "bn": "19",
+        "avgHP": 558,
+        "avgPow": 19,
+        "avgEfx": 19,
+        "avgDef": 19,
+        "avgTurns": "2.6",
+        "dmgPerTurn": 213,
+        "dmgPerAct": 33,
+        "count": 50
+      },
+      {
+        "bn": "20",
+        "avgHP": 600,
+        "avgPow": 20,
+        "avgEfx": 21,
+        "avgDef": 20,
+        "avgTurns": "2.6",
+        "dmgPerTurn": 227,
+        "dmgPerAct": 35,
+        "count": 50
+      },
+      {
+        "bn": "21",
+        "avgHP": 883,
+        "avgPow": 21,
+        "avgEfx": 20,
+        "avgDef": 22,
+        "avgTurns": "3.9",
+        "dmgPerTurn": 229,
+        "dmgPerAct": 36,
+        "count": 50
+      },
+      {
+        "bn": "22",
+        "avgHP": 904,
+        "avgPow": 22,
+        "avgEfx": 22,
+        "avgDef": 23,
+        "avgTurns": "3.8",
+        "dmgPerTurn": 240,
+        "dmgPerAct": 38,
+        "count": 50
+      },
+      {
+        "bn": "23",
+        "avgHP": 893,
+        "avgPow": 22,
+        "avgEfx": 22,
+        "avgDef": 24,
+        "avgTurns": "3.8",
+        "dmgPerTurn": 233,
+        "dmgPerAct": 37,
+        "count": 50
+      },
+      {
+        "bn": "24",
+        "avgHP": 988,
+        "avgPow": 23,
+        "avgEfx": 23,
+        "avgDef": 25,
+        "avgTurns": "4.4",
+        "dmgPerTurn": 223,
+        "dmgPerAct": 35,
+        "count": 50
+      },
+      {
+        "bn": "25",
+        "avgHP": 822,
+        "avgPow": 23,
+        "avgEfx": 26,
+        "avgDef": 24,
+        "avgTurns": "3.4",
+        "dmgPerTurn": 241,
+        "dmgPerAct": 34,
+        "count": 49
+      },
+      {
+        "bn": "26",
+        "avgHP": 887,
+        "avgPow": 26,
+        "avgEfx": 25,
+        "avgDef": 25,
+        "avgTurns": "3.0",
+        "dmgPerTurn": 298,
+        "dmgPerAct": 38,
+        "count": 49
+      },
+      {
+        "bn": "27",
+        "avgHP": 950,
+        "avgPow": 26,
+        "avgEfx": 28,
+        "avgDef": 29,
+        "avgTurns": "2.7",
+        "dmgPerTurn": 347,
+        "dmgPerAct": 39,
+        "count": 49
+      },
+      {
+        "bn": "28",
+        "avgHP": 998,
+        "avgPow": 29,
+        "avgEfx": 28,
+        "avgDef": 28,
+        "avgTurns": "2.7",
+        "dmgPerTurn": 368,
+        "dmgPerAct": 39,
+        "count": 49
+      },
+      {
+        "bn": "29",
+        "avgHP": 1045,
+        "avgPow": 29,
+        "avgEfx": 31,
+        "avgDef": 27,
+        "avgTurns": "2.6",
+        "dmgPerTurn": 406,
+        "dmgPerAct": 40,
+        "count": 49
+      },
+      {
+        "bn": "30",
+        "avgHP": 1102,
+        "avgPow": 28,
+        "avgEfx": 31,
+        "avgDef": 30,
+        "avgTurns": "2.4",
+        "dmgPerTurn": 450,
+        "dmgPerAct": 41,
+        "count": 49
+      },
+      {
+        "bn": "31",
+        "avgHP": 5154,
+        "avgPow": 32,
+        "avgEfx": 32,
+        "avgDef": 32,
+        "avgTurns": "11.2",
+        "dmgPerTurn": 458,
+        "dmgPerAct": 42,
+        "count": 49
+      },
+      {
+        "bn": "32",
+        "avgHP": 1422,
+        "avgPow": 30,
+        "avgEfx": 32,
+        "avgDef": 34,
+        "avgTurns": "2.8",
+        "dmgPerTurn": 502,
+        "dmgPerAct": 46,
+        "count": 48
+      },
+      {
+        "bn": "33",
+        "avgHP": 1521,
+        "avgPow": 31,
+        "avgEfx": 33,
+        "avgDef": 32,
+        "avgTurns": "3.1",
+        "dmgPerTurn": 490,
+        "dmgPerAct": 44,
+        "count": 48
+      },
+      {
+        "bn": "34",
+        "avgHP": 1616,
+        "avgPow": 34,
+        "avgEfx": 33,
+        "avgDef": 35,
+        "avgTurns": "3.1",
+        "dmgPerTurn": 521,
+        "dmgPerAct": 47,
+        "count": 48
+      },
+      {
+        "bn": "35",
+        "avgHP": 1727,
+        "avgPow": 34,
+        "avgEfx": 37,
+        "avgDef": 35,
+        "avgTurns": "3.2",
+        "dmgPerTurn": 545,
+        "dmgPerAct": 49,
+        "count": 48
+      },
+      {
+        "bn": "36",
+        "avgHP": 2556,
+        "avgPow": 35,
+        "avgEfx": 34,
+        "avgDef": 36,
+        "avgTurns": "4.2",
+        "dmgPerTurn": 604,
+        "dmgPerAct": 53,
+        "count": 48
+      },
+      {
+        "bn": "37",
+        "avgHP": 2759,
+        "avgPow": 39,
+        "avgEfx": 36,
+        "avgDef": 36,
+        "avgTurns": "4.8",
+        "dmgPerTurn": 571,
+        "dmgPerAct": 52,
+        "count": 48
+      },
+      {
+        "bn": "38",
+        "avgHP": 2681,
+        "avgPow": 41,
+        "avgEfx": 40,
+        "avgDef": 39,
+        "avgTurns": "5.3",
+        "dmgPerTurn": 509,
+        "dmgPerAct": 48,
+        "count": 48
+      },
+      {
+        "bn": "39",
+        "avgHP": 3962,
+        "avgPow": 36,
+        "avgEfx": 41,
+        "avgDef": 41,
+        "avgTurns": "7.2",
+        "dmgPerTurn": 553,
+        "dmgPerAct": 50,
+        "count": 48
+      },
+      {
+        "bn": "40",
+        "avgHP": 2688,
+        "avgPow": 41,
+        "avgEfx": 40,
+        "avgDef": 40,
+        "avgTurns": "5.2",
+        "dmgPerTurn": 514,
+        "dmgPerAct": 46,
+        "count": 48
+      },
+      {
+        "bn": "41",
+        "avgHP": 2836,
+        "avgPow": 41,
+        "avgEfx": 39,
+        "avgDef": 43,
+        "avgTurns": "4.4",
+        "dmgPerTurn": 647,
+        "dmgPerAct": 52,
+        "count": 47
+      },
+      {
+        "bn": "42",
+        "avgHP": 2958,
+        "avgPow": 39,
+        "avgEfx": 45,
+        "avgDef": 40,
+        "avgTurns": "3.8",
+        "dmgPerTurn": 781,
+        "dmgPerAct": 57,
+        "count": 47
+      },
+      {
+        "bn": "43",
+        "avgHP": 3137,
+        "avgPow": 43,
+        "avgEfx": 45,
+        "avgDef": 46,
+        "avgTurns": "3.8",
+        "dmgPerTurn": 824,
+        "dmgPerAct": 58,
+        "count": 47
+      },
+      {
+        "bn": "44",
+        "avgHP": 3174,
+        "avgPow": 41,
+        "avgEfx": 46,
+        "avgDef": 44,
+        "avgTurns": "3.6",
+        "dmgPerTurn": 872,
+        "dmgPerAct": 58,
+        "count": 47
+      },
+      {
+        "bn": "45",
+        "avgHP": 3350,
+        "avgPow": 45,
+        "avgEfx": 47,
+        "avgDef": 44,
+        "avgTurns": "3.7",
+        "dmgPerTurn": 910,
+        "dmgPerAct": 58,
+        "count": 47
+      },
+      {
+        "bn": "46",
+        "avgHP": 15869,
+        "avgPow": 50,
+        "avgEfx": 45,
+        "avgDef": 49,
+        "avgTurns": "12.1",
+        "dmgPerTurn": 1308,
+        "dmgPerAct": 83,
+        "count": 47
+      },
+      {
+        "bn": "47",
+        "avgHP": 2888,
+        "avgPow": 51,
+        "avgEfx": 47,
+        "avgDef": 50,
+        "avgTurns": "3.1",
+        "dmgPerTurn": 923,
+        "dmgPerAct": 59,
+        "count": 47
+      },
+      {
+        "bn": "48",
+        "avgHP": 3388,
+        "avgPow": 49,
+        "avgEfx": 46,
+        "avgDef": 47,
+        "avgTurns": "3.5",
+        "dmgPerTurn": 977,
+        "dmgPerAct": 62,
+        "count": 47
+      },
+      {
+        "bn": "49",
+        "avgHP": 3850,
+        "avgPow": 47,
+        "avgEfx": 50,
+        "avgDef": 49,
+        "avgTurns": "3.9",
+        "dmgPerTurn": 983,
+        "dmgPerAct": 62,
+        "count": 47
+      }
+    ],
+    "battleTurnGraph": [
+      {
+        "bn": 1,
+        "avgTurns": 1.46,
+        "avgActions": 2.1780821917808217,
+        "count": 50
+      },
+      {
+        "bn": 2,
+        "avgTurns": 6.7,
+        "avgActions": 1.973134328358209,
+        "count": 50
+      },
+      {
+        "bn": 3,
+        "avgTurns": 4.24,
+        "avgActions": 2.089622641509434,
+        "count": 50
+      },
+      {
+        "bn": 4,
+        "avgTurns": 4.56,
+        "avgActions": 2.1228070175438596,
+        "count": 50
+      },
+      {
+        "bn": 5,
+        "avgTurns": 3.74,
+        "avgActions": 2.1871657754010694,
+        "count": 50
+      },
+      {
+        "bn": 6,
+        "avgTurns": 4.2,
+        "avgActions": 2.2142857142857144,
+        "count": 50
+      },
+      {
+        "bn": 7,
+        "avgTurns": 4.02,
+        "avgActions": 2.3383084577114426,
+        "count": 50
+      },
+      {
+        "bn": 8,
+        "avgTurns": 3.66,
+        "avgActions": 2.5737704918032787,
+        "count": 50
+      },
+      {
+        "bn": 9,
+        "avgTurns": 3.78,
+        "avgActions": 2.9100529100529102,
+        "count": 50
+      },
+      {
+        "bn": 10,
+        "avgTurns": 3.04,
+        "avgActions": 3.5065789473684212,
+        "count": 50
+      },
+      {
+        "bn": 11,
+        "avgTurns": 2.84,
+        "avgActions": 4.190140845070423,
+        "count": 50
+      },
+      {
+        "bn": 12,
+        "avgTurns": 2.44,
+        "avgActions": 4.926229508196721,
+        "count": 50
+      },
+      {
+        "bn": 13,
+        "avgTurns": 2.44,
+        "avgActions": 5.131147540983607,
+        "count": 50
+      },
+      {
+        "bn": 14,
+        "avgTurns": 2.3,
+        "avgActions": 5.791304347826087,
+        "count": 50
+      },
+      {
+        "bn": 15,
+        "avgTurns": 2.26,
+        "avgActions": 6.300884955752212,
+        "count": 50
+      },
+      {
+        "bn": 16,
+        "avgTurns": 9.56,
+        "avgActions": 6.2426778242677825,
+        "count": 50
+      },
+      {
+        "bn": 17,
+        "avgTurns": 2.68,
+        "avgActions": 6.2835820895522385,
+        "count": 50
+      },
+      {
+        "bn": 18,
+        "avgTurns": 2.5,
+        "avgActions": 6.32,
+        "count": 50
+      },
+      {
+        "bn": 19,
+        "avgTurns": 2.62,
+        "avgActions": 6.435114503816794,
+        "count": 50
+      },
+      {
+        "bn": 20,
+        "avgTurns": 2.64,
+        "avgActions": 6.5,
+        "count": 50
+      },
+      {
+        "bn": 21,
+        "avgTurns": 3.86,
+        "avgActions": 6.274611398963731,
+        "count": 50
+      },
+      {
+        "bn": 22,
+        "avgTurns": 3.76,
+        "avgActions": 6.297872340425532,
+        "count": 50
+      },
+      {
+        "bn": 23,
+        "avgTurns": 3.84,
+        "avgActions": 6.348958333333333,
+        "count": 50
+      },
+      {
+        "bn": 24,
+        "avgTurns": 4.44,
+        "avgActions": 6.274774774774775,
+        "count": 50
+      },
+      {
+        "bn": 25,
+        "avgTurns": 3.4081632653061225,
+        "avgActions": 7.053892215568863,
+        "count": 49
+      },
+      {
+        "bn": 26,
+        "avgTurns": 2.979591836734694,
+        "avgActions": 7.7465753424657535,
+        "count": 49
+      },
+      {
+        "bn": 27,
+        "avgTurns": 2.7346938775510203,
+        "avgActions": 8.932835820895523,
+        "count": 49
+      },
+      {
+        "bn": 28,
+        "avgTurns": 2.7142857142857144,
+        "avgActions": 9.323308270676693,
+        "count": 49
+      },
+      {
+        "bn": 29,
+        "avgTurns": 2.5714285714285716,
+        "avgActions": 10.095238095238095,
+        "count": 49
+      },
+      {
+        "bn": 30,
+        "avgTurns": 2.4489795918367347,
+        "avgActions": 10.975,
+        "count": 49
+      },
+      {
+        "bn": 31,
+        "avgTurns": 11.244897959183673,
+        "avgActions": 10.94010889292196,
+        "count": 49
+      },
+      {
+        "bn": 32,
+        "avgTurns": 2.8333333333333335,
+        "avgActions": 11,
+        "count": 48
+      },
+      {
+        "bn": 33,
+        "avgTurns": 3.1041666666666665,
+        "avgActions": 11.033557046979865,
+        "count": 48
+      },
+      {
+        "bn": 34,
+        "avgTurns": 3.1041666666666665,
+        "avgActions": 11.120805369127517,
+        "count": 48
+      },
+      {
+        "bn": 35,
+        "avgTurns": 3.1666666666666665,
+        "avgActions": 11.223684210526315,
+        "count": 48
+      },
+      {
+        "bn": 36,
+        "avgTurns": 4.229166666666667,
+        "avgActions": 11.472906403940886,
+        "count": 48
+      },
+      {
+        "bn": 37,
+        "avgTurns": 4.833333333333333,
+        "avgActions": 11.081896551724139,
+        "count": 48
+      },
+      {
+        "bn": 38,
+        "avgTurns": 5.270833333333333,
+        "avgActions": 10.553359683794467,
+        "count": 48
+      },
+      {
+        "bn": 39,
+        "avgTurns": 7.166666666666667,
+        "avgActions": 11.029069767441861,
+        "count": 48
+      },
+      {
+        "bn": 40,
+        "avgTurns": 5.229166666666667,
+        "avgActions": 11.187250996015937,
+        "count": 48
+      },
+      {
+        "bn": 41,
+        "avgTurns": 4.382978723404255,
+        "avgActions": 12.364077669902912,
+        "count": 47
+      },
+      {
+        "bn": 42,
+        "avgTurns": 3.7872340425531914,
+        "avgActions": 13.786516853932584,
+        "count": 47
+      },
+      {
+        "bn": 43,
+        "avgTurns": 3.8085106382978724,
+        "avgActions": 14.100558659217876,
+        "count": 47
+      },
+      {
+        "bn": 44,
+        "avgTurns": 3.6382978723404253,
+        "avgActions": 15.11111111111111,
+        "count": 47
+      },
+      {
+        "bn": 45,
+        "avgTurns": 3.6808510638297873,
+        "avgActions": 15.560693641618498,
+        "count": 47
+      },
+      {
+        "bn": 46,
+        "avgTurns": 12.127659574468085,
+        "avgActions": 15.77719298245614,
+        "count": 47
+      },
+      {
+        "bn": 47,
+        "avgTurns": 3.127659574468085,
+        "avgActions": 15.65986394557823,
+        "count": 47
+      },
+      {
+        "bn": 48,
+        "avgTurns": 3.4680851063829787,
+        "avgActions": 15.773006134969325,
+        "count": 47
+      },
+      {
+        "bn": 49,
+        "avgTurns": 3.9148936170212765,
+        "avgActions": 15.73913043478261,
+        "count": 47
+      }
     ]
   },
   "sampleLog": []

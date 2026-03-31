@@ -534,7 +534,6 @@ function queueSwitchBook(bookIdx) {
 
 function commitEndTurn(){
   if(!combat.playerTurn||combat.over) return;
-  if(!combat.actionQueue||combat.actionQueue.length===0) return;
   setPlayerTurnUI(false);
 
   // Split player queue: non-Plasma first, Plasma last

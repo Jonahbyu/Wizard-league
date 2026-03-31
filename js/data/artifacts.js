@@ -209,7 +209,15 @@ function applyArtifactBonuses() {
 // Returns the new artifact object if one was discovered, or null.
 function onGymDefeated(gymIdx) {
   const meta = getMeta();
-  meta.gymsBeaten = Math.max(meta.gymsBeaten||0, gymIdx+1);
+  const prevGymsBeaten = meta.gymsBeaten || 0;
+  meta.gymsBeaten = Math.max(prevGymsBeaten, gymIdx+1);
+
+  // First time beating this gym — bonus 10 phos
+  if (gymIdx + 1 > prevGymsBeaten) {
+    meta.phos      = (meta.phos      || 0) + 10;
+    meta.phosTotal = (meta.phosTotal || 0) + 10;
+    if (typeof log === 'function') log(`✦ First gym clear! +10 Phos`, 'win');
+  }
   if (!meta.artifacts) meta.artifacts = [];
   if (!meta.unseenArtifacts) meta.unseenArtifacts = [];
 
@@ -291,10 +299,10 @@ function checkBattleRecord() {
   const prev = meta.bestLevel || 0;
   if (battleNumber > prev) {
     meta.bestLevel = battleNumber;
-    meta.phos      = (meta.phos || 0) + 10;
-    meta.phosTotal = (meta.phosTotal || 0) + 10;
+    meta.phos      = (meta.phos || 0) + 3;
+    meta.phosTotal = (meta.phosTotal || 0) + 3;
     saveMeta();
-    if (typeof log === 'function') log(`✦ Room ${battleNumber} record! +10 Phos`, 'win');
+    if (typeof log === 'function') log(`✦ Room ${battleNumber} record! +3 Phos`, 'win');
   }
 }
 

@@ -9,8 +9,8 @@ const ITEM_CATALOGUE = {
   mana_crystal:  { id:'mana_crystal', name:'Mana Crystal', emoji:'🔮', desc:'Restore all spell PP', type:'consumable',
     use(){ restoreAllPP(); return '🔮 All spell PP restored!'; }},
 
-  dmg_booster:   { id:'dmg_booster', name:'Damage Crystal', emoji:'💎', desc:'+20 dmg this battle', type:'consumable',
-    use(){ combat.tempDmgBonus = (combat.tempDmgBonus||0) + 20; return '💎 Damage Crystal shatters — +20 damage this battle!'; }},
+  dmg_booster:   { id:'dmg_booster', name:'Damage Crystal', emoji:'💎', desc:'+16 dmg this battle', type:'consumable',
+    use(){ combat.tempDmgBonus = (combat.tempDmgBonus||0) + 16; return '💎 Damage Crystal shatters — +16 damage this battle!'; }},
 
   efx_crystal:   { id:'efx_crystal', name:'EFX Crystal', emoji:'✦', desc:'+20 Effect Power this battle', type:'consumable',
     use(){ status.player.battleEfxBonus = (status.player.battleEfxBonus||0) + 20; return '✦ EFX Crystal — +20 Effect Power this battle!'; }},

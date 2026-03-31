@@ -123,9 +123,9 @@ function loadBattle(enc){
   if(enc.isPack){
     const memberCount = enc.members.length;
     // Pack members deal much less individually — total pack dps should ~= solo enemy
-    // 2-pack: 60% HP / 45% dmg.  3-pack: 50% HP / 35% dmg.  4+: 40% HP / 28% dmg
+    // 2-pack: 60% HP / 37% dmg.  3-pack: 50% HP / 27% dmg.  4+: 40% HP / 20% dmg
     const hpScale  = memberCount <= 2 ? 0.60 : memberCount === 3 ? 0.50 : 0.40;
-    const dmgScale = memberCount <= 2 ? 0.45 : memberCount === 3 ? 0.35 : 0.28;
+    const dmgScale = memberCount <= 2 ? 0.37 : memberCount === 3 ? 0.27 : 0.20;
     combat.enemies=enc.members.map(m=>makeEnemyObj({...m,
       enemyMaxHP: Math.round(m.enemyMaxHP * hpScale),
       enemyDmg:   Math.round(m.enemyDmg   * dmgScale),

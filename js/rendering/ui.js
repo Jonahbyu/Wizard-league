@@ -32,6 +32,12 @@ function renderEnemyCards(){
   if(!hud) return;
   hud.innerHTML = '';
 
+  const count = (combat.enemies||[]).length;
+  const scl = count <= 1 ? 1.0 : count === 2 ? 0.95 : count === 3 ? 0.85 : count === 4 ? 0.74 : 0.64;
+  const pad = count <= 2 ? '4px 7px 3px' : count <= 3 ? '3px 5px 2px' : '2px 4px 2px';
+  const fs  = b => (b * scl).toFixed(2) + 'rem';
+  hud.style.setProperty('--cfs', scl.toFixed(3));
+
   (combat.enemies||[]).forEach((e, i)=>{
     const pct = Math.max(0, (e.hp / e.enemyMaxHP) * 100);
     const card = document.createElement('div');
@@ -39,6 +45,7 @@ function renderEnemyCards(){
       + (i === combat.targetIdx ? ' targeted' : '')
       + (e.alive ? '' : ' dead');
     card.dataset.idx = i;
+    card.style.padding = pad;
 
     if(e.alive){
       card.onclick = ()=>{
@@ -55,42 +62,51 @@ function renderEnemyCards(){
     const allPassiveIds = [e.passive, ...(e.extraPassives||[])].filter(Boolean);
     const passiveObjs = allPassiveIds.map(id => passivePool.find(p=>p.id===id) || {id, title:id, desc:''});
 
-    // Build intent HTML
-    let intentHtml = '';
+    // Build all queued intents as inline badges
+    let intentBadges = '';
     if(e.alive && e.intentQueue && e.intentQueue.length > 0){
-      intentHtml = `<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px;">`;
-      e.intentQueue.forEach((intent, ii) => {
+      intentBadges = e.intentQueue.map((intent, ii) => {
         if(intent.hidden){
-          intentHtml += `<div style="font-size:.55rem;color:#554466;font-family:'Cinzel',serif;
-            background:#110022;border:1px solid #2a1040;border-radius:3px;padding:2px 5px;">
-            ${ii===0?'▶':'·'} <span style="letter-spacing:.06em;">???</span>
-          </div>`;
-        } else {
-          const isCurrent = ii === 0;
-          const isCharge = intent.label.includes('⚡');
-          const color = isCharge ? '#ffcc44' : isCurrent ? '#e0c0ff' : '#886aa0';
-          const bg = isCharge ? '#2a1800' : isCurrent ? '#1a0030' : '#0e0018';
-          const border = isCharge ? '#aa7700' : isCurrent ? '#7040cc' : '#2a1040';
-          intentHtml += `<div style="font-size:.55rem;color:${color};font-family:'Cinzel',serif;
-            background:${bg};border:1px solid ${border};border-radius:3px;padding:2px 5px;
-            ${isCurrent?'font-weight:bold;':'opacity:.75;'}">
-            ${isCurrent?'▶':'·'} ${intent.label}
-            ${(!player._mistBlindDamage && (intent.hintFn||intent.hint)) ? `<div style="font-size:.46rem;color:#998aaa;margin-top:1px;padding-left:9px;opacity:.9;">${intent.hintFn ? intent.hintFn() : intent.hint}</div>` : ''}
-          </div>`;
+          return `<span style="font-size:${fs(0.46)};color:#554466;font-family:'Cinzel',serif;
+            background:#110022;border:1px solid #2a1040;border-radius:3px;padding:1px 4px;
+            ${ii===0?'font-weight:bold;':'opacity:.6;'}">???</span>`;
         }
-      });
-      intentHtml += `</div>`;
+        const isCurrent = ii === 0;
+        const isCharge = intent.label.includes('⚡');
+        const color  = isCharge ? '#ffcc44' : isCurrent ? '#e0c0ff' : '#886aa0';
+        const bg     = isCharge ? '#2a1800' : isCurrent ? '#1a0030' : '#0e0018';
+        const border = isCharge ? '#aa7700' : isCurrent ? '#7040cc' : '#221040';
+        const hintTip = (!player._mistBlindDamage && (intent.hintFn||intent.hint))
+          ? (intent.hintFn ? intent.hintFn() : intent.hint) : '';
+        return `<span style="font-size:${fs(0.46)};color:${color};font-family:'Cinzel',serif;
+          background:${bg};border:1px solid ${border};border-radius:3px;padding:1px 4px;white-space:nowrap;
+          ${isCurrent?'font-weight:bold;':'opacity:.65;'}"
+          title="${hintTip}">${isCurrent?'▶ ':''}${intent.label}</span>`;
+      }).join('');
     }
 
+    // Passives + items as emoji-only with tooltip
+    const passiveBadges = passiveObjs.map(p =>
+      `<span style="cursor:help;opacity:.7;font-size:${fs(0.5)};" title="${(p.title||p.id)+': '+((p.desc||'')+' '+(p.detail||'')).trim().replace(/"/g,"'")}">${p.emoji||'✦'}</span>`
+    ).join('');
+    const itemBadges = (e.items||[]).map(it =>
+      `<span style="cursor:help;opacity:.7;font-size:${fs(0.5)};" title="${it.name}">${it.emoji}</span>`
+    ).join('');
+    const badges = passiveBadges + itemBadges;
+
     card.innerHTML = `
-      <div class="arena-hud-name" style="display:flex;align-items:center;gap:4px;">${elemHatSVG(e.element||'Neutral',14)} <span>${e.name}</span></div>
-      <div class="arena-hud-hp-wrap"><div class="arena-hud-hp-fill" style="width:${pct}%;background:${hpColor(pct)}"></div></div>
-      <div class="arena-hud-hp-text">${e.hp}/${e.enemyMaxHP}</div>
-      <div style="font-size:.42rem;color:#7a6040;font-family:'Cinzel',serif;margin-top:2px;">⚔ ${e.enemyDmg} &nbsp;·&nbsp; <span title="Attack Power — scales basic damage and ability hits" style="color:#e8a030">PWR ${e.statPow??'?'}</span> &nbsp;<span title="Effect Power — scales status potency (burn, frost, shock, root)" style="color:#aa60cc">EFX ${e.statEfx??'?'}</span> &nbsp;<span title="Defense — scales armor gained; reduced by Foam; reduces your effective ATK/EFX" style="color:#60aacc">DEF ${e.statDef??'?'}</span></div>
-      ${passiveObjs.length > 0 ? `<div style="font-size:.42rem;color:#7a5a30;font-family:'Cinzel',serif;margin-top:2px;display:flex;flex-wrap:wrap;gap:2px;">${passiveObjs.map(p=>`<span style="cursor:help;padding:1px 4px;border-radius:2px;background:#1a0e00;border:1px solid #3a2010;" title="${((p.desc||'')+' '+(p.detail||'')).trim().replace(/"/g,"'")}">${p.emoji||'✦'} ${p.title||p.id}</span>`).join('')}</div>` : ''}
-      ${e.items && e.items.length > 0 ? `<div style="font-size:.42rem;color:#5a8a40;font-family:'Cinzel',serif;margin-top:1px;">${e.items.map(it=>`<span style="cursor:help;padding:1px 4px;border-radius:2px;background:#0a1400;border:1px solid #2a4010;" title="${it.name}">${it.emoji} ${it.name}</span>`).join(' ')}</div>` : ''}
-      <div class="arena-hud-status" id="estatus-${i}"></div>
-      ${intentHtml}
+      <div style="display:flex;align-items:center;gap:3px;justify-content:space-between;">
+        <div class="arena-hud-name" style="display:flex;align-items:center;gap:3px;min-width:0;overflow:hidden;white-space:nowrap;">${elemHatSVG(e.element||'Neutral',11)} <span style="overflow:hidden;text-overflow:ellipsis;">${e.name}</span></div>
+        ${badges ? `<div style="display:flex;gap:2px;flex-shrink:0;">${badges}</div>` : ''}
+      </div>
+      <div style="margin-top:2px;">
+        <div class="arena-hud-hp-wrap" style="width:100%;margin-bottom:2px;"><div class="arena-hud-hp-fill" style="width:${pct}%;background:${hpColor(pct)}"></div></div>
+        <div style="display:flex;align-items:center;gap:4px;overflow:hidden;flex-wrap:nowrap;">
+          <div class="arena-hud-hp-text" style="white-space:nowrap;flex-shrink:0;">${e.hp}/${e.enemyMaxHP}</div>
+          <div style="display:flex;gap:2px;overflow:hidden;flex-wrap:nowrap;">${intentBadges}</div>
+        </div>
+      </div>
+      <div class="arena-hud-status" id="estatus-${i}" style="margin-top:2px;"></div>
     `;
     hud.appendChild(card);
   });

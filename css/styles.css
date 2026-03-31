@@ -644,26 +644,29 @@
       image-rendering: crisp-edges;
     }
 
-    /* ENEMY HUD — top right overlay */
+    /* ENEMY HUD — full-width top row */
     .arena-enemy-hud {
       position: absolute;
-      top: 7px;
-      right: 7px;
+      top: 0;
+      right: 0;
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 5px;
       z-index: 10;
-      max-width: 145px;
+      padding: 5px 7px;
     }
 
     .arena-enemy-card {
       background: rgba(8, 6, 4, 0.88);
       border: 1px solid #3a2a18;
       border-radius: 5px;
-      padding: 4px 7px 3px;
+      padding: 3px 6px 3px;
       cursor: pointer;
       transition: border-color 0.12s, background 0.12s;
-      min-width: 100px;
+      flex: 0 0 auto;
+      min-width: 0;
+      overflow: hidden;
     }
     .arena-enemy-card:hover { border-color: #6a4a20; background: rgba(18,12,6,0.92); }
     .arena-enemy-card.targeted {
@@ -671,6 +674,10 @@
       box-shadow: 0 0 8px rgba(200,160,60,.25);
     }
     .arena-enemy-card.dead { opacity: 0.25; pointer-events: none; }
+
+    /* Scale-down font sizes for enemy HUD based on --cfs custom property */
+    .arena-enemy-hud .arena-hud-name { font-size: calc(0.57rem * var(--cfs, 1)); }
+    .arena-enemy-hud .arena-hud-hp-text { font-size: calc(0.48rem * var(--cfs, 1)); }
 
     /* PLAYER HUD — bottom left overlay */
     .arena-player-hud {
