@@ -303,6 +303,7 @@ function advanceToNextGym(){
   zoneBattleCount = 0;
   gymSkips = 0;
   _zoneRivalDefeated = false;
+  _zoneGraph = null; _playerNodeId = -1; _completedNodeIds = new Set(); _pendingNodeId = -1; _zoneIntroPlayed = false;
   if(currentGymIdx >= GYM_ROSTER.length) gymDefeated = true;
   // Each zone block is 15 battles wide (B1-15, B16-30, B31-45…).
   // Jump battleNumber to the new zone's start so fighting the gym early

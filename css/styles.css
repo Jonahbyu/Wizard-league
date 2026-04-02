@@ -6,13 +6,13 @@
     /* Menus centered vertically */
     #title-screen.active,#save-select-screen.active,#element-screen.active,
     #passive-screen.active,#gym-screen.active,#rival-screen.active,
-    #campfire-screen.active,#shop-screen.active,#battle-reward-screen.active,
+    #campfire-screen.active,#shop-screen.active,#post-battle-loot-screen.active,#battle-reward-screen.active,
     #spellchoice-screen.active,#passivechoice-screen.active,
     #elementunlock-screen.active,#gameover-screen.active{justify-content:center;}
     /* Non-combat screens: transparent so sky shows through */
     #title-screen.active,#element-screen.active,#passive-screen.active,
     #map-screen.active,#gym-screen.active,#rival-screen.active,#campfire-screen.active,
-    #shop-screen.active,#battle-reward-screen.active,#spellchoice-screen.active,
+    #shop-screen.active,#post-battle-loot-screen.active,#battle-reward-screen.active,#spellchoice-screen.active,
     #passivechoice-screen.active,#elementunlock-screen.active{background:transparent;}
     /* Combat + gameover: solid */
     #gameover-screen.active{background:#0a0a0f;}
@@ -498,6 +498,22 @@
       letter-spacing:.12em; text-transform:uppercase; margin-bottom:.5rem; }
     .upgrade-rank{ color:#c8a060; font-size:.62rem; }
 
+    /* POST-BATTLE LOOT SCREEN */
+    #post-battle-loot-screen{ gap:.5rem; }
+    .pbl-card{ display:flex;align-items:center;gap:.85rem;background:#0f0d0b;border:1px solid #2a2018;
+      border-radius:8px;padding:.8rem 1rem;width:100%;max-width:480px;box-sizing:border-box; }
+    .pbl-card-gold{ border-color:#3a2a10; }
+    .pbl-card-gold.pbl-card-reward:hover{ background:#130f08;border-color:#c8a040; }
+    .pbl-card-item{ border-color:#1a3a1a; }
+    .pbl-card-item.pbl-card-reward:hover{ background:#080f08;border-color:#2aaa7a; }
+    .pbl-card-reward{ border-color:#2a1a3a;cursor:pointer;transition:border-color .15s,background .15s; }
+    .pbl-card-reward:hover{ background:#130f1a;border-color:#7a50cc; }
+    .pbl-card-icon{ font-size:1.8rem;line-height:1;flex-shrink:0; }
+    .pbl-card-body{ display:flex;flex-direction:column;gap:2px;flex:1; }
+    .pbl-card-label{ font-family:'Cinzel',serif;font-size:.88rem;color:#c8a060;letter-spacing:.06em; }
+    .pbl-card-sub{ font-size:.68rem;color:#555; }
+    .pbl-card-arrow{ font-size:1.4rem;color:#6a50aa;flex-shrink:0; }
+
     /* MULTI-ENEMY AREA */
     .combatants{width:100%;max-width:980px;display:flex;gap:.5rem;align-items:flex-start;margin-bottom:.5rem;flex-wrap:wrap;}
     .fighter-card{flex:0 0 auto;min-width:130px;max-width:160px;background:#0f0d0b;border:1px solid #2a2018;border-radius:6px;padding:.7rem .7rem .55rem;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;}
@@ -600,13 +616,19 @@
       text-align: center;
     }
 
-    .combat-top .stats-bar {
-      margin-bottom: 0;
+    .combat-topbar .stats-bar {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      background: none;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      margin: 0;
+      gap: 0.7rem;
+      width: auto;
+      max-width: none;
       font-size: 0.62rem;
-      padding: 0.3rem 0.7rem;
-      gap: 0.6rem;
-      width: 100%;
-      max-width: 980px;
     }
 
     /* BATTLEFIELD ARENA */
@@ -1310,6 +1332,93 @@
       font-family: 'Cinzel', serif;
       pointer-events: none;
       text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+    /* ZONE MAP OVERLAY */
+    #zone-map-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: none; /* shown by JS */
+      scroll-behavior: smooth;
+    }
+    #zone-map-stage {
+      position: relative;
+      width: 100%;
+      /* height set by JS */
+    }
+    #zone-map-svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .zn-node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: default;
+    }
+    .zn-node.zn-available { cursor: pointer; }
+    .zn-circle {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      background: #0a0810;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      line-height: 1;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    .zn-node.zn-available .zn-circle {
+      animation: znAvailPulse 1.6s ease-in-out infinite;
+    }
+    .zn-node.zn-current .zn-circle {
+      border-color: #fff;
+      box-shadow: 0 0 14px #ffffffaa;
+    }
+    .zn-node.zn-done .zn-circle {
+      opacity: 0.32;
+    }
+    .zn-label {
+      font-family: 'Cinzel', serif;
+      font-size: .52rem;
+      color: #886a40;
+      letter-spacing: .07em;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 1px 4px #000;
+    }
+    .zn-node.zn-available .zn-label { color: #c8a060; }
+    .zn-node.zn-current .zn-label  { color: #fff; }
+    .zn-done-check {
+      position: absolute;
+      top: -4px; right: -4px;
+      font-size: .6rem;
+      background: #0a0810;
+      border-radius: 50%;
+      line-height: 1;
+      padding: 1px;
+    }
+    .zn-player-sprite {
+      position: absolute;
+      top: -30px;
+      font-size: 1.1rem;
+      animation: znPlayerBob 1.2s ease-in-out infinite;
+    }
+    @keyframes znAvailPulse {
+      0%,100% { box-shadow: 0 0 0px transparent; }
+      50%      { box-shadow: 0 0 16px var(--zn-glow, #7a50cc); }
+    }
+    @keyframes znPlayerBob {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-4px); }
     }
     #gym-warning-banner {
       position: absolute !important;

@@ -385,7 +385,18 @@ function showRunBookSelectionScreen(onDone) {
   const ownedBookIds = (sandboxMode && typeof SPELLBOOK_CATALOGUE !== 'undefined')
     ? Object.keys(SPELLBOOK_CATALOGUE)
     : (meta.ownedBookIds || []);
-  if (ownedBookIds.length === 0 || typeof SPELLBOOK_CATALOGUE === 'undefined') {
+
+  // Non-legendary owned books — randomly sample up to 3
+  const regularIds = (typeof SPELLBOOK_CATALOGUE !== 'undefined')
+    ? ownedBookIds.filter(id => { const cat = SPELLBOOK_CATALOGUE[id]; return cat && cat.rarity !== 'legendary'; })
+    : ownedBookIds;
+  for (let i = regularIds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [regularIds[i], regularIds[j]] = [regularIds[j], regularIds[i]];
+  }
+  const offeredIds = regularIds.slice(0, 3);
+
+  if (offeredIds.length === 0 || typeof SPELLBOOK_CATALOGUE === 'undefined') {
     onDone(null); return;
   }
   const cont = document.getElementById('bs-choices');
@@ -401,14 +412,14 @@ function showRunBookSelectionScreen(onDone) {
   defBtn.onclick = () => onDone(null);
   cont.appendChild(defBtn);
 
-  // Owned catalogue books
+  // Offered catalogue books (up to 3, non-legendary)
   const bookUpgradeLevels = meta.bookUpgradeLevels || {};
-  ownedBookIds.forEach(id => {
+  offeredIds.forEach(id => {
     const cat = SPELLBOOK_CATALOGUE[id];
     if (!cat) return;
     const lvl = bookUpgradeLevels[id] || 0;
-    const rarityColor = cat.rarity === 'legendary' ? '#d4a0ff' : cat.rarity === 'generic' ? '#80c8ff' : '#c8a060';
-    const rarityLabel = cat.rarity === 'legendary' ? '✦ Legendary' : cat.rarity === 'generic' ? '⚡ Generic' : (cat.element || '') + ' Book';
+    const rarityColor = cat.rarity === 'generic' ? '#80c8ff' : '#c8a060';
+    const rarityLabel = cat.rarity === 'generic' ? '⚡ Generic' : (cat.element || '') + ' Book';
     const btn = document.createElement('button');
     btn.className = 'prog-choice-btn';
     btn.innerHTML = `<div class="pc-tag">${rarityLabel} · Lv ${lvl}</div>
@@ -453,6 +464,7 @@ function beginRun(){
   });
   resetStatusForBattle();
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[]; _zoneRivalDefeated=false;
+  _zoneGraph=null; _playerNodeId=-1; _completedNodeIds=new Set(); _pendingNodeId=-1; _zoneIntroPlayed=false;
   _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = ''; _runKillsThisRun = 0;
   initGymRoster();
   initZoneSpecial();

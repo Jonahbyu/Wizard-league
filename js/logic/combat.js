@@ -908,9 +908,10 @@ function endBattle(won){
     const gold=Math.round(goldBase*(1+(player._goldBonus||0)));
     player.gold+=gold;
     if(gold>0) log(`✦ Gained ${gold} gold${player._goldBonus>0?' ('+Math.round(player._goldBonus*100)+'% bonus)':''}.`,"item");
+    let _lootItemId=null;
     if(Math.random()<ITEM_DROP_CHANCE){
-      const id=ITEM_DROP_POOL[Math.floor(Math.random()*ITEM_DROP_POOL.length)];
-      addItem(id); log(`✦ Item dropped: ${ITEM_CATALOGUE[id].emoji} ${ITEM_CATALOGUE[id].name}!`,"item");
+      _lootItemId=ITEM_DROP_POOL[Math.floor(Math.random()*ITEM_DROP_POOL.length)];
+      addItem(_lootItemId); log(`✦ Item dropped: ${ITEM_CATALOGUE[_lootItemId].emoji} ${ITEM_CATALOGUE[_lootItemId].name}!`,"item");
     }
     updateHPBars(); updateStatsUI();
     const isRival = !!(combat._isRival);
@@ -976,7 +977,7 @@ function endBattle(won){
         if(def) log(`🏺 ${def.emoji} ${def.name} ${'★'.repeat(artUpgrade.star)} — Artifact leveled up!`, 'item');
       }
     }
-    setTimeout(()=>{ showBattleRewardScreen(isGym, combat._isSpellBattle||false, isRival); }, 900);
+    setTimeout(()=>{ showPostBattleLoot(isGym, combat._isSpellBattle||false, isRival, gold, _lootItemId); }, 900);
   } else {
     if(player.revives > 0){
       player.revives--;

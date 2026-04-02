@@ -266,6 +266,7 @@ function restartToSelect(){
   });
   Object.assign(combat,{enemies:[],targetIdx:0,activeEnemyIdx:0,enemy:{},enemyHP:0,playerTurn:false,over:false,tempDmgBonus:0,actionsLeft:0,basicCD:0,playerAirToggle:false,enemyAirToggle:false,actionQueue:[],summons:[],totalGold:0});
   battleNumber=1; currentGymIdx=0; zoneBattleCount=0; gymSkips=0; gymDefeated=false; pendingLevelUps=[];
+  _zoneGraph=null; _playerNodeId=-1; _completedNodeIds=new Set(); _pendingNodeId=-1; _zoneIntroPlayed=false;
   _runDmgDealt = 0; _runDmgTaken = 0; _runRoomsCompleted = 0; _runZoneReached = ''; _runKillsThisRun = 0;
   sandboxMode = false;
   GYM_ROSTER.length = 0;

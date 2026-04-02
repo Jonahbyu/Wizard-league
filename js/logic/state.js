@@ -460,6 +460,11 @@ let _runZoneReached = '';       // last zone element entered
 let _runKillsThisRun = 0;       // total enemy kills this run (for Searing Verdict)
 let zoneBattleCount = 0;        // battles fought in current gym's zone (resets after each gym)
 let _zoneRivalDefeated = false; // rival fight doesn't count as a zone battle slot
+let _zoneGraph = null;          // pre-generated zone node graph {nodes, edges}
+let _playerNodeId = -1;         // current node id (-1 = zone start)
+let _completedNodeIds = new Set(); // set of completed node ids
+let _pendingNodeId = -1;        // node id being traveled to (set before encounter, cleared after)
+let _zoneIntroPlayed = false;   // true after zone intro animation has played
 let gymSkips = 0;               // times player skipped gym this zone (resets per gym)
 let gymDefeated = false;        // true when ALL 8 gyms are beaten
 let pendingLevelUps=[];

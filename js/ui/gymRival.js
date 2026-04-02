@@ -70,4 +70,4 @@ function startGymBattle(){
   });
 }
 
-function skipGym(){ gymSkips++; showMap(); }
+function skipGym(){ gymSkips++; _pendingNodeId = -1; showMap(); }

@@ -176,6 +176,12 @@ function performHit(attackerSide, defenderSide, pkg){
       if(armor > 0) dmg = Math.max(0, dmg - armor);
     }
 
+    // Defense: flat damage reduction per hit (both sides)
+    if(dmg > 0){
+      const def = Math.max(0, defenseFor(defenderSide));
+      if(def > 0) dmg = Math.max(0, dmg - def);
+    }
+
     // ── Frozen 1.5× damage on Ice hits — consumes 10 stacks and breaks freeze ──
     const defIsFrozen = status[defenderSide].frozen;
     if(defIsFrozen && pkg.abilityElement==='Ice'){

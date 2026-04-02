@@ -132,6 +132,132 @@ function toggleRewardLog(btn) {
   }
 }
 
+// ── POST-BATTLE LOOT SCREEN ──────────────────────────────────────────────────
+const _PBL_REWARD_CFG = {
+  gym:           { emoji:'🏆', label:'Gym Reward',     color:'#d4a0ff' },
+  rival:         { emoji:'🧢', label:'Rival Reward',   color:'#9a6aee' },
+  primary_spell: { emoji:'✦',  label:'Starting Spell', color:'#c080ff' },
+  spell:         { emoji:'📜', label:'Spell Reward',   color:'#a080ff' },
+  incantation:   { emoji:'📜', label:'Incantation',    color:'#e08030' },
+  minor:         { emoji:'💰', label:'Pick Up',        color:'#c8a060' },
+  major:         { emoji:'⚡', label:'Power Up',       color:'#e8d060' },
+};
+
+let _pendingLootInProgress = false;
+
+let _lootGoldClaimed   = false;
+let _lootItemClaimed   = false;
+let _lootRewardClaimed = false;
+
+function _checkPblAllClaimed() {
+  if (_lootGoldClaimed && _lootItemClaimed && _lootRewardClaimed) {
+    const btn = document.getElementById('pbl-continue-btn');
+    if (btn) btn.style.display = 'block';
+  }
+}
+
+function _makePblClickCard(card) {
+  // Shared "claimed" visual for interactive cards
+  card.classList.add('pbl-card-reward');
+  return card;
+}
+
+function _claimPblCard(card, onClaim) {
+  card.style.opacity = '0.55';
+  card.style.cursor = 'default';
+  card.onclick = null;
+  const arrow = card.querySelector('.pbl-card-arrow');
+  if (arrow) arrow.textContent = '✓';
+  const sub = card.querySelector('.pbl-card-sub');
+  if (sub) sub.textContent = '✓ Collected';
+  if (onClaim) onClaim();
+}
+
+function showPostBattleLoot(isGym, isSpellBattle, isRival, gold, itemId) {
+  _pendingLootInProgress = true;
+  _lootGoldClaimed   = false;
+  _lootItemClaimed   = !itemId; // no item = auto-claimed
+  _lootRewardClaimed = false;
+
+  const cards = document.getElementById('pbl-cards');
+  if (!cards) { showBattleRewardScreen(isGym, isSpellBattle, isRival); return; }
+  cards.innerHTML = '';
+
+  // Gold card (interactive — click to collect)
+  const goldCard = document.createElement('div');
+  goldCard.className = 'pbl-card pbl-card-gold pbl-card-reward';
+  goldCard.innerHTML = `<div class="pbl-card-icon">💰</div><div class="pbl-card-body"><div class="pbl-card-label">+${gold} Gold</div><div class="pbl-card-sub">Click to collect</div></div><div class="pbl-card-arrow">›</div>`;
+  goldCard.onclick = () => _claimPblCard(goldCard, () => { _lootGoldClaimed = true; _checkPblAllClaimed(); });
+  cards.appendChild(goldCard);
+
+  // Item card (interactive — click to collect)
+  if (itemId && typeof ITEM_CATALOGUE !== 'undefined' && ITEM_CATALOGUE[itemId]) {
+    const cat = ITEM_CATALOGUE[itemId];
+    const itemCard = document.createElement('div');
+    itemCard.className = 'pbl-card pbl-card-item pbl-card-reward';
+    itemCard.innerHTML = `<div class="pbl-card-icon">${cat.emoji}</div><div class="pbl-card-body"><div class="pbl-card-label">${cat.name}</div><div class="pbl-card-sub">Click to collect</div></div><div class="pbl-card-arrow">›</div>`;
+    itemCard.onclick = () => _claimPblCard(itemCard, () => { _lootItemClaimed = true; _checkPblAllClaimed(); });
+    cards.appendChild(itemCard);
+  }
+
+  // Reward card (interactive — click to open choice screen)
+  const rewardType = isGym ? 'gym' : isRival ? 'rival'
+    : (combat._chosenRewardType || getZoneRewardType(zoneBattleCount, currentGymIdx));
+  const cfg = _PBL_REWARD_CFG[rewardType] || _PBL_REWARD_CFG.minor;
+  const rewardCard = document.createElement('div');
+  rewardCard.className = 'pbl-card pbl-card-reward';
+  rewardCard.id = 'pbl-reward-card';
+  rewardCard.innerHTML = `<div class="pbl-card-icon" style="color:${cfg.color}">${cfg.emoji}</div><div class="pbl-card-body"><div class="pbl-card-label" style="color:${cfg.color}">${cfg.label}</div><div class="pbl-card-sub">Click to choose</div></div><div class="pbl-card-arrow">›</div>`;
+  rewardCard.onclick = () => {
+    rewardCard.style.opacity = '0.5';
+    rewardCard.style.cursor = 'default';
+    rewardCard.onclick = null;
+    const sub = rewardCard.querySelector('.pbl-card-sub');
+    if (sub) sub.textContent = '✓ Claimed';
+    showBattleRewardScreen(isGym, isSpellBattle, isRival);
+  };
+  cards.appendChild(rewardCard);
+
+  // Continue hidden until all cards claimed
+  const continueBtn = document.getElementById('pbl-continue-btn');
+  if (continueBtn) continueBtn.style.display = 'none';
+
+  const logPanel = document.getElementById('pbl-log-panel');
+  if (logPanel) logPanel.style.display = 'none';
+
+  showScreen('post-battle-loot-screen');
+}
+
+function _afterRewardChosen() {
+  if (_pendingLootInProgress) {
+    _pendingLootInProgress = false;
+    _lootRewardClaimed = true;
+    // Mark reward card as claimed visually
+    const rc = document.getElementById('pbl-reward-card');
+    if (rc) { rc.style.opacity = '0.55'; rc.style.cursor = 'default'; rc.onclick = null; const s = rc.querySelector('.pbl-card-sub'); if(s) s.textContent = '✓ Claimed'; const a = rc.querySelector('.pbl-card-arrow'); if(a) a.textContent = '✓'; }
+    _checkPblAllClaimed();
+    showScreen('post-battle-loot-screen');
+  } else {
+    showMap();
+  }
+}
+
+function togglePblLog(btn) {
+  const panel = document.getElementById('pbl-log-panel');
+  if (!panel) return;
+  const open = panel.style.display !== 'none';
+  if (open) {
+    panel.style.display = 'none';
+    btn.textContent = '📋 Battle Log ▾';
+  } else {
+    const src = document.getElementById('battle-log');
+    panel.innerHTML = src ? src.innerHTML : '<span style="color:#333">No log.</span>';
+    panel.style.display = 'block';
+    panel.scrollTop = panel.scrollHeight;
+    btn.textContent = '📋 Battle Log ▴';
+  }
+}
+
 function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
   // Reset log panel to closed state
   const brLog = document.getElementById('br-log-panel');
@@ -302,7 +428,7 @@ function buildMajorUpgradePool() {
 function _showPickupBookChoice() {
   const choices = _buildBookDiscoveryChoices(3);
   const cont = document.getElementById('br-choices');
-  if (!cont || choices.length === 0) { showMap(); return; }
+  if (!cont || choices.length === 0) { _afterRewardChosen(); return; }
 
   const title = document.getElementById('br-title');
   const sub   = document.getElementById('br-sub');
@@ -347,7 +473,7 @@ function _showPickupBookChoice() {
           log(`📖 ${cat.emoji} ${cat.name} added as book ${player.spellbooks.length}!`, 'win');
         }
       }
-      showMap();
+      _afterRewardChosen();
     };
     cont.appendChild(btn);
   });
@@ -364,7 +490,7 @@ function _renderUpgradeChoices(tier) {
     const btn = document.createElement('button');
     btn.className = 'prog-choice-btn';
     btn.innerHTML = `<div class="pc-tag">${opt.tag}</div><div class="pc-name">${opt.emoji} ${opt.label}</div><div class="pc-desc">${opt.desc}</div>`;
-    btn.onclick = () => { opt.apply(); updateStatsUI(); if (!opt._modal) showMap(); };
+    btn.onclick = () => { opt.apply(); updateStatsUI(); if (!opt._modal) _afterRewardChosen(); };
     cont.appendChild(btn);
   });
   const rerollBtn = document.getElementById('br-reroll-btn');
@@ -474,7 +600,7 @@ function _continueGymFlow() {
     showElementUnlockScreen('gym');
   } else {
     grantRandomLegendary();
-    showMap();
+    _afterRewardChosen();
   }
 }
 
@@ -493,21 +619,21 @@ function rerollBattleReward() {
 
 // ── SPELL CHOICE (now standalone, called from reward flow) ──
 function processNextLevelUp(){
-  if(pendingLevelUps.length === 0){ showMap(); return; }
+  if(pendingLevelUps.length === 0){ _afterRewardChosen(); return; }
   const ev = pendingLevelUps.shift();
   if(ev.type === 'gym_legendary'){
     grantRandomLegendary();
-    showMap();
+    _afterRewardChosen();
   } else if(ev.type === 'spellchoice'){
     showSpellChoiceScreen(ev.level, ev.tier || 'secondary', ev.forElement || null);
   } else if(ev.type === 'passivechoice'){
     showPassiveChoiceScreen(ev.level, ev.forElement || null);
   } else {
-    showMap();
+    _afterRewardChosen();
   }
 }
-function showLevelUp(){ showMap(); }
-function closeLevelUp(){ showMap(); }
+function showLevelUp(){ _afterRewardChosen(); }
+function closeLevelUp(){ _afterRewardChosen(); }
 
 // ── SKILL POINT ──
 // showSkillPointScreen removed — replaced by battle reward system
@@ -548,7 +674,7 @@ function showIncantationChoiceScreen(level) {
   if (badge) badge.textContent = typeof level === 'number' ? 'Battle ' + level : String(level);
 
   const cont = document.getElementById('inc-choices');
-  if (!cont) { showMap(); return; }
+  if (!cont) { _afterRewardChosen(); return; }
   cont.innerHTML = '';
 
   // Collect all owned non-builtin spells that have an incantation config
@@ -592,7 +718,7 @@ function showIncantationChoiceScreen(level) {
     btn.onclick = () => {
       spell.incantationLevel = (spell.incantationLevel || 1) + 1;
       log(`✦ Incantation: ${spell.emoji} ${spell.name} upgraded to level ${spell.incantationLevel}!`, 'win');
-      showMap();
+      _afterRewardChosen();
     };
     cont.appendChild(btn);
   });
