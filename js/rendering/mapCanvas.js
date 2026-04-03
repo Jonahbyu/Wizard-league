@@ -288,7 +288,7 @@ function generateZoneGraph(){
   let cfCount = 0, shCount = 0;
   const MAX_CF = 4, MAX_SH = 4;
   // Skip rolls on tier 1 (start), rival tier, pre-gym, gym
-  const noRollTiers = new Set([1, rivalTier, ZN_TIERS-1, ZN_TIERS]);
+  const noRollTiers = new Set([1, 2, 3, rivalTier, ZN_TIERS-1, ZN_TIERS]);
 
   // Build per-tier column lists (wider branching — 20/35/45 split toward 4 cols)
   const tierColsList = [];
@@ -381,11 +381,12 @@ function generateZoneGraph(){
       }
     }
 
-    // 35% chance: add one diagonal cross-path for variety
+    // Optional diagonal: only adjacent columns (diff ≤ 1) to avoid wild crossings
     if(froms.length > 1 && tos.length > 1 && Math.random() < 0.35){
       const fi = Math.floor(Math.random()*froms.length);
       const ti = Math.floor(Math.random()*tos.length);
-      addEdge(froms[fi].id, tos[ti].id);
+      if(Math.abs(froms[fi].col - tos[ti].col) <= 1)
+        addEdge(froms[fi].id, tos[ti].id);
     }
   }
 
