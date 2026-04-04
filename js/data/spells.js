@@ -426,7 +426,7 @@ const SPELL_CATALOGUE = {
 
   // ════════════════════════════════ ICE ════════════════════════════════════════
   frost_bolt:{ id:'frost_bolt', tier:'primary', name:'Frost Bolt', emoji:'❄️', element:'Ice', tags:['freeze'],
-    desc:'Cold bolt that frosts the target', baseCooldown:0, isStarter:true,
+    desc:'Cold bolt that frosts the target', baseCooldown:1, isStarter:true,
     execute(s){
       const frost = 2.0 + _incantationBonus(this.incantationLevel||1, 0.4, 0.90);
       s.hit({baseDamage:12, effects:[], abilityElement:'Ice'});
@@ -1061,39 +1061,39 @@ const SPELL_CATALOGUE = {
     }},
 
   // ──────────────────────── NATURE / SEEDS ────────────────────────────────────
-  // Seeds are planted with a 4-turn germination timer. Stacking the same type
+  // Seeds are planted with a 3-turn germination timer. Stacking the same type
   // adds stacks without resetting the timer. All stacks bloom simultaneously.
   // Eternal Garden: each stack has an independent timer.
 
   // Primary Seed spells
   damage_seed:{ id:'damage_seed', tier:'primary', name:'Damage Seed', emoji:'🌱', element:'Nature', tags:['seed'],
-    desc:'Plant a Damage Seed on the target — germinates in 4 turns, dealing 30+EFX/2 damage per stack', baseCooldown:2,
+    desc:'Plant a Damage Seed on the target — germinates in 3 turns, dealing 30+EFX/2 damage per stack', baseCooldown:1,
     execute(s){
-      const surgeUsed = _plantSeed('enemy', 'damage', 1, 4, {incantLevel: this.incantationLevel||1});
+      const surgeUsed = _plantSeed('enemy', 'damage', 1, 3, {incantLevel: this.incantationLevel||1});
       s.log('🌱 Damage Seed planted!','player');
       if(surgeUsed){ this.currentCD=0; s.log('⚡ Seed Surge: free cast +2 stacks!','status'); }
     }},
 
   root_seed:{ id:'root_seed', tier:'primary', name:'Root Seed', emoji:'🌱', element:'Nature', tags:['seed'],
-    desc:'Plant a Root Seed on the target — germinates in 4 turns, applying 3 Root per stack', baseCooldown:2,
+    desc:'Plant a Root Seed on the target — germinates in 3 turns, applying 3 Root per stack', baseCooldown:1,
     execute(s){
-      const surgeUsed = _plantSeed('enemy', 'root', 1, 4, {incantLevel: this.incantationLevel||1});
+      const surgeUsed = _plantSeed('enemy', 'root', 1, 3, {incantLevel: this.incantationLevel||1});
       s.log('🌱 Root Seed planted!','player');
       if(surgeUsed){ this.currentCD=0; s.log('⚡ Seed Surge: free cast +2 stacks!','status'); }
     }},
 
   silence_seed:{ id:'silence_seed', tier:'primary', name:'Silence Seed', emoji:'🤫', element:'Nature', tags:['seed'],
-    desc:'Plant a Silence Seed on the target — germinates in 4 turns, disabling active spellbook 1 turn. Cannot stack — each cast is independent.', baseCooldown:4,
+    desc:'Plant a Silence Seed on the target — germinates in 3 turns, disabling active spellbook 1 turn. Cannot stack — each cast is independent.', baseCooldown:3,
     execute(s){
-      const surgeUsed = _plantSeed('enemy', 'silence', 1, 4, {incantLevel: this.incantationLevel||1});
+      const surgeUsed = _plantSeed('enemy', 'silence', 1, 3, {incantLevel: this.incantationLevel||1});
       s.log('🤫 Silence Seed planted!','player');
       if(surgeUsed){ this.currentCD=0; s.log('⚡ Seed Surge: free cast!','status'); }
     }},
 
   healing_seed:{ id:'healing_seed', tier:'primary', name:'Healing Seed', emoji:'💚', element:'Nature', tags:['seed'],
-    desc:'Plant a Healing Seed on yourself — germinates in 4 turns, restoring 50+DEF HP per stack', baseCooldown:3,
+    desc:'Plant a Healing Seed on yourself — germinates in 3 turns, restoring 50+DEF HP per stack', baseCooldown:2,
     execute(s){
-      const surgeUsed = _plantSeed('player', 'healing', 1, 4, {incantLevel: this.incantationLevel||1});
+      const surgeUsed = _plantSeed('player', 'healing', 1, 3, {incantLevel: this.incantationLevel||1});
       s.log('💚 Healing Seed planted on yourself!','player');
       if(surgeUsed){ this.currentCD=0; s.log('⚡ Seed Surge: free cast +2 stacks!','status'); }
     }},
@@ -1344,9 +1344,9 @@ const SPELL_CATALOGUE = {
     execute(s){
       const hits = Math.round(5 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
       if(status.player.tornadoAoENext){ status.player.tornadoAoENext=false; log('🌪️ Tornado boost — AoE!','status');
-        aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:3, effects:[], hits, abilityElement:'Air', apMult:0.75}); });
+        aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:3, effects:[], hits, abilityElement:'Air', apMult:0.3}); });
         if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
-      } else { s.hit({baseDamage:3, effects:[], hits, abilityElement:'Air', apMult:0.75}); }
+      } else { s.hit({baseDamage:3, effects:[], hits, abilityElement:'Air', apMult:0.3}); }
       s.log('💨 Quintuple Hit!','player');
     }},
   become_wind:{ id:'become_wind', tier:'primary', name:'Become Wind', emoji:'🌬️', element:'Air',

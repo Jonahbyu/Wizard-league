@@ -959,7 +959,7 @@ function endBattle(won){
       _zoneRivalDefeated = true;
       battleNumber++;
       _runRoomsCompleted++;
-      // Do NOT increment zoneBattleCount for rival fights
+      zoneBattleCount++; // rival counts as a zone room
       if(typeof checkBattleRecord === 'function') checkBattleRecord();
     } else {
       battleNumber++;

@@ -312,6 +312,13 @@
         <div class="stat-item"><div class="stat-label">Gold</div><div class="stat-value gold" id="combat-gold">0</div></div>
         <div class="stat-item"><div class="stat-label">Lives</div><div class="stat-value" id="combat-lives" style="color:#e84a4a;">❤❤❤</div></div>
       </div>
+      <!-- Tab bar (moved to topbar) -->
+      <div class="combat-tabs" id="combat-tabs">
+        <button class="ctab active" id="ctab-actions" onclick="switchCombatTab('actions')">⚔ Actions</button>
+        <button class="ctab" id="ctab-log" onclick="switchCombatTab('log')">📜 Log</button>
+        <button class="ctab" id="ctab-runinfo" onclick="switchCombatTab('runinfo')">📋 Run Info</button>
+        <button class="ctab" onclick="showLibrary()" style="opacity:.75;">📖 Library</button>
+      </div>
       <div style="display:flex;gap:.4rem;margin-left:auto;align-items:center;">
         <button id="sandbox-book-btn" onclick="sandboxOpenBookPicker()" style="display:none;background:#0e0a1a;border:1px solid #4a2a6a;color:#aa6aff;padding:.25rem .6rem;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.08em;cursor:pointer;border-radius:4px;text-transform:uppercase;white-space:nowrap;">📚 Books</button>
         <button id="sandbox-spell-btn" onclick="sandboxOpenSpellPicker()" style="display:none;background:#0a1a0a;border:1px solid #2a6a3a;color:#4aaa6a;padding:.25rem .6rem;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.08em;cursor:pointer;border-radius:4px;text-transform:uppercase;white-space:nowrap;">📖 Spells</button>
@@ -344,14 +351,6 @@
 
   <!-- ── BOTTOM: tabbed panel ── -->
   <div class="combat-bottom">
-
-    <!-- Tab bar -->
-    <div class="combat-tabs" id="combat-tabs">
-      <button class="ctab active" id="ctab-actions" onclick="switchCombatTab('actions')">⚔ Actions</button>
-      <button class="ctab" id="ctab-log" onclick="switchCombatTab('log')">📜 Log</button>
-      <button class="ctab" id="ctab-runinfo" onclick="switchCombatTab('runinfo')">📋 Run Info</button>
-      <button class="ctab" onclick="showLibrary()" style="opacity:.75;">📖 Library</button>
-    </div>
 
     <!-- ACTIONS tab -->
     <div class="ctab-panel active" id="ctabp-actions">
@@ -568,6 +567,8 @@
 <script src="js/data/mist.js"></script>
 <script src="js/logic/hit.js"></script>
 <script src="js/logic/combat.js"></script>
+<script src="js/rendering/spellIcons.js"></script>
+<script src="js/rendering/passiveIcons.js"></script>
 <script src="js/rendering/ui.js"></script>
 <script src="js/logic/map.js"></script>
 <script src="js/rendering/mapCanvas.js"></script>

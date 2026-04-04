@@ -55,6 +55,7 @@ const PASSIVE_CHOICES = {
     { id:'nature_deep_roots',       title:'Deep Roots',       emoji:'🌳', desc:'Every 3rd Root stack applied to a target reduces that target\'s Seed timers by 1.' },
     { id:'nature_thorn_bloom',      title:'Thorn Bloom',      emoji:'🌹', desc:'When a Seed blooms on a Rooted target, apply 2 additional Root stacks.' },
     { id:'nature_verdant_patience', title:'Verdant Patience', emoji:'🛡️', desc:'At the start of each turn, if any Seed has been active 3+ turns without blooming, gain 15 Armor and all Seed timers reduce by 1.' },
+    { id:'nature_patient_bloom',    title:'Patient Bloom',    emoji:'🌾', desc:'All Seeds germinate 1 turn later but bloom 30% more effectively. Silence Seeds also spill into 2 random spells in another book.' },
     { id:'nature_eternal_garden', legendary:true, title:'Eternal Garden', emoji:'🌻', desc:'LEGENDARY: Each Seed stack has its own independent germination timer and blooms individually. Works with Perennial.' },
     { id:'nature_rooted_bloom',   legendary:true, title:'Rooted Bloom',   emoji:'🌺', desc:'LEGENDARY: When a Seed blooms, apply Root equal to the stacks that bloomed. When Root decays, reduce the nearest Seed timer by 1.' },
   ],

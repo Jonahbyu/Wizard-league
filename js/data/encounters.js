@@ -276,7 +276,7 @@ const GAUNTLET_ROSTER = [
   },
   {
     name: 'The Dark One', element: 'Fire', emoji: '🌑', color: '#440000',
-    enemyMaxHP: 5000, enemyDmg: 60,
+    enemyMaxHP: 5000, enemyDmg: 72,
     gymPassive: 'fire_pyromaniac', gymHitCounter: 0, gymPhase2: false,
     gymEntryEffect: null, gold: 700,
     signature: '⚔ The architect of the time loop. The source of all suffering.',

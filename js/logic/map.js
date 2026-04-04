@@ -551,7 +551,7 @@ function renderRunInfo(){
       const p = allPassives.find(x => x.id === id);
       if(!p) return;
       html += `<div style="padding:.25rem 0; border-bottom:1px solid #111; font-size:.72rem;">
-        <div style="color:#c8a060;font-family:'Cinzel',serif;font-size:.7rem;">${p.emoji} ${p.title}</div>
+        <div style="color:#c8a060;font-family:'Cinzel',serif;font-size:.7rem;display:flex;align-items:center;gap:.3rem;">${passiveIconSVG(p, 14)} ${p.title}</div>
         <div style="color:#6a5a40;font-size:.62rem;margin-top:.1rem;line-height:1.4;">${p.desc}</div>
       </div>`;
     });

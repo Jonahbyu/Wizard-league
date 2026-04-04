@@ -87,7 +87,7 @@ function renderEnemyCards(){
 
     // Passives + items as emoji-only with tooltip
     const passiveBadges = passiveObjs.map(p =>
-      `<span style="cursor:help;opacity:.7;font-size:${fs(0.5)};" title="${(p.title||p.id)+': '+((p.desc||'')+' '+(p.detail||'')).trim().replace(/"/g,"'")}">${p.emoji||'✦'}</span>`
+      `<span style="cursor:help;opacity:.7;display:inline-flex;align-items:center;" title="${(p.title||p.id)+': '+((p.desc||'')+' '+(p.detail||'')).trim().replace(/"/g,"'")}">${passiveIconSVG(p, 14)}</span>`
     ).join('');
     const itemBadges = (e.items||[]).map(it =>
       `<span style="cursor:help;opacity:.7;font-size:${fs(0.5)};" title="${it.name}">${it.emoji}</span>`
@@ -228,6 +228,8 @@ function log(msg,type=""){
 function showScreen(id){
   // Stop lobby map when navigating away from between-runs
   if (id !== 'between-runs-screen' && typeof stopLobbyMap === 'function') stopLobbyMap();
+  // Stop zone wizard animation when leaving map
+  if (id !== 'map-screen' && typeof _znStopWizardAnim === 'function') _znStopWizardAnim();
   // Stop any running game over / victory animation
   const goCanvas = document.getElementById('gameover-canvas');
   if(goCanvas && goCanvas._goStop) goCanvas._goStop();
@@ -523,7 +525,7 @@ function renderSpellButtons(){
         });
         const pip = document.createElement('div');
         pip.className = 'sb-passive-pip';
-        pip.textContent = pdef ? (pdef.emoji||'✦') : '✦';
+        pip.innerHTML = pdef ? passiveIconSVG(pdef, 14) : '<svg viewBox="0 0 16 16" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="4" fill="#a09080" opacity=".6"/></svg>';
         pip.setAttribute('data-tip', pdef ? (pdef.title||pdef.name||pid) : pid);
         if(pdef){
           const _tipLines = [(pdef.title||pdef.name||pid), pdef.desc||''];
@@ -574,7 +576,7 @@ function renderSpellButtons(){
       const costLabel = isVar ? curSpend+'⚡' : fixedCost>0 ? fixedCost+'⚡' : 'Free';
       const overStr = combat.plasmaOvercharged ? '✦' : '';
       cell.innerHTML =
-        '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
+        '<div class="sb-spell-icon">'+spellIconSVG(spell, 22)+'</div>' +
         '<div class="sb-spell-name">'+spell.name+(overStr?' '+overStr:'')+'</div>' +
         '<div class="sb-spell-cd '+(onCD?'on-cd':'ready')+'">'+
           (onCD?'CD:'+spell.currentCD : costLabel)+
@@ -770,7 +772,7 @@ function renderSpellButtons(){
     const onCD = !spell.multiUse && effectiveCD > 0;
     const outOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
     const isFree = !!spell.isFreeAction;
-    const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name) && a.label.includes(spell.emoji));
+    const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name));
     const cell = document.createElement('button');
     cell.className = 'sb-spell-cell elemental' + (onCD?' on-cd':'') + (outOfPP?' no-pp':'') + (isFree?' free-action':'');
     // Rarity: tint border color
@@ -798,7 +800,7 @@ function renderSpellButtons(){
     const _incStat = (typeof incantationStatDisplay === 'function') ? incantationStatDisplay(spell) : null;
     const incStatLabel = _incStat ? `<div style="font-size:.5rem;color:#88aacc;letter-spacing:.03em;">${_incStat}</div>` : '';
     cell.innerHTML =
-      '<div class="sb-spell-icon">'+spell.emoji+'</div>' +
+      '<div class="sb-spell-icon">'+spellIconSVG(spell, 22)+'</div>' +
       '<div class="sb-spell-name">'+spell.name+rankStr+freeLabel+'</div>' +
       '<div class="sb-spell-cd '+(onCD||outOfPP?'on-cd':'ready')+'">'+cdLabel+'</div>' +
       incLabel +

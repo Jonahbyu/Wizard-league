@@ -366,6 +366,10 @@ function getPlayerCharSprite() { return []; }
 function stopLobbyMap()      {}
 function triggerHitFlash()   {}   // called bare in hit.js on every damage — must be stubbed
 
+// passiveIcons.js / spellIcons.js (rendering files not loaded in sim)
+function spellIconSVG(spell, size)   { return spell ? (spell.emoji || '✨') : '✨'; }
+function passiveIconSVG(passive, size) { return passive ? (passive.emoji || '✦') : '✦'; }
+
 // betweenRuns.js
 function applyBookUpgrades(book, catalogueId) {}
 function showBetweenRuns() {}
@@ -1055,6 +1059,14 @@ showBattleRewardScreen = function(isGym, isSpellBattle, isRival) {
   }
 
   showMap();
+};
+
+// ── Bypass the STS loot screen — go straight to reward picker ─────────────────
+// showPostBattleLoot (added in the "STS loot screen" commit) sets _pendingLootInProgress=true,
+// which makes _afterRewardChosen() call showScreen() instead of showMap(), hanging the sim.
+// Override it to skip the DOM-based loot screen entirely.
+showPostBattleLoot = function(isGym, isSpellBattle, isRival) {
+  showBattleRewardScreen(isGym, isSpellBattle, isRival);
 };
 
 // ── Re-override interactive screens (battleReward.js replaces pre-stubs; restore auto-pick) ──
@@ -2513,6 +2525,7 @@ const _TAB_DEFS = [
   { id: 'wins',      label: 'Winning Builds' },
   { id: 'log',       label: 'Sample Log' },
   { id: 'dive',      label: 'Element Dive' },
+  { id: 'survival',  label: 'Survival' },
   { id: 'history',   label: 'History' },
 ];
 
@@ -2564,9 +2577,142 @@ function _switchResultsTab(tab) {
     _renderLogTab(body);
   } else if (tab === 'dive') {
     _renderDiveTab(body);
+  } else if (tab === 'survival') {
+    _renderSurvivalTab(body);
   } else if (tab === 'history') {
     _renderHistoryTab(body);
   }
+}
+
+function _renderSurvivalTab(body) {
+  if (!_simLastData) { body.innerHTML = '<div style="color:#3a3020;padding:1rem">No data.</div>'; return; }
+  const { elementResults } = _simLastData;
+  if (!elementResults || !elementResults.length) return;
+
+  const elemData = elementResults.map(er => {
+    const results = er.results || [];
+    const total = results.length;
+    if (!total) return null;
+    const maxBattle = Math.max(...results.map(r => r ? (r.battleNumber || 0) : 0), 1);
+    const survival = [];
+    for (let b = 1; b <= maxBattle; b++) {
+      const survived = results.filter(r => r && (r.battleNumber || 0) >= b).length;
+      survival.push({ battle: b, pct: survived / total });
+    }
+    return { element: er.element, col: _ELEM_COLOR[er.element] || '#888', survival, maxBattle, total };
+  }).filter(Boolean);
+
+  if (!elemData.length) { body.innerHTML = '<div style="color:#3a3020;padding:1rem">No data.</div>'; return; }
+
+  const maxBattle = Math.max(...elemData.map(e => e.maxBattle), 1);
+  const W = 700, H = 320, PX = 42, PY = 14, PR = 70;
+  const iW = W - PX - PR, iH = H - PY - 28;
+  const toX = b => PX + ((b - 1) / Math.max(maxBattle - 1, 1)) * iW;
+  const toY = pct => PY + (1 - pct) * iH;
+
+  // Grid lines
+  const grids = [0, 0.25, 0.5, 0.75, 1.0].map(v => {
+    const y = toY(v).toFixed(1);
+    return `<line x1="${PX}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="${v===0||v===1?'#2a2a3a':'#191922'}" stroke-width="1"/>
+      <text x="${PX-6}" y="${(+y+3.5).toFixed(0)}" fill="#4a4030" font-size="9" text-anchor="end">${(v*100).toFixed(0)}%</text>`;
+  }).join('');
+
+  // X axis labels
+  const xStep = maxBattle <= 15 ? 1 : maxBattle <= 30 ? 2 : maxBattle <= 60 ? 5 : 10;
+  let xLabels = `<text x="${(PX+iW/2).toFixed(0)}" y="${(PY+iH+24).toFixed(0)}" fill="#3a3020" font-size="9" text-anchor="middle">Battle Number</text>`;
+  for (let b = 1; b <= maxBattle; b += xStep) {
+    xLabels += `<text x="${toX(b).toFixed(1)}" y="${(PY+iH+14).toFixed(0)}" fill="#4a4030" font-size="9" text-anchor="middle">${b}</text>`;
+  }
+
+  // Collision-free right-edge labels
+  const sortedForLabel = elemData.slice().sort((a, b) => {
+    const pa = a.survival[a.survival.length-1]?.pct || 0;
+    const pb = b.survival[b.survival.length-1]?.pct || 0;
+    return toY(pa) - toY(pb);
+  });
+  let prevLY = -99;
+  for (const ed of sortedForLabel) {
+    const lastPct = ed.survival[ed.survival.length-1]?.pct || 0;
+    let ly = toY(lastPct);
+    if (ly - prevLY < 12) ly = prevLY + 12;
+    ly = Math.min(PY+iH-2, Math.max(PY+6, ly));
+    ed.labelY = ly; prevLY = ly;
+  }
+
+  const uid = Math.random().toString(36).slice(2, 8);
+  const linesHtml = elemData.map(({ element, col, survival, labelY }) => {
+    if (!survival.length) return '';
+    const pts = survival.map(s => `${toX(s.battle).toFixed(1)},${toY(s.pct).toFixed(1)}`).join(' ');
+    const last = survival[survival.length-1];
+    const lx = toX(last.battle), ly = toY(last.pct);
+    const emoji = _ELEM_EMOJI[element] || '';
+    const lbl = labelY != null
+      ? `<text x="${(lx+8).toFixed(0)}" y="${(labelY+3.5).toFixed(0)}" fill="${col}" font-size="10" font-weight="bold">${emoji} ${element}</text>` : '';
+    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.9" pointer-events="none"/>
+      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${col}" pointer-events="none"/>${lbl}`;
+  }).join('');
+
+  const chartData = JSON.stringify({
+    W, PX, PY, iW, iH, maxBattle,
+    els: elemData.map(ed => ({
+      el: ed.element, col: ed.col, total: ed.total,
+      pts: ed.survival.map(s => [s.battle, +s.pct.toFixed(4)])
+    }))
+  });
+
+  const legend = elemData.slice().sort((a,b)=>{
+    const pa=a.survival[a.survival.length-1]?.pct||0, pb=b.survival[b.survival.length-1]?.pct||0;
+    return pb-pa;
+  }).map(({ element, col, total }) =>
+    `<span style="color:${col};font-size:.65rem;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+      <svg width="18" height="7" style="flex-shrink:0"><line x1="0" y1="3.5" x2="18" y2="3.5" stroke="${col}" stroke-width="2.5"/><circle cx="9" cy="3.5" r="2.5" fill="${col}"/></svg>
+      ${_ELEM_EMOJI[element]||''} ${element} <span style="color:#4a4030">(${total} runs)</span></span>`
+  ).join('');
+
+  body.innerHTML = `<div class="results-section">
+    <h3>Survival Curve <span style="font-size:.6rem;color:#3a3020">— % of runs still alive at each battle</span></h3>
+    <div id="surv-${uid}" style="position:relative;user-select:none">
+      <svg id="survsvg-${uid}" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block"
+        data-survjson="${chartData.replace(/"/g,'&quot;')}">
+        ${grids}${xLabels}${linesHtml}
+        <line id="survxh-${uid}" x1="0" y1="${PY}" x2="0" y2="${PY+iH}" stroke="#ffffff28" stroke-width="1" stroke-dasharray="3,3" display="none"/>
+        <rect x="0" y="0" width="${W}" height="${H}" fill="transparent" style="cursor:crosshair"
+          onmousemove="_survHover('${uid}',event)" onmouseleave="_survLeave('${uid}')"/>
+      </svg>
+      <div id="survtt-${uid}" style="position:absolute;top:${PY+4}px;pointer-events:none;display:none;background:#0c0c18ee;border:1px solid #2a2a3a;border-radius:6px;padding:.4rem .6rem;font-size:.65rem;line-height:1.55;white-space:nowrap;z-index:10;box-shadow:0 3px 12px #000a"></div>
+    </div>
+    <div style="display:flex;gap:.8rem;flex-wrap:wrap;margin-top:.35rem">${legend}</div>
+  </div>`;
+}
+
+function _survHover(uid, e) {
+  const svg = _origGetById(`survsvg-${uid}`);
+  const xh  = _origGetById(`survxh-${uid}`);
+  const tt  = _origGetById(`survtt-${uid}`);
+  if (!svg || !xh || !tt) return;
+  const data = JSON.parse(svg.dataset.survjson.replace(/&quot;/g, '"'));
+  const rect = svg.getBoundingClientRect();
+  const mx   = (e.clientX - rect.left) * (data.W / rect.width);
+  const battle = Math.max(1, Math.min(data.maxBattle, Math.round(1 + (mx - data.PX) / data.iW * (data.maxBattle - 1))));
+  const x = data.PX + (battle-1) / Math.max(data.maxBattle-1,1) * data.iW;
+  xh.setAttribute('x1', x); xh.setAttribute('x2', x); xh.removeAttribute('display');
+  const rows = data.els.map(ed => {
+    const pt  = ed.pts.find(([b]) => b === battle);
+    const pct = pt ? (pt[1]*100).toFixed(1) : '—';
+    const cnt = pt ? Math.round(pt[1] * ed.total) : 0;
+    return `<div style="color:${ed.col}">${_ELEM_EMOJI[ed.el]||''} ${ed.el}: <b>${pct}%</b> <span style="color:#4a4030">(${cnt}/${ed.total})</span></div>`;
+  }).join('');
+  tt.innerHTML = `<div style="color:#6a6050;margin-bottom:.25rem">Battle ${battle}</div>${rows}`;
+  tt.style.display = 'block';
+  const ttX = x * rect.width / data.W + 12;
+  tt.style.left = (ttX + 180 > rect.width ? ttX - 210 : ttX) + 'px';
+}
+
+function _survLeave(uid) {
+  const xh = _origGetById(`survxh-${uid}`);
+  const tt = _origGetById(`survtt-${uid}`);
+  if (xh) xh.setAttribute('display','none');
+  if (tt) tt.style.display = 'none';
 }
 
 function _renderWinsTab(body) {

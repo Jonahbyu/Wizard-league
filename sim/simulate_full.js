@@ -129,12 +129,12 @@ const ALL_SPELLS = {
   bramble_burst:{ el:'Nature', tier:'primary', cd:1,
     type:'root', baseDmg:10,hits:1, rootChance:0.50, rootS:0.05, rootD:0.90 },
   // Nature/Seed primaries
-  damage_seed:  { el:'Nature', tier:'primary', cd:2,
-    type:'seed', baseDmg:0, seedType:'damage', seedTimer:5 },
-  root_seed:    { el:'Nature', tier:'primary', cd:2,
-    type:'seed', baseDmg:0, seedType:'root',   seedTimer:5 },
-  healing_seed: { el:'Nature', tier:'primary', cd:3,
-    type:'seed', baseDmg:0, seedType:'healing', seedTimer:5 },
+  damage_seed:  { el:'Nature', tier:'primary', cd:1,
+    type:'seed', baseDmg:0, seedType:'damage', seedTimer:3 },
+  root_seed:    { el:'Nature', tier:'primary', cd:1,
+    type:'seed', baseDmg:0, seedType:'root',   seedTimer:3 },
+  healing_seed: { el:'Nature', tier:'primary', cd:2,
+    type:'seed', baseDmg:0, seedType:'healing', seedTimer:3 },
   // Nature secondaries
   wild_growth:      { el:'Nature', tier:'secondary', cd:3, type:'root', baseDmg:0, rootMult:2.0 },
   spreading_vines:  { el:'Nature', tier:'secondary', cd:4, type:'root', baseDmg:0, rootOverTime:3 },
@@ -164,7 +164,7 @@ const PASSIVE_POOLS = {
   },
   Nature: {
     normal: ['nature_overgrowth','nature_stay_rooted','nature_thorned_strikes','nature_bramble_guard',
-             'nature_perennial','nature_deep_roots','nature_thorn_bloom','nature_verdant_patience'],
+             'nature_perennial','nature_deep_roots','nature_thorn_bloom','nature_verdant_patience','nature_patient_bloom'],
     legendary: ['nature_verdant_legion','nature_eternal_garden','nature_rooted_bloom'],
   },
 };
@@ -177,7 +177,7 @@ const PASSIVE_PRIORITY = {
               'lightning_cascade','lightning_hair_trigger','lightning_chain_surge','lightning_amplified',
               'lightning_overcharged','lightning_conductivity','lightning_live_wire','lightning_static_build','lightning_storm_core','lightning_superconductor'],
   Nature:    ['nature_thorned_strikes','nature_stay_rooted','nature_rooted_bloom','nature_overgrowth',
-              'nature_perennial','nature_bramble_guard','nature_eternal_garden','nature_thorn_bloom',
+              'nature_perennial','nature_patient_bloom','nature_bramble_guard','nature_eternal_garden','nature_thorn_bloom',
               'nature_deep_roots','nature_verdant_patience','nature_verdant_legion'],
 };
 const SPELL_PRIORITY = {
@@ -233,6 +233,8 @@ function pickReward(kind, player, el, strategy) {
     player.spells.push({...chosen, incLevel:iLvl});
 
   } else {
+    // ~15% chance for +5 Defense stat reward instead of passive
+    if (Math.random() < 0.15) { player.defense = (player.defense||0) + 5; return; }
     // passive
     const normPool = PASSIVE_POOLS[el].normal.filter(id=>!ownedP.has(id));
     if (!normPool.length) return;
@@ -280,7 +282,8 @@ function simulateBattle(player, enemy) {
 
   let pHP  = player.hp;
   let eHP  = enemy.hp;
-  let eAP  = enemy.ap;
+  const playerDef = player.defense || 0;
+  let eAP  = Math.max(0, enemy.ap - playerDef);   // Defense reduces enemy AP
   const eDmgBase = enemy.dmg + Math.floor(eAP * 0.3);
 
   // Enemy status
@@ -355,23 +358,24 @@ function simulateBattle(player, enemy) {
     // Seeds bloom
     const bloomed = seeds.filter(s=>s.timer<=1);
     seeds = seeds.filter(s=>s.timer>1).map(s=>({...s,timer:s.timer-1}));
+    const patientMult = hasP('nature_patient_bloom') ? 1.3 : 1;
     for (const sd of bloomed) {
       if (sd.type === 'damage') {
-        const sdmg = Math.round((30 + efx0/2 + dynAP) * sm);
+        const sdmg = Math.round((30 + efx0/2 + dynAP) * sm * patientMult);
         eHP -= sdmg;
         if (eHP<=0) break;
-        if (hasP('nature_perennial')) seeds.push({type:'damage',timer:4});
+        if (hasP('nature_perennial')) seeds.push({type:'damage',timer:3});
         if (hasP('nature_thorn_bloom') && rootStacks>0) rootStacks += 2;
         if (hasP('nature_rooted_bloom')) rootStacks += sd.stacks||1;
         // Duo wildfire seeds
         if (hasP('duo_wildfire_seeds')) burnStacks += Math.floor(sdmg * 0.5);
       } else if (sd.type === 'root') {
-        let ra = 3; if(hasP('nature_stay_rooted')) ra++; if(hasP('nature_rooted_bloom')) ra++;
+        let ra = Math.floor(3 * patientMult); if(hasP('nature_stay_rooted')) ra++; if(hasP('nature_rooted_bloom')) ra++;
         rootStacks += ra * (sd.stacks||1);
-        if (hasP('nature_perennial')) seeds.push({type:'root',timer:4});
+        if (hasP('nature_perennial')) seeds.push({type:'root',timer:3});
       } else if (sd.type === 'healing') {
-        pHP = Math.min(player.maxHP, pHP + 50);
-        if (hasP('nature_perennial')) seeds.push({type:'healing',timer:4});
+        pHP = Math.min(player.maxHP, pHP + Math.round(50 * patientMult));
+        if (hasP('nature_perennial')) seeds.push({type:'healing',timer:3});
       }
     }
     if (eHP<=0) break;
@@ -569,7 +573,8 @@ function simulateBattle(player, enemy) {
         if (spell.seedType) {
           // Plant seed
           const stacks = seedSurgePrimed ? 3 : 1;
-          seeds.push({type:spell.seedType, timer:spell.seedTimer||5, stacks});
+          const baseTimer = (spell.seedTimer||3) + (hasP('nature_patient_bloom') ? 1 : 0);
+          seeds.push({type:spell.seedType, timer:baseTimer, stacks});
           seedSurgePrimed = false;
         } else if (spell.seedAccel) {
           seeds = seeds.map(s=>({...s, timer:s.timer-1}));
@@ -580,7 +585,7 @@ function simulateBattle(player, enemy) {
             if (sd.type==='damage') eHP -= Math.round((30+efx0/2+dynAP)*sm*(sd.stacks||1));
             if (sd.type==='root') { let ra=3;if(hasP('nature_stay_rooted'))ra++;rootStacks+=ra*(sd.stacks||1); }
             if (sd.type==='healing') pHP=Math.min(player.maxHP,pHP+50*(sd.stacks||1));
-            if (hasP('nature_perennial')) seeds.push({type:sd.type,timer:4,stacks:sd.stacks||1});
+            if (hasP('nature_perennial')) seeds.push({type:sd.type,timer:3,stacks:sd.stacks||1});
           }
         } else if (spell.seedSurgePrimed) {
           seedSurgePrimed = true;
@@ -600,7 +605,7 @@ function simulateBattle(player, enemy) {
             rootStacks += ra;
           }
         } else if (spell.giveArmor) {
-          block += spell.giveArmor;
+          block += spell.giveArmor + Math.floor(playerDef * 2);
           if (hasP('nature_bramble_guard')) rootStacks += 1;
           if (spell.rootBase) {
             const ri = incB(inc, spell.rootS||1, spell.rootD||1.0);
@@ -640,6 +645,7 @@ function simulateBattle(player, enemy) {
     // Conduction bonus already handled by shock application
     const shockPct = clamp(shockStacks * 0.05, 0, 0.75);
     let eAtk = Math.max(0, Math.round(eDmgBase * (1 - shockPct)));
+    eAtk = Math.max(0, eAtk - playerDef);  // Defense flat reduction per hit
     if (block > 0) { const ab=Math.min(block,eAtk); eAtk-=ab; block=Math.max(0,block-ab); }
     pHP -= eAtk;
   }
@@ -653,7 +659,7 @@ function simulateRun(el, talCfg, zone, strategy) {
   const gymIdx = zone - 1;
   const eb = talCfg[el] || {};
   const maxHP = BASE_HP + talCfg.hpB;
-  const player = { element:el, ap:talCfg.ap, efx:talCfg.efx, eb, maxHP, hp:maxHP, spells:[], passives:[] };
+  const player = { element:el, ap:talCfg.ap, efx:talCfg.efx, defense:0, eb, maxHP, hp:maxHP, spells:[], passives:[] };
 
   // Starter spell
   const starter = Object.values(ALL_SPELLS).find(s=>s.el===el && s.starter);

@@ -712,7 +712,7 @@ function showIncantationChoiceScreen(level) {
     btn.style.borderColor = rarityColor;
     btn.innerHTML =
       `<div class="pc-tag" style="color:${rarityColor};">${rarityInfo.label} · Level ${spell.incantationLevel || 1} → ${nextLevel}</div>` +
-      `<div class="pc-name">${spell.emoji} ${spell.name}</div>` +
+      `<div class="pc-name" style="display:flex;align-items:center;gap:.35rem;">${spellIconSVG(spell, 20)} ${spell.name}</div>` +
       `<div class="pc-desc">${spell.desc || ''}</div>` +
       `<div class="pc-desc" style="color:#c8e0ff;margin-top:2px;">${upgradeStr}</div>`;
     btn.onclick = () => {
@@ -958,7 +958,7 @@ function showPassiveChoiceScreen(level, forElement=null){
     const btn=document.createElement("button");
     btn.className="prog-choice-btn passive-btn";
     const infoIcon = p.detail ? `<span class="pc-info-icon" title="${p.detail}" onclick="event.stopPropagation()">ℹ</span>` : '';
-    btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name">${p.emoji} ${p.title}${infoIcon}</div><div class="pc-desc">${p.desc}</div>`;
+    btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name" style="display:flex;align-items:center;gap:.35rem;">${passiveIconSVG(p, 20)} ${p.title}${infoIcon}</div><div class="pc-desc">${p.desc}</div>`;
     btn.onclick=()=>{
       const doAdd = bIdx => { addPassiveToBook(p.id, bIdx); processNextLevelUp(); };
       if(typeof _pickBookDest === 'function') _pickBookDest('passive', p.id, doAdd); else doAdd(undefined);

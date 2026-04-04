@@ -280,9 +280,11 @@ function performHit(attackerSide, defenderSide, pkg){
 
     // ── Air: Momentum gain per damage instance ──
     if(attackerSide==='player' && playerElement==='Air' && dmg > 0 && !pkg._isTornadoSelf){
-      let momGain = 1;
-      if(hasPassive('air_gale_force') && Math.random() < 0.5) momGain++;
-      addMomentumStacks(momGain);
+      if(Math.random() < (pkg.momentumChance != null ? pkg.momentumChance : 0.5)){
+        let momGain = 1;
+        if(hasPassive('air_gale_force') && Math.random() < 0.5) momGain++;
+        addMomentumStacks(momGain);
+      }
     }
 
     // Record for Plasma echo

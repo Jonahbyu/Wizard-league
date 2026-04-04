@@ -86,7 +86,7 @@ function enterCampfire(){
   showScreen('campfire-screen');
   setTimeout(()=>startCampfireScene(''), 0);
 }
-function leaveCampfire(){ stopCampfireScene(); showMap(); }
+function leaveCampfire(){ stopCampfireScene(); zoneBattleCount++; showMap(); }
 
 let _shopStock = null;
 
@@ -186,5 +186,6 @@ function leaveShop() {
   _shopStock = null;
   const canvas = document.getElementById('shop-canvas');
   if (canvas && canvas._stop) canvas._stop();
+  zoneBattleCount++;
   showMap();
 }

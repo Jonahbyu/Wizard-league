@@ -112,13 +112,13 @@ function _libSpellFormulaHtml(spell) {
   lines.push(`<div style="color:#666;font-size:.58rem;">Cooldown: ${spell.baseCooldown} turn${spell.baseCooldown !== 1 ? 's' : ''}</div>`);
 
   if (!lines.length) return `<div style="color:#666;font-size:.62rem;">No formula data.</div>`;
-  return `<div style="font-family:'Cinzel',serif;font-size:.65rem;color:#c8a060;margin-bottom:.3rem;">${spell.emoji} ${spell.name}</div>${lines.join('')}`;
+  return `<div style="font-family:'Cinzel',serif;font-size:.65rem;color:#c8a060;margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem;">${spellIconSVG(spell, 18)} ${spell.name}</div>${lines.join('')}`;
 }
 
 // Build formula HTML for a passive
 function _libPassiveFormulaHtml(passive) {
   const detail = passive.detail;
-  const name   = `<div style="font-family:'Cinzel',serif;font-size:.65rem;color:#c8a060;margin-bottom:.3rem;">${passive.emoji} ${passive.title}</div>`;
+  const name   = `<div style="font-family:'Cinzel',serif;font-size:.65rem;color:#c8a060;margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem;">${passiveIconSVG(passive, 16)} ${passive.title}</div>`;
   if (detail) {
     return name + `<div style="color:#a0c0ff;font-size:.62rem;line-height:1.5;">${detail}</div>`;
   }
@@ -515,7 +515,7 @@ function _libSpellRow(spell, revealed) {
       ? `<span style="font-size:.44rem;color:#4a6a8a;margin-left:.3rem;" title="Hover for formula">ℹ</span>`
       : '';
     row.innerHTML = `
-      <span style="font-size:.9rem;line-height:1.4;flex-shrink:0;">${spell.emoji}</span>
+      <span style="flex-shrink:0;">${spellIconSVG(spell, 20)}</span>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;margin-bottom:.18rem;">
           <span style="font-size:.68rem;color:#c8a060;font-family:'Cinzel',serif;">${spell.name}${infoHint}</span>
@@ -719,7 +719,7 @@ function _libPassiveRow(passive, revealed) {
       ? `<span style="font-size:.44rem;color:#4a6a8a;margin-left:.3rem;">ℹ</span>`
       : '';
     row.innerHTML = `
-      <span style="font-size:.9rem;line-height:1.4;flex-shrink:0;">${passive.emoji}</span>
+      <span style="flex-shrink:0;display:flex;align-items:center;">${passiveIconSVG(passive, 20)}</span>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;margin-bottom:.18rem;">
           <span style="font-size:.68rem;color:#a080c0;font-family:'Cinzel',serif;">${passive.title}${infoHint}</span>
