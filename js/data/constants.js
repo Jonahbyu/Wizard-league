@@ -29,4 +29,8 @@ const ROOT_POWER_PER_STACK = 5;   // +5 power per root stack vs rooted foes
 var activeSaveSlot = 0;
 var sandboxMode    = false;
 
+// ── Released elements — only these are available in non-sandbox mode ──
+// Add new elements here when they are fully fleshed out.
+const RELEASED_ELEMENTS = ['Fire', 'Lightning', 'Nature'];
+
 

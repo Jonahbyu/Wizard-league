@@ -239,13 +239,22 @@ const RIVAL = {
 let GYM_ROSTER = [];
 
 function initGymRoster(){
-  // Shuffle the fixed 4 gyms so the starting zone is random each run
-  const fixed = pickRandom(GYM_ROSTER_FIXED, GYM_ROSTER_FIXED.length);
-  const variable = pickRandom(GYM_ROSTER_VARIABLE_TEMPLATES, 4);
-  GYM_ROSTER = [
-    ...fixed,
-    ...variable.map((tmpl, i) => ({ ...tmpl, gymIdx: 4+i, battleAt: 40 + i*8 })),
-  ].map((g, i) => ({ ...g, gymIdx: i }));
+  if (!sandboxMode) {
+    // Non-sandbox: only the 3 released element gyms in a random order.
+    // Fire and Lightning come from GYM_ROSTER_FIXED; Nature from GYM_ROSTER_VARIABLE_TEMPLATES.
+    const allTemplates = [...GYM_ROSTER_FIXED, ...GYM_ROSTER_VARIABLE_TEMPLATES];
+    const releasedGyms = allTemplates.filter(g => RELEASED_ELEMENTS.includes(g.element));
+    GYM_ROSTER = pickRandom(releasedGyms, releasedGyms.length)
+      .map((g, i) => ({ ...g, gymIdx: i, battleAt: (i + 1) * 8 }));
+  } else {
+    // Sandbox: all 8 element gyms in a shuffled order
+    const fixed    = pickRandom(GYM_ROSTER_FIXED, GYM_ROSTER_FIXED.length);
+    const variable = pickRandom(GYM_ROSTER_VARIABLE_TEMPLATES, 4);
+    GYM_ROSTER = [
+      ...fixed,
+      ...variable.map((tmpl, i) => ({ ...tmpl, gymIdx: 4+i, battleAt: 40 + i*8 })),
+    ].map((g, i) => ({ ...g, gymIdx: i }));
+  }
   _gauntletBossIdx = 0;
 }
 

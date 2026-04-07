@@ -278,13 +278,10 @@ const ALL_ELEMENTS = [
 
 function showElementScreen(){
   const pool   = [...ALL_ELEMENTS];
-  const picked = sandboxMode ? pool : [];
-  if (!sandboxMode) {
-    while (picked.length < 3 && pool.length) {
-      const i = Math.floor(Math.random() * pool.length);
-      picked.push(pool.splice(i, 1)[0]);
-    }
-  }
+  // Sandbox: all elements. Non-sandbox: only fully released elements (no random picking).
+  const picked = sandboxMode
+    ? pool
+    : pool.filter(e => RELEASED_ELEMENTS.includes(e.el));
 
   const grid = document.getElementById('element-grid');
   grid.innerHTML = '';

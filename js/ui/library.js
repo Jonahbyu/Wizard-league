@@ -127,7 +127,10 @@ function _libPassiveFormulaHtml(passive) {
 
 // ─── OVERLAY ───────────────────────────────────────────────────────────────
 function showLibrary() {
-  if (!_libActiveEl) _libActiveEl = LIBRARY_ELEMENTS[0];
+  const visibleEls = (!sandboxMode)
+    ? LIBRARY_ELEMENTS.filter(el => RELEASED_ELEMENTS.includes(el) || el === 'Duo')
+    : LIBRARY_ELEMENTS;
+  if (!_libActiveEl || !visibleEls.includes(_libActiveEl)) _libActiveEl = visibleEls[0];
   _libRender();
   document.getElementById('spell-library-overlay').style.display = 'flex';
 }
@@ -154,10 +157,13 @@ function _libRenderTabs() {
   const seenSpells   = new Set(meta.seenSpells   || []);
   const seenPassives = new Set(meta.seenPassives || []);
 
-  // Row 1: element tabs
+  // Row 1: element tabs — non-sandbox only shows released elements + Duo
+  const visibleElements = (!sandboxMode)
+    ? LIBRARY_ELEMENTS.filter(el => RELEASED_ELEMENTS.includes(el) || el === 'Duo')
+    : LIBRARY_ELEMENTS;
   const row1 = document.createElement('div');
   row1.style.cssText = 'display:flex;gap:.25rem;';
-  LIBRARY_ELEMENTS.forEach(el => {
+  visibleElements.forEach(el => {
     const { seen, total } = _libCounts(el, seenSpells, seenPassives);
     const active   = el === _libActiveEl;
     const pct      = total > 0 ? seen / total : 0;
@@ -687,14 +693,24 @@ function _libRenderCombat(cont) {
     '#4aaa6a');
 
   _guideSection(cont, 'Zone Effects', '🌍');
+  const _zoneHazardLines = [
+    ['#c86030', '🔥 Fire',      '+2 Burn applied to player per hit (scales with battle number).', 'Fire'],
+    ['#c0c020', '⚡ Lightning', '+1 Shock applied to player per hit.',                             'Lightning'],
+    ['#3a8a3a', '🌿 Nature',    '50% chance to apply Root to player per hit.',                     'Nature'],
+    ['#60a0cc', '❄️ Ice',       '+2 Frost applied to player per hit.',                             'Ice'],
+    ['#4080a0', '💧 Water',     'applies Foam to player.',                                         'Water'],
+    ['#8B6914', '🪨 Earth',     'attacker gains +1 Stone per hit.',                               'Earth'],
+    ['#DA70D6', '🔮 Plasma',    '+25% healing for this zone.',                                     'Plasma'],
+    ['#B0E0E6', '🌀 Air',       '20% chance to stun player for 1 turn per hit.',                  'Air'],
+  ];
+  const _visibleHazards = sandboxMode
+    ? _zoneHazardLines
+    : _zoneHazardLines.filter(([,,, el]) => RELEASED_ELEMENTS.includes(el));
   _guideEntry(cont, 'Per-Element Zone Hazards',
     'The active zone element adds a passive effect on every enemy basic attack:<br>'
-    + '<span style="color:#c86030;">🔥 Fire</span> — +2 Burn applied to player per hit (scales with battle number).<br>'
-    + '<span style="color:#60a0cc;">❄️ Ice</span> — +2 Frost applied to player per hit.<br>'
-    + '<span style="color:#c0c020;">⚡ Lightning</span> — +1 Shock applied to player per hit.<br>'
-    + '<span style="color:#4080a0;">💧 Water</span> — applies Foam to player.<br>'
-    + '<span style="color:#3a8a3a;">🌿 Nature</span> — applies Root to player.<br>'
-    + 'Playing the matching element doesn\'t remove these — they always apply.');
+    + _visibleHazards.map(([color, name, desc]) =>
+        `<span style="color:${color};">${name}</span> — ${desc}`).join('<br>')
+    + '<br>Playing the matching element doesn\'t remove these — they always apply.');
 
   _guideSection(cont, 'Talent Levels', '⭐');
   _guideEntry(cont, 'Novice → Master',

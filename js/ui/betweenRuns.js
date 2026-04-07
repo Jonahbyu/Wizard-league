@@ -279,8 +279,11 @@ function renderTalentTab(content, meta) {
     <span class="talent-phos-val" id="talent-phos-display">${phos}</span>
   </div>`;
 
-  // Section picker buttons
-  const sections = Object.keys(TALENT_TREE);
+  // Section picker buttons — non-sandbox hides unreleased element sections
+  const allSections = Object.keys(TALENT_TREE);
+  const sections = sandboxMode
+    ? allSections
+    : allSections.filter(k => k === 'Universal' || RELEASED_ELEMENTS.includes(k));
   html += `<div class="talent-section-tabs" id="talent-section-tabs">`;
   sections.forEach((key, i) => {
     html += `<button class="talent-sec-btn${i===0?' active':''}" onclick="switchTalentSection('${key}',this)">${TALENT_TREE[key].label}</button>`;

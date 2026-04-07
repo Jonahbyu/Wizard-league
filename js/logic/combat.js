@@ -77,7 +77,8 @@ function startRound(){
   // ── Charge Shot auto-fire ──
   if(status.player.chargeShotCharging){
     status.player.chargeShotCharging = false;
-    const csDmg = 50 + attackPowerFor('player','enemy');
+    const csDmg = 50 + attackPowerFor('player','enemy') + (status.player.chargeShotDmgBonus||0);
+    status.player.chargeShotDmgBonus = 0;
     aliveEnemies().forEach(e=>{
       setActiveEnemy(combat.enemies.indexOf(e));
       applyDirectDamage('player','enemy', csDmg, '🎯⚡ Charge Shot');
@@ -358,7 +359,7 @@ function startRound(){
   // Pre-build enemy queues now so intents are visible during player planning
   combat.prebuiltEnemyQueues = combat.enemies.map((e, i) => {
     if (!e.alive) return [];
-    let actions = actionsPerTurnFor('enemy');
+    let actions = actionsPerTurnFor('enemy') + (e.bonusActions||0);
     const penalty = e.status.nextTurnActionPenalty || 0;
     if (penalty > 0) {
       actions = Math.max(0, actions - penalty);
@@ -546,7 +547,7 @@ function commitEndTurn(){
 
   // Use pre-built enemy queues (built at round start so intents were visible during planning)
   const allEnemyQueues = combat.prebuiltEnemyQueues ||
-    combat.enemies.map((e,i) => e.alive ? buildEnemyQueueFor(i, actionsPerTurnFor('enemy')) : []);
+    combat.enemies.map((e,i) => e.alive ? buildEnemyQueueFor(i, actionsPerTurnFor('enemy') + (e.bonusActions||0)) : []);
   combat.prebuiltEnemyQueues = null;
 
   // Show enemy intents before resolution
@@ -803,10 +804,24 @@ function buildEnemyQueueFor(idx, count){
       }
       cd=cdPenalty;
     } else {
+      // Basic attack on cooldown — try to use an ability instead of waiting
       const snapIdx=idx;
-      const intentEntry = {label:'⏳ Wait', hidden:false};
-      e.intentQueue.push(intentEntry);
-      q.push({label:'⏳ Wait', intentIdx:e.intentQueue.length-1, fn:()=>{ log(combat.enemies[snapIdx].emoji + ' ' + combat.enemies[snapIdx].name + ' waits.', 'enemy'); }});
+      const ability2 = (e._silenced > 0) ? null : pickEnemyAbility(e, currentGymIdx);
+      if(ability2){
+        ability2.cd = ability2.baseCd;
+        const snapAbility2 = ability2;
+        const abilLabel2 = snapAbility2.emoji+' '+snapAbility2.name;
+        const intentEntry2 = {label:abilLabel2, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility2.id]||''};
+        e.intentQueue.push(intentEntry2);
+        q.push({label:abilLabel2, intentIdx:e.intentQueue.length-1, fn:()=>{
+          if(combat.over) return;
+          if(!combat.enemies[snapIdx].alive) return;
+          setActiveEnemy(snapIdx);
+          snapAbility2.fn(snapIdx);
+          updateHPBars(); renderStatusTags(); updateStatsUI();
+        }});
+      }
+      // else: no action available — slot consumed silently (no "Wait" shown)
       cd--;
     }
   }
@@ -947,9 +962,13 @@ function endBattle(won){
       }
 
       advanceToNextGym(); // resets zoneBattleCount and gymSkips
-      // 3rd gym (index 2) — start gauntlet instead of ending run
-      if (_beatenGymIdx === 2) {
-        _gauntletBossIdx = 0;
+      // After the final zone gym — start gauntlet sequence.
+      // Non-sandbox: 3 released-element gyms (indices 0-2), then jump straight to
+      // The Dark One (GAUNTLET_ROSTER index 2), skipping Skar and Vael for the base run.
+      // Sandbox: 8 gyms (indices 0-7), then full gauntlet starting from Skar (index 0).
+      const lastGymIdx = sandboxMode ? 2 : (GYM_ROSTER.length - 1);
+      if (_beatenGymIdx === lastGymIdx) {
+        _gauntletBossIdx = sandboxMode ? 0 : 2; // sandbox: full gauntlet; non-sandbox: Dark One only
         battleNumber++;
         setTimeout(_loadGauntletBoss, 1400);
         return;
