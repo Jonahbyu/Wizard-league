@@ -34,10 +34,24 @@ function makeEnemyObj(enc){
   const finalMaxHP  = Math.round(((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * _bnMult + _bnFlat) * mistHPMult * 0.77 * _lateBoost * (battleNumber === 1 ? 0.5 : 1));
   const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult * 0.80) - 5);
 
-  // Build ability list based on element + zone depth
+  // Variable action scaling: after battle 8, each 7-battle threshold grants a 50% roll.
+  // Success → +1 bonus action this battle. Failure → +15% ability damage (incantation upgrade).
+  let bonusActions = 0;
+  let _abilityDmgMult = 1.0;
+  if (!enc.isTargetDummy && !enc.isGym) {
+    for (let threshold = 9; threshold <= battleNumber; threshold += 7) {
+      if (Math.random() < 0.5) {
+        bonusActions++;
+      } else {
+        _abilityDmgMult += 0.15;
+      }
+    }
+  }
+
+  // Build ability list based on element + zone depth + bonus actions
   // Derive difficulty from base HP if not specified: tankier enemies get more abilities
   const _difficulty = enc.difficulty || (enc.enemyMaxHP > 120 ? 'hard' : enc.enemyMaxHP > 100 ? 'medium' : 'easy');
-  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, _difficulty);
+  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, _difficulty, bonusActions);
 
   // Mist: extra passives for non-dummy enemies
   let extraPassives = [];
@@ -62,6 +76,7 @@ function makeEnemyObj(enc){
     hp: finalMaxHP, alive:true, basicCD:0,
     passive, extraPassives, statPow, statEfx, statDef, status:freshEnemyStatus(),
     abilities, items,
+    bonusActions, _abilityDmgMult,
     gymHitCounter:enc.gymHitCounter||0, gymPhase2:enc.gymPhase2||false,
   };
 }
@@ -83,6 +98,7 @@ function loadBattle(enc){
   combat.nextMeltDouble    = false; // Temper: next melt hit doubled
   combat.meltDoubleTurn    = false; // Molten Surge: all melt this turn doubled
   combat._seedSurgePending = false; // Seed Surge: next Seed costs no CD
+  combat._seedSurgeBonus   = 2;    // Seed Surge: bonus stacks (incantation-scaled)
   // Surge system
   combat._surgeThreshold        = 60;  // base threshold (unused directly — _getSurgeThreshold() computes it)
   combat._surgeFulguriteMinus   = 0;   // cumulative threshold reduction from Fulgurite casts

@@ -26,16 +26,18 @@ const SPELL_CATALOGUE = {
   ember_storm:{ id:'ember_storm', tier:'primary', name:'Ember Storm', emoji:'🔥', element:'Fire', tags:['burn'],
     desc:'Three rapid strikes, each fanning the flames', baseCooldown:2,
     execute(s){
-      const burnPerHit = Math.round(3 + _incantationBonus(this.incantationLevel||1, 1, 0.90));
-      s.hit({baseDamage:5, hits:3, effects:[{type:'burn',stacks:burnPerHit}], abilityElement:'Fire'});
+      const hits = 3 + Math.round(_incantationBonus(this.incantationLevel||1, 1, 1.00));
+      s.hit({baseDamage:5, hits, effects:[{type:'burn',stacks:3}], abilityElement:'Fire'});
       s.log('🔥 Ember Storm!','player');
     }},
 
   flame_wave:{ id:'flame_wave', tier:'primary', name:'Flame Wave', emoji:'🌊', element:'Fire', tags:['burn'],
     desc:'Scorching wave washes over all enemies', baseCooldown:2,
     execute(s){
-      const burn = Math.round(5 + _incantationBonus(this.incantationLevel||1, 1, 0.90));
-      aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:10, effects:[{type:'burn',stacks:burn}], abilityElement:'Fire', isAOE:true}); });
+      const bonus = Math.round(_incantationBonus(this.incantationLevel||1, 2, 0.90));
+      const burn = 5 + bonus;
+      const dmg  = 10 + bonus;
+      aliveEnemies().forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:dmg, effects:[{type:'burn',stacks:burn}], abilityElement:'Fire', isAOE:true}); });
       s.log('🌊🔥 Flame Wave!','player');
     }},
 
@@ -81,21 +83,21 @@ const SPELL_CATALOGUE = {
     desc:'Draw life from all fire on the battlefield', baseCooldown:2,
     execute(s){
       const total = totalEnemyBurnStacks() + (status.player.burnStacks||0);
-      const healPer = 1 + _incantationBonus(this.incantationLevel||1, 1, 0.90);
+      const healPer = 1 + _incantationBonus(this.incantationLevel||1, 0.2, 0.95);
       const healed = Math.max(1, Math.round(total * healPer));
       s.healSelf(healed);
       s.log(`❤️‍🔥 Fire Heal: +${healed} HP from ${total} burn stacks`,'player');
     }},
 
   fire_rage:{ id:'fire_rage', tier:'secondary', name:'Fire Rage', emoji:'😤', element:'Fire', requiresTag:'burn',
-    desc:'Channel the rage of fire into raw Power', baseCooldown:5,
+    desc:'Channel the rage of fire into raw Power for 1 turn', baseCooldown:1,
     execute(s){
       const total = totalEnemyBurnStacks() + (status.player.burnStacks||0);
       const boost = Math.floor(total/2);
-      const rageTurns = Math.round(2 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
+      const rageTurns = 1 + Math.round(_incantationBonus(this.incantationLevel||1, 1, 1.00));
       status.player.rageBoostPow = boost;
       status.player.rageBoostTurns = rageTurns;
-      s.log(`😤 Fire Rage! +${boost} Power for ${rageTurns} turns`,'player');
+      s.log(`😤 Fire Rage! +${boost} Power for ${rageTurns} turn${rageTurns>1?'s':''}`,'player');
     }},
 
   brave_burn:{ id:'brave_burn', tier:'legendary', name:'Brave Burn', emoji:'🔥💀', element:'Fire',
@@ -106,8 +108,8 @@ const SPELL_CATALOGUE = {
         status.player.burnStacks = (status.player.burnStacks||0) + maxStacks;
         s.log(`🔥💀 Brave Burn! +${maxStacks} burn to self`,'player');
       }
-      const immuneTurns = Math.round(1 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
-      status.player.debuffImmune = immuneTurns;
+      const immuneTurns = 1;
+      status.player.debuffImmune = (status.player.debuffImmune||0) + immuneTurns;
       s.log(`🛡️ Debuff immune for ${immuneTurns} turn${immuneTurns>1?'s':''}`,'player');
     }},
 
@@ -140,13 +142,14 @@ const SPELL_CATALOGUE = {
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx]; if(!e||!e.alive) return;
       const baseArmor = e.status.block||0;
-      const boosted = baseArmor * 2;
+      const armorMult = 2 + _incantationBonus(this.incantationLevel||1, 0.5, 0.90);
+      const boosted = Math.floor(baseArmor * armorMult);
       if(boosted > 0){
         e.status._armorPeak = Math.max(e.status._armorPeak||0, boosted);
         e.status.block = boosted;
         s.log(`🌡️ Crucible! Armor ${baseArmor} → ${boosted}`,'player');
       }
-      const pts = Math.floor(boosted * 0.5 + _incantationBonus(this.incantationLevel||1,2,0.9) + s.attackPow()*0.25);
+      const pts = Math.floor(boosted * 0.5 + s.attackPow()*0.25);
       if(pts > 0) applyMelt('player','enemy', pts, '🌡️ Crucible');
       else s.log('🌡️ Crucible — no armor to exploit.','player');
     }},
@@ -234,10 +237,9 @@ const SPELL_CATALOGUE = {
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx]; if(!e||!e.alive) return;
       const armor = e.status.block||0;
-      const incant = _incantationBonus(this.incantationLevel||1,3,0.9);
       const pts = armor >= 15
-        ? Math.floor(30 + incant + s.attackPow()*0.5)
-        : Math.floor(10 + incant + s.attackPow()*0.5);
+        ? Math.floor(30 + _incantationBonus(this.incantationLevel||1, 5, 0.90) + s.attackPow()*0.5)
+        : Math.floor(10 + _incantationBonus(this.incantationLevel||1, 2, 0.90) + s.attackPow()*0.5);
       s.log(`💥 Crucible Burst! ${armor>=15?'Heavy':'Light'} armor — ${pts} Melt pts`,'player');
       applyMelt('player','enemy', pts, '💥 Crucible Burst');
     }},
@@ -246,7 +248,7 @@ const SPELL_CATALOGUE = {
     desc:'The forge surges — all Melt hits this turn deal double damage', baseCooldown:4,
     execute(s){
       combat.meltDoubleTurn = true;
-      s.log('🌋 Molten Surge! All Melt doubled this turn.','player');
+      s.log(`🌋 Molten Surge! All Melt ×2 this turn.`,'player');
     }},
 
   melt_down:{ id:'melt_down', tier:'secondary', name:'Melt Down', emoji:'🫠', element:'Fire', tags:['melt'],
@@ -254,11 +256,11 @@ const SPELL_CATALOGUE = {
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx]; if(!e||!e.alive) return;
       const armor = e.status.block||0;
-      const incant = Math.floor(_incantationBonus(this.incantationLevel||1,2,0.9));
+      const mult = 1.5 + _incantationBonus(this.incantationLevel||1, 0.2, 0.90);
       let pts;
       if(armor > 0){
         e.status._armorPeak = Math.max(e.status._armorPeak||0, armor);
-        pts = Math.floor(armor * 1.5) + incant;
+        pts = Math.floor(armor * mult);
         // Trigger Meltdown legendary manually (bypassing applyMelt's armor path)
         if(hasPassive('fire_meltdown')){
           const peak = e.status._armorPeak;
@@ -274,7 +276,7 @@ const SPELL_CATALOGUE = {
           s.log(`🔥 Slag Trail: +${armor} Burn from Melt Down!`,'player');
         }
       } else {
-        pts = Math.floor(12 + incant + s.attackPow()*0.5);
+        pts = Math.floor(12 + s.attackPow()*0.5);
         s.log(`🫠 Melt Down! No armor — ${pts} Melt`,'player');
       }
       if(pts > 0) applyMelt('player','enemy', pts, '🫠 Melt Down');
@@ -284,14 +286,14 @@ const SPELL_CATALOGUE = {
     desc:'Temper your next strike — the next Melt hit this battle deals double damage', baseCooldown:2,
     execute(s){
       combat.nextMeltDouble = true;
-      s.log('⚔️ Temper! Next Melt hit doubled.','player');
+      s.log(`⚔️ Temper! Next Melt hit ×2.`,'player');
     }},
 
   // Legendary Melt
   white_heat:{ id:'white_heat', tier:'legendary', name:'White Heat', emoji:'🤍', element:'Fire', tags:['melt'],
     desc:'Pure molten force — no base value, scales entirely with Attack Power for massive late-game damage', baseCooldown:5,
     execute(s){
-      const pts = Math.floor(s.attackPow()*0.5 + _incantationBonus(this.incantationLevel||1,5,0.9));
+      const pts = Math.floor(s.attackPow()*0.5);
       s.log(`🤍 White Heat! ${pts} pure Melt`,'player');
       if(pts > 0) applyMelt('player','enemy', pts, '🤍 White Heat');
     }},
@@ -300,7 +302,7 @@ const SPELL_CATALOGUE = {
     desc:'A final judgment — scales with every kill this run. More kills = more Melt.', baseCooldown:5,
     execute(s){
       const kills = _runKillsThisRun||0;
-      const pts = Math.floor(15 + kills*3 + s.attackPow()*0.5 + _incantationBonus(this.incantationLevel||1,3,0.9));
+      const pts = Math.floor(15 + kills*3 + s.attackPow()*0.5);
       s.log(`⚖️ Searing Verdict! ${kills} kills → ${pts} Melt pts`,'player');
       applyMelt('player','enemy', pts, '⚖️ Searing Verdict');
     }},
@@ -528,7 +530,8 @@ const SPELL_CATALOGUE = {
     desc:'Fast lightning jab that applies Shock', baseCooldown:0, isStarter:true,
     execute(s){
       const bonus = Math.floor(s.attackPow()/10);
-      s.hit({baseDamage:25+bonus, effects:[], abilityElement:'Lightning'});
+      const dmgBonus = Math.round(_incantationBonus(this.incantationLevel||1, 2, 0.90));
+      s.hit({baseDamage:25+bonus+dmgBonus, effects:[], abilityElement:'Lightning'});
       if(!combat.over){
         const shockBase = 2.0 + _incantationBonus(this.incantationLevel||1, 0.4, 0.90);
         let shockAmt = shockBase;
@@ -581,9 +584,10 @@ const SPELL_CATALOGUE = {
     desc:'Load the target with Shock and charge yourself up', baseCooldown:2,
     execute(s){
       const shock = Math.round(3 + _incantationBonus(this.incantationLevel||1, 1, 0.90));
+      const powerBonus = Math.round(30 + _incantationBonus(this.incantationLevel||1, 3, 0.90));
       status.enemy.shockStacks = (status.enemy.shockStacks||0) + shock;
-      status.player.overchargePowerPending = (status.player.overchargePowerPending||0) + 30;
-      s.log(`⚡💪 Overcharge! +${shock} Shock, +30 Power next turn`,'player');
+      status.player.overchargePowerPending = (status.player.overchargePowerPending||0) + powerBonus;
+      s.log(`⚡💪 Overcharge! +${shock} Shock, +${powerBonus} Power next turn`,'player');
     }},
 
   // Secondary
@@ -593,8 +597,7 @@ const SPELL_CATALOGUE = {
       const e = combat.enemies[combat.activeEnemyIdx];
       const stacks = e ? (e.status.shockStacks||0) : 0;
       if(stacks > 0){
-        const flatBonus = Math.round(_incantationBonus(this.incantationLevel||1, 2, 0.95));
-        const perStack = Math.max(1, Math.ceil(s.attackPow()/3)) + flatBonus;
+        const perStack = Math.max(1, Math.ceil(s.attackPow()/3));
         const dmg = stacks * perStack;
         if(e) e.status.shockStacks = 0;
         applyDirectDamage('player','enemy', dmg, `💥 Blitz (${stacks} Shock)`);
@@ -607,17 +610,15 @@ const SPELL_CATALOGUE = {
   recharge:{ id:'recharge', tier:'secondary', name:'Recharge', emoji:'🔋', element:'Lightning',
     desc:'Reset your Overload damage to maximum', baseCooldown:8,
     execute(s){
-      const resetVal = 2.0 + _incantationBonus(this.incantationLevel||1, 0.2, 0.90);
-      status.player.lightningMult = resetVal;
-      s.log(`🔋 Recharge! Overload reset to ${Math.round(resetVal*100)}%`,'player');
+      status.player.lightningMult = 2.0;
+      s.log(`🔋 Recharge! Overload reset to 200%`,'player');
     }},
 
   electrocute:{ id:'electrocute', tier:'secondary', name:'Electrocute', emoji:'☠️⚡', element:'Lightning',
     desc:'Double the Shock on target at a painful cost', baseCooldown:3,
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx];
-      const mult = 2 + _incantationBonus(this.incantationLevel||1, 0.5, 0.90);
-      if(e){ const prev = e.status.shockStacks||0; e.status.shockStacks = Math.round(prev*mult); s.log(`☠️⚡ Electrocute! Shock ×${mult.toFixed(2)} (${e.status.shockStacks})`,'player'); }
+      if(e){ const prev = e.status.shockStacks||0; e.status.shockStacks = Math.round(prev*2); s.log(`☠️⚡ Electrocute! Shock ×2 (${e.status.shockStacks})`,'player'); }
       applySelfDamage(10, '☠️ Electrocute');
     }},
 
@@ -625,10 +626,11 @@ const SPELL_CATALOGUE = {
     desc:'Surge of power — Shock the target and charge for next turn', baseCooldown:2,
     execute(s){
       const shock = Math.round(2 + _incantationBonus(this.incantationLevel||1, 1, 0.90));
+      const powerBonus = Math.round(15 + _incantationBonus(this.incantationLevel||1, 2, 0.90));
       status.enemy.shockStacks = (status.enemy.shockStacks||0) + shock;
       applySelfDamage(5, '🔄 Feedback');
-      status.player.overchargePowerPending = (status.player.overchargePowerPending||0) + 15;
-      s.log(`🔄⚡ Feedback! +${shock} Shock, 5 self dmg, +15 Power next turn`,'player');
+      status.player.overchargePowerPending = (status.player.overchargePowerPending||0) + powerBonus;
+      s.log(`🔄⚡ Feedback! +${shock} Shock, 5 self dmg, +${powerBonus} Power next turn`,'player');
     }},
 
   short_circuit:{ id:'short_circuit', tier:'secondary', name:'Short Circuit', emoji:'💡', element:'Lightning',
@@ -678,9 +680,8 @@ const SPELL_CATALOGUE = {
       clearPlayerDebuffs();
       clearPlayerBuffs();
       if(n > 0){
-        const shockPer = Math.round(2 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
-        status.enemy.shockStacks = (status.enemy.shockStacks||0) + n*shockPer;
-        s.log(`🧹⚡ Static Cleanse! ${n} effects cleared → +${n*shockPer} Shock`,'player');
+        status.enemy.shockStacks = (status.enemy.shockStacks||0) + n*2;
+        s.log(`🧹⚡ Static Cleanse! ${n} effects cleared → +${n*2} Shock`,'player');
       } else {
         s.log('🧹 Static Cleanse — nothing to clear','player');
       }
@@ -689,9 +690,7 @@ const SPELL_CATALOGUE = {
   charge_shot:{ id:'charge_shot', tier:'legendary', name:'Charge Shot', emoji:'🎯⚡', element:'Lightning',
     desc:'Spend two actions to unleash a delayed area lightning blast', baseCooldown:2,
     execute(s){
-      const dmgBonus = Math.round(_incantationBonus(this.incantationLevel||1, 10, 0.95));
       status.player.chargeShotCharging = true;
-      status.player.chargeShotDmgBonus = (status.player.chargeShotDmgBonus||0) + dmgBonus;
       s.log('🎯⚡ Charge Shot charging — fires next round!','player');
     }},
 
@@ -699,8 +698,9 @@ const SPELL_CATALOGUE = {
   bolt:{ id:'bolt', tier:'primary', name:'Bolt', emoji:'⚡', element:'Lightning',
     desc:'Quick lightning strike that loads a Surge onto the target', baseCooldown:1,
     execute(s){
-      const surgeVal = Math.round(25 + _incantationBonus(this.incantationLevel||1, 4, 0.90));
-      s.hit({baseDamage:15, effects:[], abilityElement:'Lightning'});
+      const surgeVal = Math.round(25 + _incantationBonus(this.incantationLevel||1, 5, 0.90));
+      const dmgBonus = Math.round(_incantationBonus(this.incantationLevel||1, 3, 0.90));
+      s.hit({baseDamage:15+dmgBonus, effects:[], abilityElement:'Lightning'});
       if(!combat.over){
         _applySurge('enemy', surgeVal, '⚡ Bolt — Surge');
         s.log(`⚡ Bolt! Surge ${surgeVal} loaded.`,'player');
@@ -711,7 +711,8 @@ const SPELL_CATALOGUE = {
     desc:'Heavy strike that hits hard and loads Shock', baseCooldown:2,
     execute(s){
       const shockAmt = Math.round(2 + _incantationBonus(this.incantationLevel||1, 0.5, 0.90));
-      s.hit({baseDamage:35, effects:[], abilityElement:'Lightning'});
+      const dmgBonus = Math.round(_incantationBonus(this.incantationLevel||1, 4, 0.90));
+      s.hit({baseDamage:35+dmgBonus, effects:[], abilityElement:'Lightning'});
       if(!combat.over){
         const e = combat.enemies[combat.activeEnemyIdx];
         if(e && e.alive){
@@ -725,10 +726,11 @@ const SPELL_CATALOGUE = {
   ball_lightning:{ id:'ball_lightning', tier:'primary', name:'Ball Lightning', emoji:'🔮⚡', element:'Lightning',
     desc:'Rolling orb of lightning hits all enemies and loads Surge on each', baseCooldown:2,
     execute(s){
-      const surgeVal = Math.round(20 + _incantationBonus(this.incantationLevel||1, 3, 0.90));
+      const surgeVal = Math.round(20 + _incantationBonus(this.incantationLevel||1, 4, 0.90));
+      const dmgBonus = Math.round(_incantationBonus(this.incantationLevel||1, 5, 0.90));
       aliveEnemies().forEach((_,i)=>{
         setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i]));
-        s.hit({baseDamage:10, effects:[], abilityElement:'Lightning', isAOE:true});
+        s.hit({baseDamage:10+dmgBonus, effects:[], abilityElement:'Lightning', isAOE:true});
         if(combat.over) return;
         _applySurge('enemy', surgeVal, '🔮⚡ Ball Lightning — Surge');
       });
@@ -738,7 +740,7 @@ const SPELL_CATALOGUE = {
   static_charge:{ id:'static_charge', tier:'primary', name:'Static Charge', emoji:'⚡🔋', element:'Lightning',
     desc:'No damage — loads a heavy Surge onto the target', baseCooldown:1,
     execute(s){
-      const surgeVal = Math.round(60 + _incantationBonus(this.incantationLevel||1, 8, 0.90));
+      const surgeVal = Math.round(60 + _incantationBonus(this.incantationLevel||1, 10, 0.90));
       _applySurge('enemy', surgeVal, '⚡ Static Charge — Surge');
       s.log(`⚡🔋 Static Charge! Surge ${surgeVal} loaded.`,'player');
     }},
@@ -755,15 +757,16 @@ const SPELL_CATALOGUE = {
   supercharge:{ id:'supercharge', tier:'secondary', name:'Supercharge', emoji:'⚡⚡', element:'Lightning',
     desc:'Load a huge Surge, or add to an existing one', baseCooldown:3,
     execute(s){
-      const bonus = Math.round(_incantationBonus(this.incantationLevel||1, 5, 0.90));
+      const largeBon = Math.round(_incantationBonus(this.incantationLevel||1, 10, 0.90));
+      const smallBon = Math.round(_incantationBonus(this.incantationLevel||1, 5, 0.90));
       const e = combat.enemies[combat.activeEnemyIdx];
       if(!e || !e.alive) return;
       if(e.status.surgeActive){
-        e.status.surgeValue += 40 + bonus;
-        s.log(`⚡⚡ Supercharge! Surge +${40+bonus} → ${e.status.surgeValue}`,'player');
+        e.status.surgeValue += 40 + smallBon;
+        s.log(`⚡⚡ Supercharge! Surge +${40+smallBon} → ${e.status.surgeValue}`,'player');
       } else {
         e.status.surgeActive = true;
-        e.status.surgeValue  = 80 + bonus;
+        e.status.surgeValue  = 80 + largeBon;
         e.status.surgeMeter  = 0;
         s.log(`⚡⚡ Supercharge! Surge ${e.status.surgeValue} loaded.`,'player');
       }
@@ -787,7 +790,7 @@ const SPELL_CATALOGUE = {
   residual_current:{ id:'residual_current', tier:'secondary', name:'Residual Current', emoji:'🔄⚡', element:'Lightning',
     desc:'After Surge triggers this turn, apply a new Surge 30. Cast before or after.', baseCooldown:3,
     execute(s){
-      const bonus = Math.round(_incantationBonus(this.incantationLevel||1, 4, 0.90));
+      const bonus = Math.round(_incantationBonus(this.incantationLevel||1, 10, 0.90));
       const surgeVal = 30 + bonus;
       if(combat._surgeTriggeredThisTurn){
         // Surge already fired this turn — apply immediately
@@ -844,7 +847,7 @@ const SPELL_CATALOGUE = {
   thunderclap:{ id:'thunderclap', tier:'legendary', name:'Thunderclap', emoji:'🌩️💥', element:'Lightning',
     desc:'Massive lightning blast hits all enemies, loading Surge 100 on each', baseCooldown:4,
     execute(s){
-      const surgeVal = Math.round(100 + _incantationBonus(this.incantationLevel||1, 10, 0.90));
+      const surgeVal = 100;
       aliveEnemies().forEach((_,i)=>{
         setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i]));
         s.hit({baseDamage:60, effects:[], abilityElement:'Lightning', isAOE:true});
@@ -857,8 +860,7 @@ const SPELL_CATALOGUE = {
   fulgurite:{ id:'fulgurite', tier:'legendary', name:'Fulgurite', emoji:'🪨⚡', element:'Lightning',
     desc:'Strike that permanently lowers the Surge threshold this battle by 5', baseCooldown:2,
     execute(s){
-      const bonus = Math.round(_incantationBonus(this.incantationLevel||1, 5, 0.90));
-      s.hit({baseDamage:30+bonus, effects:[], abilityElement:'Lightning'});
+      s.hit({baseDamage:30, effects:[], abilityElement:'Lightning'});
       if(!combat.over){
         combat._surgeFulguriteMinus = (combat._surgeFulguriteMinus||0) + 5;
         s.log(`🪨⚡ Fulgurite! Surge threshold now ${_getSurgeThreshold()}.`,'player');
@@ -952,11 +954,11 @@ const SPELL_CATALOGUE = {
   vine_strike:{ id:'vine_strike', tier:'primary', name:'Vine Strike', emoji:'🌿', element:'Nature',
     desc:'Three quick strikes each trying to root the target', baseCooldown:0, isStarter:true,
     execute(s){
-      const rootChance = Math.min(0.99, 0.50 + _incantationBonus(this.incantationLevel||1, 0.05, 0.90));
-      for(let i=0; i<3; i++){
+      const hits = 3 + Math.round(_incantationBonus(this.incantationLevel||1, 1, 1.00));
+      for(let i=0; i<hits; i++){
         if(combat.over) return;
         s.hit({baseDamage:5, effects:[], abilityElement:'Nature', apMult:0.75});
-        if(!combat.over && Math.random()<rootChance) applyRoot('player','enemy',1);
+        if(!combat.over && Math.random()<0.50) applyRoot('player','enemy',1);
       }
       s.log('🌿 Vine Strike!','player');
     }},
@@ -965,9 +967,10 @@ const SPELL_CATALOGUE = {
     desc:'Raise thorned armor and ensnare the target', baseCooldown:2,
     execute(s){
       const root = Math.round(2 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
-      gainBlock('player', 30);
+      const armor = Math.round(30 + _incantationBonus(this.incantationLevel||1, 5, 0.90));
+      gainBlock('player', armor);
       applyRoot('player','enemy', root);
-      s.log(`🌵 Thornwall! +30 Armor, +${root} Root`,'player');
+      s.log(`🌵 Thornwall! +${armor} Armor, +${root} Root`,'player');
     }},
 
   natures_call:{ id:'natures_call', tier:'primary', name:"Nature's Call", emoji:'🌳', element:'Nature',
@@ -977,7 +980,9 @@ const SPELL_CATALOGUE = {
       const isLegendary = hasPassive('nature_verdant_legion');
       const hpBase = (isLegendary ? 50 : 25) + Math.round(_incantationBonus(this.incantationLevel||1, 5, 0.95));
       const hp = hpBase + (player._talentTreantHP||0);
-      const dmg = isLegendary ? 15 : 5;
+      const dmgBonus = Math.round(_incantationBonus(this.incantationLevel||1, 1, 0.90));
+      combat._treantDmgBonus = Math.max(combat._treantDmgBonus||0, dmgBonus);
+      const dmg = (isLegendary ? 15 : 5) + (combat._treantDmgBonus||0);
       combat.summons.push({name:'Treant',emoji:'🌳',hp,maxHP:hp,dmg,cd:0,rootChance:isLegendary?1.0:0.5,id:Date.now()+Math.random()});
       s.log(`🌳 A Treant rises! (${hp} HP, ${dmg} dmg)`,'player');
       renderSummonsRow();
@@ -986,11 +991,11 @@ const SPELL_CATALOGUE = {
   bramble_burst:{ id:'bramble_burst', tier:'primary', name:'Bramble Burst', emoji:'🌵💥', element:'Nature',
     desc:'Thorny burst hits all enemies and tries to root each', baseCooldown:1,
     execute(s){
-      const rootChance = Math.min(0.99, 0.50 + _incantationBonus(this.incantationLevel||1, 0.05, 0.90));
+      const dmg = Math.round(15 + _incantationBonus(this.incantationLevel||1, 8, 0.90));
       aliveEnemies().forEach((_,i)=>{
         setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i]));
-        s.hit({baseDamage:10, effects:[], abilityElement:'Nature', isAOE:true});
-        if(!combat.over && Math.random()<rootChance) applyRoot('player','enemy',1);
+        s.hit({baseDamage:dmg, effects:[], abilityElement:'Nature', isAOE:true});
+        if(!combat.over && Math.random()<0.50) applyRoot('player','enemy',1);
       });
       s.log('🌵💥 Bramble Burst!','player');
     }},
@@ -1000,8 +1005,7 @@ const SPELL_CATALOGUE = {
     desc:'Vines multiply — double the target\'s Root stacks', baseCooldown:3,
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx];
-      const mult = 2 + _incantationBonus(this.incantationLevel||1, 0.5, 0.90);
-      if(e){ e.status.rootStacks = Math.round((e.status.rootStacks||0)*mult); s.log(`🌿🌿 Wild Growth! Root ×${mult.toFixed(2)} (${e.status.rootStacks})`,'player'); }
+      if(e){ e.status.rootStacks = Math.round((e.status.rootStacks||0)*2); s.log(`🌿🌿 Wild Growth! Root ×2 (${e.status.rootStacks})`,'player'); }
     }},
 
   living_forest:{ id:'living_forest', tier:'secondary', name:'Living Forest', emoji:'🌲', element:'Nature',
@@ -1009,7 +1013,7 @@ const SPELL_CATALOGUE = {
     execute(s){
       const alive = aliveEnemies();
       if(!alive.length || !combat.summons.length){ s.log('🌲 No Treants to command!','player'); return; }
-      const attacks = Math.round(2 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
+      const attacks = 2;
       combat.summons.forEach(t=>{
         if(t.hp<=0) return;
         for(let i=0; i<attacks; i++){
@@ -1036,8 +1040,9 @@ const SPELL_CATALOGUE = {
   nourish:{ id:'nourish', tier:'secondary', name:'Nourish', emoji:'💚🌳', element:'Nature',
     desc:'Strengthen and heal all your Treant allies', baseCooldown:3,
     execute(s){
-      const heal = Math.round(25 + _incantationBonus(this.incantationLevel||1, 5, 0.95));
-      combat.summons.forEach(t=>{ t.maxHP+=heal; t.hp=Math.min(t.maxHP, t.hp+heal); t.dmg+=5; });
+      const heal = Math.round(15 + _incantationBonus(this.incantationLevel||1, 3, 0.95));
+      const dmgGain = Math.round(3 + _incantationBonus(this.incantationLevel||1, 1, 0.90));
+      combat.summons.forEach(t=>{ t.maxHP+=heal; t.hp=Math.min(t.maxHP, t.hp+heal); t.dmg+=dmgGain; });
       gainBlock('player',1);
       renderSummonsRow();
       s.log(`💚🌳 Nourish! Treants +${heal} HP and strengthened`,'player');
@@ -1046,7 +1051,7 @@ const SPELL_CATALOGUE = {
   natures_wrath:{ id:'natures_wrath', tier:'legendary', name:"Nature's Wrath", emoji:'🌿💥', element:'Nature',
     desc:'Consume all Root in a crushing Nature\'s Wrath', baseCooldown:4,
     execute(s){
-      const perStack = Math.round(20 + _incantationBonus(this.incantationLevel||1, 4, 0.90));
+      const perStack = 20;
       aliveEnemies().forEach(e=>{
         const idx = combat.enemies.indexOf(e);
         setActiveEnemy(idx);
@@ -1083,18 +1088,18 @@ const SPELL_CATALOGUE = {
     }},
 
   silence_seed:{ id:'silence_seed', tier:'primary', name:'Silence Seed', emoji:'🤫', element:'Nature', tags:['seed'],
-    desc:'Plant a Silence Seed on the target — germinates in 3 turns, disabling active spellbook 1 turn. Cannot stack — each cast is independent.', baseCooldown:3,
+    desc:'Plant a Silence Seed on the target — germinates in 3 turns, silencing 4 random player spells (prioritizing active book). Cannot stack — each cast is independent. +1 spell per upgrade.', baseCooldown:3,
     execute(s){
       const surgeUsed = _plantSeed('enemy', 'silence', 1, 3, {incantLevel: this.incantationLevel||1});
       s.log('🤫 Silence Seed planted!','player');
       if(surgeUsed){ this.currentCD=0; s.log('⚡ Seed Surge: free cast!','status'); }
     }},
 
-  healing_seed:{ id:'healing_seed', tier:'primary', name:'Healing Seed', emoji:'💚', element:'Nature', tags:['seed'],
-    desc:'Plant a Healing Seed on yourself — germinates in 3 turns, restoring 50+DEF HP per stack', baseCooldown:2,
+  armor_seed:{ id:'armor_seed', tier:'primary', name:'Armor Seed', emoji:'🛡️', element:'Nature', tags:['seed'],
+    desc:'Plant an Armor Seed on yourself — germinates in 3 turns, granting 30 Armor per stack', baseCooldown:2,
     execute(s){
-      const surgeUsed = _plantSeed('player', 'healing', 1, 3, {incantLevel: this.incantationLevel||1});
-      s.log('💚 Healing Seed planted on yourself!','player');
+      const surgeUsed = _plantSeed('player', 'armor', 1, 3, {incantLevel: this.incantationLevel||1});
+      s.log('🛡️ Armor Seed planted on yourself!','player');
       if(surgeUsed){ this.currentCD=0; s.log('⚡ Seed Surge: free cast +2 stacks!','status'); }
     }},
 
@@ -1111,8 +1116,8 @@ const SPELL_CATALOGUE = {
     execute(s){
       const e = combat.enemies[combat.activeEnemyIdx]; if(!e||!e.alive) return;
       if(!e.status.seeds||!e.status.seeds.length){ s.log('🌿 Overgrow: no Seeds on target.','player'); return; }
-      e.status.seeds.forEach(seed => { seed.stacks *= 2; });
-      s.log(`🌿 Overgrow! All Seeds on ${e.name} doubled.`,'player');
+      e.status.seeds.forEach(seed => { seed.stacks = seed.stacks * 2; });
+      s.log(`🌿 Overgrow! All Seeds on ${e.name} ×2.`,'player');
       renderStatusTags();
     }},
 
@@ -1139,25 +1144,27 @@ const SPELL_CATALOGUE = {
     desc:'Your next Seed planted this turn costs no cooldown and gains 2 free stacks', baseCooldown:3,
     execute(s){
       combat._seedSurgePending = true;
+      combat._seedSurgeBonus = 2;
       s.log('💥 Seed Surge! Next Seed: free cast +2 stacks.','player');
     }},
 
   deep_soil:{ id:'deep_soil', tier:'secondary', name:'Deep Soil', emoji:'🌍', element:'Nature', tags:['seed'],
     desc:'Reset all active Seed timers back to 4 turns — each Seed gains 1 free stack', baseCooldown:2,
     execute(s){
+      const bonusStacks = Math.round(1 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
       let count = 0;
       combat.enemies.forEach(e => {
         if(!e.alive||!e.status.seeds) return;
-        e.status.seeds.forEach(seed => { seed.timer=4; seed.stacks++; count++; });
+        e.status.seeds.forEach(seed => { seed.timer=4; seed.stacks+=bonusStacks; count++; });
       });
       if(status.player.seeds)
-        status.player.seeds.forEach(seed => { seed.timer=4; seed.stacks++; count++; });
-      s.log(`🌍 Deep Soil! ${count} Seed${count!==1?'s':''} reset to 4t, each +1 stack.`,'player');
+        status.player.seeds.forEach(seed => { seed.timer=4; seed.stacks+=bonusStacks; count++; });
+      s.log(`🌍 Deep Soil! ${count} Seed${count!==1?'s':''} reset to 4t, each +${bonusStacks} stack${bonusStacks!==1?'s':''}.`,'player');
       renderStatusTags();
     }},
 
   reap:{ id:'reap', tier:'secondary', name:'Reap', emoji:'🌾', element:'Nature', tags:['seed'],
-    desc:'Consume all active Seeds — each triggers a weakened bloom (Dmg:15/stack, Root:1/stack, Silence:1t, Heal:25/stack)', baseCooldown:3,
+    desc:'Consume all active Seeds — each triggers a weakened bloom at half power (incantations included)', baseCooldown:3,
     execute(s){
       const results = [];
       const e = combat.enemies[combat.activeEnemyIdx];
@@ -1166,29 +1173,20 @@ const SPELL_CATALOGUE = {
         const consumed = [...e.status.seeds]; e.status.seeds = [];
         consumed.forEach(seed => {
           if(combat.over) return;
-          switch(seed.type){
-            case 'damage':
-              applyDirectDamage('player','enemy', 15*seed.stacks, `🌾 Reap Dmg (×${seed.stacks})`);
-              results.push(`${15*seed.stacks} dmg`); break;
-            case 'root':
-              applyRoot('player','enemy', seed.stacks);
-              results.push(`${seed.stacks} Root`); break;
-            case 'silence':
-              if(e.alive){ e._silenced=(e._silenced||0)+1; results.push('Silence'); } break;
-          }
+          _bloomSeed('enemy', seed, combat.activeEnemyIdx, {powerMult:0.5});
+          results.push(_seedLabel(seed.type)+' ×'+seed.stacks);
         });
       }
       // Player seeds
       if(!combat.over && status.player.seeds && status.player.seeds.length){
         const consumed = [...status.player.seeds]; status.player.seeds = [];
         consumed.forEach(seed => {
-          if(seed.type==='healing'){
-            applyHeal('player', 25*seed.stacks, `🌾 Reap Heal (×${seed.stacks})`);
-            results.push(`+${25*seed.stacks}hp`);
-          }
+          if(combat.over) return;
+          _bloomSeed('player', seed, undefined, {powerMult:0.5});
+          results.push(_seedLabel(seed.type)+' ×'+seed.stacks);
         });
       }
-      s.log(`🌾 Reap! ${results.join(', ')||'no Seeds'}`, 'player');
+      s.log(`🌾 Reap! ${results.join(', ')||'no Seeds'} (weakened)`, 'player');
       renderStatusTags();
     }},
 
@@ -1203,10 +1201,12 @@ const SPELL_CATALOGUE = {
         anySeeds = true;
         const toBloom = [...e.status.seeds]; e.status.seeds = [];
         setActiveEnemy(i);
-        toBloom.forEach(seed => { if(!combat.over) _bloomSeed('enemy', seed, i); });
+        toBloom.forEach(seed => {
+          if(!combat.over) _bloomSeed('enemy', {...seed}, i);
+        });
       });
       setActiveEnemy(prevActive);
-      s.log(anySeeds ? '🌺 Bloom Storm! All enemy Seeds germinate!' : '🌺 Bloom Storm! No enemy Seeds active.','player');
+      s.log(anySeeds ? `🌺 Bloom Storm! All enemy Seeds germinate!` : '🌺 Bloom Storm! No enemy Seeds active.','player');
     }},
 
   world_tree:{ id:'world_tree', tier:'legendary', name:'World Tree', emoji:'🌳', element:'Nature', tags:['seed'],
@@ -1217,8 +1217,8 @@ const SPELL_CATALOGUE = {
       _plantSeed('enemy', 'damage',  2, 5, {incantLevel:il});
       _plantSeed('enemy', 'root',    2, 5, {incantLevel:il});
       _plantSeed('enemy', 'silence', 2, 5, {incantLevel:il}); // 2 separate Silence Seeds
-      _plantSeed('player','healing', 2, 5, {incantLevel:il});
-      s.log('🌳 World Tree! All 4 Seed types planted (×2 each, Healing on you).','player');
+      _plantSeed('player','armor',   2, 5, {incantLevel:il});
+      s.log('🌳 World Tree! All 4 Seed types planted (×2 each, Armor on you).','player');
       renderStatusTags();
     }},
 

@@ -27,23 +27,22 @@ function _incantationBonus(level, baseScale, decay) {
 const SPELL_INCANTATION_CONFIG = {
   // ── FIRE ────────────────────────────────────────────────────────────────────
   ignite:          { scaledStat: 'burnStacks',      baseScale: 3,    decay: 0.90 },
-  ember_storm:     { scaledStat: 'burnPerHit',      baseScale: 1,    decay: 0.90 },
-  flame_wave:      { scaledStat: 'burnStacks',      baseScale: 1,    decay: 0.90 },
+  ember_storm:     { scaledStat: 'hits',             baseScale: 1,    decay: 1.00 },
+  flame_wave:      { scaledStat: 'burnStacks',      baseScale: 2,    decay: 0.90 },
   firewall:        { scaledStat: 'firewallStacks',  baseScale: 1,    decay: 0.90 },
-  grease_fire:     { scaledStat: 'burnAdded',       baseScale: 1,    decay: 0.90 },
+  grease_fire:     { scaledStat: 'burnAdded',       baseScale: 2,    decay: 0.90 },
+  fire_heal:       { scaledStat: 'healPerStack',    baseScale: 0.2,  decay: 0.95 },
+  fire_rage:       { scaledStat: 'rageTurns',       baseScale: 1,    decay: 1.00 },
   // Melt spells
   melt_strike:     { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
   forge_blast:     { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
-  crucible:        { scaledStat: 'meltBonus',       baseScale: 2,    decay: 0.90 },
+  crucible:        { scaledStat: 'multiplier',      baseScale: 0.5,  decay: 0.90 },
   scorch_through:  { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
   slag:            { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
   heat_surge:      { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
   smelt:           { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
-  overheat:        { scaledStat: 'meltPoints',      baseScale: 2,    decay: 0.90 },
-  crucible_burst:  { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
-  melt_down:       { scaledStat: 'meltBonus',       baseScale: 2,    decay: 0.90 },
-  white_heat:      { scaledStat: 'meltPoints',      baseScale: 5,    decay: 0.90 },
-  searing_verdict: { scaledStat: 'meltPoints',      baseScale: 3,    decay: 0.90 },
+  crucible_burst:  { scaledStat: 'meltPoints',      baseScale: 5,    decay: 0.90 },
+  melt_down:       { scaledStat: 'multiplier',      baseScale: 0.2,  decay: 0.90 },
 
   // ── WATER ────────────────────────────────────────────────────────────────────
   tidal_surge:     { scaledStat: 'healBase',        baseScale: 3,    decay: 0.90 },
@@ -69,18 +68,14 @@ const SPELL_INCANTATION_CONFIG = {
   feedback:        { scaledStat: 'shockStacks',     baseScale: 1,    decay: 0.90 },
   short_circuit:   { scaledStat: 'shockApplied',    baseScale: 1,    decay: 1.00 },
   // Surge spells
-  bolt:              { scaledStat: 'surgeValue',      baseScale: 4,    decay: 0.90 },
+  bolt:              { scaledStat: 'surgeValue',      baseScale: 5,    decay: 0.90 },
   thunder_strike:    { scaledStat: 'shockStacks',     baseScale: 0.5,  decay: 0.90 },
-  ball_lightning:    { scaledStat: 'surgeValue',      baseScale: 3,    decay: 0.90 },
-  static_charge:     { scaledStat: 'surgeValue',      baseScale: 8,    decay: 0.90 },
+  ball_lightning:    { scaledStat: 'surgeValue',      baseScale: 4,    decay: 0.90 },
+  static_charge:     { scaledStat: 'surgeValue',      baseScale: 10,   decay: 0.90 },
   megavolt:          { scaledStat: 'baseDamage',      baseScale: 8,    decay: 0.90 },
-  supercharge:       { scaledStat: 'surgeBonus',      baseScale: 5,    decay: 0.90 },
-  overclock:         { scaledStat: 'multiplier',      baseScale: 0.25, decay: 0.90 },
-  residual_current:  { scaledStat: 'surgeValue',      baseScale: 4,    decay: 0.90 },
-  detonator:         { scaledStat: 'surgeValue',      baseScale: 0,    decay: 1.00 },
+  supercharge:       { scaledStat: 'surgeBonus',      baseScale: 10,   decay: 0.90 },
+  residual_current:  { scaledStat: 'surgeValue',      baseScale: 10,   decay: 0.90 },
   grounded:          { scaledStat: 'surgePerDebuff',  baseScale: 1,    decay: 0.90 },
-  thunderclap:       { scaledStat: 'surgeValue',      baseScale: 10,   decay: 0.90 },
-  fulgurite:         { scaledStat: 'baseDamage',      baseScale: 5,    decay: 0.90 },
 
   // ── EARTH ────────────────────────────────────────────────────────────────────
   seismic_wave:    { scaledStat: 'armorStrip',      baseScale: 1,    decay: 1.00 },
@@ -91,19 +86,18 @@ const SPELL_INCANTATION_CONFIG = {
   cataclysm:       { scaledStat: 'dmgPerStack',     baseScale: 5,    decay: 0.90 },
 
   // ── NATURE ───────────────────────────────────────────────────────────────────
-  vine_strike:     { scaledStat: 'rootChance',      baseScale: 0.05, decay: 0.90 },
+  vine_strike:     { scaledStat: 'hits',             baseScale: 1,    decay: 1.00 },
   // Seed spells
   damage_seed:     { scaledStat: 'dmgPerStack',     baseScale: 5,    decay: 0.90 },
   root_seed:       { scaledStat: 'rootPerStack',    baseScale: 1,    decay: 1.00 },
-  silence_seed:    { scaledStat: 'silenceTurns',    baseScale: 1,    decay: 1.00 },
-  healing_seed:    { scaledStat: 'healPerStack',    baseScale: 8,    decay: 0.95 },
-  reap:            { scaledStat: 'dmgPerStack',     baseScale: 2,    decay: 0.90 },
+  silence_seed:    { scaledStat: 'silenceCount',    baseScale: 1,    decay: 1.00 },
+  armor_seed:      { scaledStat: 'armorPerStack',   baseScale: 8,    decay: 0.95 },
+  deep_soil:       { scaledStat: 'bonusStacks',     baseScale: 1,    decay: 1.00 },
   world_tree:      { scaledStat: 'stacksPerType',   baseScale: 1,    decay: 1.00 },
   thornwall:       { scaledStat: 'rootStacks',      baseScale: 1,    decay: 1.00 },
   natures_call:    { scaledStat: 'treantHP',        baseScale: 5,    decay: 0.95 },
-  bramble_burst:   { scaledStat: 'rootChance',      baseScale: 0.05, decay: 0.90 },
-  nourish:         { scaledStat: 'healAmount',      baseScale: 5,    decay: 0.95 },
-  natures_wrath:   { scaledStat: 'dmgPerStack',     baseScale: 4,    decay: 0.90 },
+  bramble_burst:   { scaledStat: 'baseDamage',      baseScale: 8,    decay: 0.90 },
+  nourish:         { scaledStat: 'healAmount',      baseScale: 3,    decay: 0.95 },
 
   // ── PLASMA ───────────────────────────────────────────────────────────────────
   plasma_lance:    { scaledStat: 'dmgPerCharge',    baseScale: 1,    decay: 0.90 },
@@ -131,55 +125,14 @@ const SPELL_INCANTATION_CONFIG = {
   vampiric_strike: { scaledStat: 'lifeStealPct',    baseScale: 0.08, decay: 0.90 },
   war_cry:         { scaledStat: 'powerBonus',      baseScale: 3,    decay: 0.90 },
 
-  // ── FIRE (auto-generated, unreviewed) ────────────────────────────────────────
-  extinguish:      { scaledStat: 'dmgPerStack',     baseScale: 1,    decay: 0.90 },
-  fire_heal:       { scaledStat: 'healPerStack',    baseScale: 1,    decay: 0.90 },
-  fire_rage:       { scaledStat: 'rageTurns',       baseScale: 1,    decay: 1.00 },
-  brave_burn:      { scaledStat: 'immuneTurns',     baseScale: 1,    decay: 1.00 },
-
-  // ── WATER (auto-generated, unreviewed) ───────────────────────────────────────
-  drown:           { scaledStat: 'foamApplied',     baseScale: 1,    decay: 1.00 },
-  deep_current:    { scaledStat: 'armorGained',     baseScale: 5,    decay: 0.95 },
-  tsunami:         { scaledStat: 'dmgPerFoam',      baseScale: 2,    decay: 0.95 },
-
-  // ── ICE (auto-generated, unreviewed) ─────────────────────────────────────────
-  ice_age:         { scaledStat: 'frostApplied',    baseScale: 1,    decay: 0.90 },
-
-  // ── LIGHTNING (auto-generated, unreviewed) ───────────────────────────────────
-  blitz:           { scaledStat: 'dmgPerStack',     baseScale: 2,    decay: 0.95 },
-  recharge:        { scaledStat: 'resetBonus',      baseScale: 0.2,  decay: 0.90 },
-  electrocute:     { scaledStat: 'multiplier',      baseScale: 0.5,  decay: 0.90 },
-  static_cleanse:  { scaledStat: 'shockPerEffect',  baseScale: 1,    decay: 1.00 },
-  charge_shot:     { scaledStat: 'baseDamage',      baseScale: 10,   decay: 0.95 },
-
-  // ── EARTH (auto-generated, unreviewed) ───────────────────────────────────────
-  stone_stance:    { scaledStat: 'powerBonus',      baseScale: 5,    decay: 0.90 },
-  stone_sanctuary: { scaledStat: 'multiplier',      baseScale: 0.5,  decay: 0.90 },
-
-  // ── NATURE (auto-generated, unreviewed) ──────────────────────────────────────
-  wild_growth:     { scaledStat: 'multiplier',      baseScale: 0.5,  decay: 0.90 },
-  living_forest:   { scaledStat: 'attackCount',     baseScale: 1,    decay: 1.00 },
-  spreading_vines: { scaledStat: 'duration',        baseScale: 1,    decay: 1.00 },
-
-  // ── PLASMA (auto-generated, unreviewed) ──────────────────────────────────────
-  energy_infusion: { scaledStat: 'powPerCharge',    baseScale: 0.5,  decay: 0.90 },
-  plasma_shield:   { scaledStat: 'pctPerCharge',    baseScale: 0.2,  decay: 0.90 },
-  self_sacrifice:  { scaledStat: 'hitsPerCharge',   baseScale: 1,    decay: 1.00 },
-  borrowed_power:  { scaledStat: 'borrowAmount',    baseScale: 2,    decay: 1.00 },
-  plasma_stall:    { scaledStat: 'powerGained',     baseScale: 3,    decay: 0.90 },
-  singularity:     { scaledStat: 'bonusCharge',     baseScale: 3,    decay: 0.90 },
-
-  // ── AIR (auto-generated, unreviewed) ─────────────────────────────────────────
-  wind_wall:       { scaledStat: 'armorBonus',      baseScale: 8,    decay: 0.95 },
-  sleeper_gust:    { scaledStat: 'actionsGained',   baseScale: 1,    decay: 1.00 },
-  break_momentum:  { scaledStat: 'dmgPerStack',     baseScale: 2,    decay: 0.95 },
-  storm_rush:      { scaledStat: 'momentumGained',  baseScale: 2,    decay: 0.95 },
 };
 
 // Base values used for upgrade display calculations
 const _INCANTATION_BASE_VALUES = {
   ignite:          15,
-  ember_storm:     3,
+  ember_storm:     3,  // hits
+  fire_heal:       1.0,
+  fire_rage:       1,
   flame_wave:      5,
   firewall:        3,
   grease_fire:     4,
@@ -207,12 +160,14 @@ const _INCANTATION_BASE_VALUES = {
   earthshaker:     3.0,
   dig:             5,
   cataclysm:       25,
-  vine_strike:     0.50,
+  vine_strike:     3,
   thornwall:       2,
   natures_call:    25,
-  bramble_burst:   0.50,
-  nourish:         25,
-  natures_wrath:   20,
+  bramble_burst:   15,
+  nourish:         15,
+  silence_seed:    4,
+  armor_seed:      30,
+  deep_soil:       1,
   plasma_lance:    5,
   obliteration:    5,
   quintuple_hit:   5,
@@ -220,11 +175,6 @@ const _INCANTATION_BASE_VALUES = {
   tornado:         10,
   twin_strike:     2,
   windy_takedown:  25,
-  power_strike:    30,
-  double_tap:      15,
-  shield_bash:     15,
-  vampiric_strike: 0.40,
-  war_cry:         10,
 
   // Duo / merged spells
   plasma_arc:    20,
@@ -240,43 +190,20 @@ const _INCANTATION_BASE_VALUES = {
   ball_lightning:    20,
   static_charge:     60,
   megavolt:          50,
-  supercharge:       40,
-  overclock:         2.0,
+  supercharge:       80,  // large surge base
   residual_current:  30,
-  detonator:         0,
   grounded:          5,
-  thunderclap:       100,
-  fulgurite:         30,
 
-  // Auto-generated, unreviewed
-  extinguish:      2,
-  fire_heal:       1,
-  fire_rage:       2,
-  brave_burn:      1,
-  drown:           2,
-  deep_current:    0,
-  tsunami:         10,
-  ice_age:         5,
-  blitz:           0,
-  recharge:        2.0,
-  electrocute:     2.0,
-  static_cleanse:  2,
-  charge_shot:     20,
-  stone_stance:    0,
-  stone_sanctuary: 2.0,
-  wild_growth:     2.0,
-  living_forest:   2,
-  spreading_vines: 3,
-  energy_infusion: 1.0,
-  plasma_shield:   1.0,
-  self_sacrifice:  2,
-  borrowed_power:  10,
-  plasma_stall:    0,
-  singularity:     0,
-  wind_wall:       0,
-  sleeper_gust:    2,
-  break_momentum:  5,
-  storm_rush:      5,
+  // Fire melt spells
+  crucible:        2.0,  // armor multiplier
+  crucible_burst:  30,   // big nuke base
+  melt_down:       1.5,  // multiplier base
+
+  power_strike:    30,
+  double_tap:      15,
+  shield_bash:     15,
+  vampiric_strike: 0.40,
+  war_cry:         10,
 };
 
 // Roll for spell rarity when a spell is awarded.
@@ -314,6 +241,7 @@ const _STAT_LABELS = {
   hits:'Hits',               bounces:'Bounces',      multiplier:'Mult',        duration:'Duration',
   rootChance:'Root%',        rootStacks:'Root',      treantHP:'Treant HP',
   dmgPerStack:'Dmg/Stack',   dmgPerEnemy:'Dmg/Enemy',dmgPerFoam:'Dmg/Foam',   dmgPerCharge:'Dmg/Charge',
+  silenceCount:'Spells Silenced', armorPerStack:'Armor/Stack',
   baseAmount:'Amount',       momentumGained:'Momentum', powerBonus:'Power',   lifeStealPct:'Life Steal',
   rageTurns:'Rage Turns',    immuneTurns:'Immunity',  resetBonus:'Overload',
   surgeValue:'Surge Dmg',   surgeBonus:'Surge+',     surgePerDebuff:'Surge/Debuff',
@@ -321,6 +249,7 @@ const _STAT_LABELS = {
   powPerCharge:'Pow/Charge', pctPerCharge:'Shield%',  hitsPerCharge:'Hits/Charge',
   borrowAmount:'Charge',     powerGained:'Power',     bonusCharge:'Charge',
   actionsGained:'Actions',   attackCount:'Attacks',
+  reduction:'Timer−',        bonusStacks:'Stacks+',
 };
 
 // Returns "Label: value" string showing the CURRENT incantated stat for display in spell buttons.

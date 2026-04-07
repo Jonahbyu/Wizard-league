@@ -540,7 +540,7 @@ const SPELL_ICON_DATA = {
      <circle cx="8" cy="13" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
      <line x1="5.5" y1="11" x2="10.5" y2="15" stroke="currentColor" stroke-width="2"/>`,
 
-  healing_seed:
+  armor_seed:
     `<ellipse cx="8" cy="9" rx="4" ry="5" fill="currentColor" opacity=".35"/>
      <ellipse cx="8" cy="9" rx="4" ry="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
      <rect x="6" y="7" width="4" height="1.5" fill="currentColor"/>

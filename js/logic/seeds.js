@@ -15,9 +15,9 @@ function _plantSeed(targetSide, type, stacks, timer, opts) {
   // Patient Bloom: +1 timer
   if (hasPassive('nature_patient_bloom')) timer += 1;
 
-  // Seed Surge: +2 free stacks, next seed costs no CD
+  // Seed Surge: free stacks (incantation-scaled), next seed costs no CD
   const surge = !!combat._seedSurgePending;
-  if (surge) { combat._seedSurgePending = false; stacks += 2; }
+  if (surge) { stacks += (combat._seedSurgeBonus || 2); combat._seedSurgePending = false; combat._seedSurgeBonus = 2; }
 
   const tgt = targetSide === 'player'
     ? status.player
@@ -55,15 +55,16 @@ function _plantSeed(targetSide, type, stacks, timer, opts) {
 }
 
 function _seedLabel(type) {
-  return { damage: 'Damage', root: 'Root', silence: 'Silence', healing: 'Healing' }[type] || type;
+  return { damage: 'Damage', root: 'Root', silence: 'Silence', armor: 'Armor' }[type] || type;
 }
 
 // ─── BLOOM ───────────────────────────────────────────────────────────────────
-function _bloomSeed(targetSide, seed, enemyIdx) {
+function _bloomSeed(targetSide, seed, enemyIdx, opts) {
   if (!seed || seed.stacks <= 0) return;
   const prevActive = combat.activeEnemyIdx;
   if (targetSide === 'enemy' && enemyIdx !== undefined) setActiveEnemy(enemyIdx);
 
+  const powerMult = (opts && opts.powerMult != null) ? opts.powerMult : 1;
   const efx = effectPowerFor('player');
   const def = defenseFor('player');
   const il  = seed.incantLevel || 1;
@@ -76,7 +77,7 @@ function _bloomSeed(targetSide, seed, enemyIdx) {
       const _bEnemy = combat.enemies[combat.activeEnemyIdx];
       const _hpBefore = _bEnemy ? _bEnemy.hp : 0;
       performHit('player', 'enemy', {
-        baseDamage: perStack * seed.stacks,
+        baseDamage: Math.floor(perStack * seed.stacks * powerMult),
         effects: [], abilityElement: 'Nature',
         label, _noAtk: true, noRecord: true,
       });
@@ -95,34 +96,41 @@ function _bloomSeed(targetSide, seed, enemyIdx) {
     }
     case 'root': {
       const perStack = Math.floor((3 + Math.floor(_incantationBonus(il, 1, 1.00))) * patientMult);
-      applyRoot('player', 'enemy', perStack * seed.stacks);
-      log(`${label} — ${perStack * seed.stacks} Root!`, 'player');
+      const totalRoot = Math.floor(perStack * seed.stacks * powerMult);
+      applyRoot('player', 'enemy', totalRoot);
+      log(`${label} — ${totalRoot} Root!`, 'player');
       break;
     }
     case 'silence': {
-      const turns = 1 + Math.floor(_incantationBonus(il, 1, 1.00));
-      const e = combat.enemies[combat.activeEnemyIdx];
-      if (e && e.alive) {
-        e._silenced = (e._silenced || 0) + turns;
-        log(`🤫 ${label} — ${e.name} silenced for ${turns} turn${turns > 1 ? 's' : ''}!`, 'player');
-      }
-      // Patient Bloom: silence spills into 2 random spells in another book
-      if (patientMult > 1) {
-        const inactiveBooks = (player.spellbooks || []).filter((_, i) => i !== player.activeBookIdx);
-        if (inactiveBooks.length > 0) {
-          const spillBook = inactiveBooks[Math.floor(Math.random() * inactiveBooks.length)];
-          const spells = spillBook.spells || [];
-          const targets = pickRandom(spells, Math.min(2, spells.length));
-          targets.forEach(s => { s.currentCD = Math.max(s.currentCD || 0, turns + 1); });
-          const names = targets.map(s => s.name || s.id).join(', ');
-          log(`🌾🤫 Patient Bloom spill: ${names} in ${spillBook.name} silenced!`, 'status');
-        }
+      // Silences N random player spells, prioritizing the active book
+      const baseCount = 4 + Math.floor(_incantationBonus(il, 1, 1.00));
+      const count = Math.max(1, Math.floor(baseCount * powerMult));
+      const books = player.spellbooks || [];
+      const activeIdx = player.activeBookIdx || 0;
+      const activeSpells = (books[activeIdx] || {}).spells || [];
+      const otherSpells = [];
+      books.forEach((b, i) => { if (i !== activeIdx) (b.spells || []).forEach(sp => otherSpells.push(sp)); });
+      const shuffActive = [...activeSpells].sort(() => Math.random() - 0.5);
+      const shuffOther  = [...otherSpells].sort(() => Math.random() - 0.5);
+      const targets = [];
+      while (targets.length < count && shuffActive.length > 0) targets.push(shuffActive.shift());
+      while (targets.length < count && shuffOther.length  > 0) targets.push(shuffOther.shift());
+      targets.forEach(sp => { sp.currentCD = Math.max(sp.currentCD || 0, 2); });
+      const names = targets.map(sp => sp.name || sp.id).join(', ');
+      log(`🤫 ${label} — ${count} spell${count !== 1 ? 's' : ''} silenced: ${names || 'none'}!`, 'player');
+      // Patient Bloom: spill 2 extra silences into inactive books
+      if (patientMult > 1 && shuffOther.length > 0) {
+        const extra = shuffOther.slice(0, 2);
+        extra.forEach(sp => { sp.currentCD = Math.max(sp.currentCD || 0, 2); });
+        log(`🌾🤫 Patient Bloom spill: ${extra.map(sp => sp.name || sp.id).join(', ')} also silenced!`, 'status');
       }
       break;
     }
-    case 'healing': {
-      const perStack = Math.floor((50 + _incantationBonus(il, 8, 0.95) + def) * patientMult);
-      applyHeal('player', perStack * seed.stacks, label);
+    case 'armor': {
+      const perStack = Math.floor((30 + _incantationBonus(il, 8, 0.95)) * patientMult);
+      const totalArmor = Math.floor(perStack * seed.stacks * powerMult);
+      gainBlock('player', totalArmor);
+      log(`${label} — +${totalArmor} Armor!`, 'player');
       break;
     }
   }

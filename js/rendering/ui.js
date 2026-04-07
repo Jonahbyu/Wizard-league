@@ -76,8 +76,9 @@ function renderEnemyCards(){
         const color  = isCharge ? '#ffcc44' : isCurrent ? '#e0c0ff' : '#886aa0';
         const bg     = isCharge ? '#2a1800' : isCurrent ? '#1a0030' : '#0e0018';
         const border = isCharge ? '#aa7700' : isCurrent ? '#7040cc' : '#221040';
-        const hintTip = (!player._mistBlindDamage && (intent.hintFn||intent.hint))
+        const hintBody = (!player._mistBlindDamage && (intent.hintFn||intent.hint))
           ? (intent.hintFn ? intent.hintFn() : intent.hint) : '';
+        const hintTip = hintBody ? `${intent.label}\n${hintBody}` : intent.label;
         return `<span style="font-size:${fs(0.46)};color:${color};font-family:'Cinzel',serif;
           background:${bg};border:1px solid ${border};border-radius:3px;padding:1px 4px;white-space:nowrap;
           ${isCurrent?'font-weight:bold;':'opacity:.65;'}"

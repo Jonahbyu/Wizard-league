@@ -72,6 +72,14 @@ function applyOutgoingDamageMods(attackerSide, defenderSide, baseDamage, meta){
     }
   }
 
+  // Incantation upgrade bonus: enemies that failed action rolls get buffed ability damage
+  if(attackerSide === 'enemy' && dmg > 0){
+    const _e = combat.enemies[combat.activeEnemyIdx];
+    if(_e && (_e._abilityDmgMult||1) > 1){
+      dmg = Math.round(dmg * _e._abilityDmgMult);
+    }
+  }
+
   // Lightning Overload multiplier
   if(elementOfSide(attackerSide)==='Lightning'){
     const hasOverload = (attackerSide==='player' && hasPassive('lightning_overload')) ||
@@ -557,17 +565,17 @@ function applyMelt(attackerSide, targetSide, meltPoints, label){
   if(meltPoints <= 0) return;
   label = label || '🔥 Melt';
 
-  // ── Temper: consume flag to double this melt hit ──
+  // ── Temper: consume multiplier on next melt hit ──
   if(attackerSide === 'player' && combat.nextMeltDouble){
-    meltPoints = meltPoints * 2;
+    meltPoints = Math.round(meltPoints * 2);
     combat.nextMeltDouble = false;
-    log(`⚔️ Temper: Melt doubled! (${meltPoints} pts)`, 'status');
+    log(`⚔️ Temper: Melt ×2! (${meltPoints} pts)`, 'status');
   }
 
-  // ── Molten Surge: all melt this turn doubled ──
+  // ── Molten Surge: all melt this turn multiplied ──
   if(attackerSide === 'player' && combat.meltDoubleTurn){
-    meltPoints = meltPoints * 2;
-    log(`🌋 Molten Surge: Melt doubled! (${meltPoints} pts)`, 'status');
+    meltPoints = Math.round(meltPoints * 2);
+    log(`🌋 Molten Surge: Melt ×2! (${meltPoints} pts)`, 'status');
   }
 
   // ── Forge Master: +30% melt points ──
@@ -662,7 +670,7 @@ function applyMelt(attackerSide, targetSide, meltPoints, label){
       log(`⚔️ Armor Eater: +${aeBonus} from ${armorDestroyed} armor consumed!`, 'status');
     }
 
-    applyDirectDamage(attackerSide, targetSide, remaining, label);
+    applyDirectDamage(attackerSide, targetSide, Math.round(remaining * 1.5), label);
     if(combat.over) return;
 
     // Eternal Flame: melt HP damage applies Burn (50% of HP damage dealt)

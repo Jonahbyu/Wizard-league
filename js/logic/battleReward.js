@@ -392,7 +392,7 @@ function buildMinorUpgradePool() {
 function buildMajorUpgradePool() {
   // Power Ups — structural upgrades only. Always show 3.
   // Spell Slot and Passive Slot are near-guaranteed anchors (high weight).
-  // Extra Action appears ~40% of the time. Extra Life has reduced/capped odds.
+  // Extra Action appears ~44% of the time. Extra Life has reduced/capped odds.
   const revives = player.revives || 0;
   const lifeWeight = revives >= 3 ? 0 : [45, 30, 15][revives] ?? 0;
 
@@ -403,7 +403,7 @@ function buildMajorUpgradePool() {
       apply(){ const b=activeBook(); if(b){ b.spellSlots++; log('📖 Spell slot added!','win'); } } },
     { w:90, label:'Extra Passive Slot',emoji:'📿', tag:'Power Up', desc:'+1 passive slot in your active spellbook.',
       apply(){ const b=activeBook(); if(b){ b.passiveSlots=(b.passiveSlots||2)+1; log('📿 Passive slot added!','win'); } } },
-    { w:Math.max(20, 60 - (player.bonusActions||0)*20), label:'Extra Action', emoji:'⚡', tag:'Power Up', desc:'Permanently gain +1 action per turn in combat.',
+    { w:Math.max(22, 66 - (player.bonusActions||0)*20), label:'Extra Action', emoji:'⚡', tag:'Power Up', desc:'Permanently gain +1 action per turn in combat.',
       apply(){ player.bonusActions=(player.bonusActions||0)+1; log('⚡ Extra action per turn!','win'); } },
     { w:lifeWeight, label:'Extra Life',emoji:'❤️', tag:'Power Up', desc:'Survive one killing blow — revive at 75% HP.',
       apply(){ player.revives=(player.revives||0)+1; log('❤ Extra life gained!','win'); } },
@@ -414,7 +414,8 @@ function buildMajorUpgradePool() {
   // Weighted pick without replacement — return exactly 3
   const chosen = [];
   const remaining = [...candidates];
-  while (chosen.length < Math.min(3, remaining.length)) {
+  const target = Math.min(3, remaining.length);
+  while (chosen.length < target && remaining.length > 0) {
     const total = remaining.reduce((s, c) => s + c.w, 0);
     let r = Math.random() * total;
     for (let i = 0; i < remaining.length; i++) {
@@ -700,6 +701,7 @@ function showIncantationChoiceScreen(level) {
   const picks = pickRandom(upgradeable, Math.min(3, upgradeable.length));
 
   picks.forEach(spell => {
+
     const display = (typeof incantationUpgradeDisplay === 'function') ? incantationUpgradeDisplay(spell) : null;
     const rarityInfo = (typeof SPELL_RARITY !== 'undefined') ? (SPELL_RARITY[spell.rarity || 'dim'] || SPELL_RARITY.dim) : { label: 'Dim', color: null };
     const rarityColor = rarityInfo.color || '#8a6a30';
@@ -722,6 +724,7 @@ function showIncantationChoiceScreen(level) {
     };
     cont.appendChild(btn);
   });
+  _appendStatPad(cont, 3 - picks.length, _afterRewardChosen);
 
   showScreen('incantation-screen');
 }
@@ -871,6 +874,9 @@ function showSpellChoiceScreen(level, tier='secondary', forElement=null){
     cont.appendChild(wrapper);
   }
 
+  const totalShown = chosen.length + (duoSpell ? 1 : 0);
+  _appendStatPad(cont, 3 - totalShown, processNextLevelUp);
+
   showScreen("spellchoice-screen");
 }
 
@@ -965,6 +971,7 @@ function showPassiveChoiceScreen(level, forElement=null){
     };
     c.appendChild(btn);
   });
+  _appendStatPad(c, 3 - chosen.length, processNextLevelUp);
   showScreen("passivechoice-screen");
 }
 
@@ -985,6 +992,28 @@ function buildPassiveChoicePool(forElement=null){
     _eligibleDuoPassives().forEach(p => pool.push(p));
   }
   return pool;
+}
+
+// Pad a choice container to 3 options with generic stat boosts
+function _appendStatPad(cont, needed, doneFn) {
+  if (needed <= 0) return;
+  const pool = [
+    { emoji:'⚔️', label:'Attack Training',  desc:'Gain +5 Attack Power.',
+      apply(){ player.attackPower += 5; updateStatsUI(); } },
+    { emoji:'✦',  label:'Effect Training',   desc:'Gain +5 Effect Power.',
+      apply(){ player.effectPower += 5; updateStatsUI(); } },
+    { emoji:'🛡️', label:'Defense Training',  desc:'Gain +5 Defense.',
+      apply(){ player.defense += 5; updateStatsUI(); } },
+    { emoji:'❤️', label:'Vitality Surge',    desc:'Permanently gain +15 max HP.',
+      apply(){ player.baseMaxHPBonus=(player.baseMaxHPBonus||0)+15; player.hp=Math.min(maxHPFor('player'),player.hp+15); } },
+  ];
+  pickRandom(pool, Math.min(needed, pool.length)).forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'prog-choice-btn';
+    btn.innerHTML = `<div class="pc-tag">Bonus</div><div class="pc-name">${opt.emoji} ${opt.label}</div><div class="pc-desc">${opt.desc}</div>`;
+    btn.onclick = () => { opt.apply(); doneFn(); };
+    cont.appendChild(btn);
+  });
 }
 
 // Utility: pick n random distinct items
