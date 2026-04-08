@@ -556,6 +556,49 @@ function renderSpellButtons(){
     if(invCount) invCount.textContent = count;
   }
 
+  // ── Deck mode: card hand UI ─────────────────────────────────────────────────
+  const _combatScreen = document.getElementById('combat-screen');
+  if(player.deckMode){
+    grid.style.display = 'none';
+    const _invPanel = document.getElementById('inv-panel');
+    if(_invPanel) _invPanel.style.display = 'none';
+    const _itemBtnEl = document.getElementById('sb-item-btn');
+    if(_itemBtnEl) _itemBtnEl.style.display = 'none';
+    // Hide spellbook widget topbar + passives row — replaced by arena overlays
+    const _sbTopbar = document.querySelector('.sb-topbar');
+    if(_sbTopbar) _sbTopbar.style.display = 'none';
+    const _sbPassives = document.getElementById('sb-passives-row');
+    if(_sbPassives) _sbPassives.style.display = 'none';
+    if(_combatScreen) _combatScreen.classList.add('deck-mode-active');
+    _renderCardHand(isMyTurn, queueFull, cdPreviewReduce);
+    _renderArenaDecks(isMyTurn, queueFull);
+    _renderArenaEndTurn(isMyTurn);
+    _renderArenaPassives();
+    return;
+  } else {
+    grid.style.display = '';
+    const _chArea = document.getElementById('card-hand-area');
+    if(_chArea) _chArea.style.display = 'none';
+    const _pRow = document.getElementById('played-card-row');
+    if(_pRow) _pRow.style.display = 'none';
+    const _invPanelSb = document.getElementById('inv-panel');
+    if(_invPanelSb) _invPanelSb.style.display = '';
+    const _itemBtnSb = document.getElementById('sb-item-btn');
+    if(_itemBtnSb) _itemBtnSb.style.display = '';
+    const _sbTopbarSb = document.querySelector('.sb-topbar');
+    if(_sbTopbarSb) _sbTopbarSb.style.display = '';
+    const _sbPassivesSb = document.getElementById('sb-passives-row');
+    if(_sbPassivesSb) _sbPassivesSb.style.display = '';
+    // Hide arena deck overlays
+    const _ads = document.getElementById('arena-deck-switcher');
+    if(_ads) _ads.style.display = 'none';
+    const _aep = document.getElementById('arena-endturn-panel');
+    if(_aep) _aep.style.display = 'none';
+    const _ap = document.getElementById('arena-passives');
+    if(_ap) _ap.style.display = 'none';
+    if(_combatScreen) _combatScreen.classList.remove('deck-mode-active');
+  }
+
   // ── PLASMA: full custom grid (shown whenever the plasma abilities book is active) ─────────────────────────────────────────────
   if(activeBook() && activeBook().isPlasmaBook){
     grid.style.gridTemplateColumns = 'repeat(3,1fr)';
@@ -867,5 +910,275 @@ function renderSpellButtons(){
     grid.appendChild(cell);
   });
 }
+
+// ── DECK MODE: CARD HAND RENDERER ─────────────────────────────────────────────
+const _ELEM_CARD_COLORS = {
+  Fire:'#cc4400', Water:'#1878dd', Ice:'#80d8ee', Lightning:'#ccaa00',
+  Earth:'#7a5810', Nature:'#28a028', Plasma:'#b050c0', Air:'#90c8cc', Neutral:'#666'
+};
+
+function _makeSpellCard(spell, clickFn, isQueued, isOnCD, hintText) {
+  const card = document.createElement('div');
+  card.className = 'spell-card' + (isQueued ? ' card-queued' : '');
+  const elemColor = _ELEM_CARD_COLORS[spell.element] || _ELEM_CARD_COLORS.Neutral;
+  card.style.borderColor = elemColor + '99';
+  const rarityInfo = (typeof SPELL_RARITY !== 'undefined' && spell.rarity) ? SPELL_RARITY[spell.rarity] : null;
+  const rarityColor = rarityInfo && rarityInfo.color ? rarityInfo.color : null;
+  if(rarityColor) card.style.borderColor = rarityColor;
+  card.innerHTML =
+    `<div class="card-type">${spell.element||''}</div>` +
+    `<div class="card-emoji">${spell.emoji||'✦'}</div>` +
+    `<div class="card-name">${spell.name}</div>` +
+    `<div class="card-hint">${hintText||''}</div>`;
+  if(!isQueued && clickFn) {
+    card.onclick = clickFn;
+    // Hold-to-zoom
+    let _holdTimer = null;
+    card.addEventListener('pointerdown', () => {
+      _holdTimer = setTimeout(() => {
+        card.classList.add('card-zoomed');
+      }, 420);
+    });
+    card.addEventListener('pointerup', () => { clearTimeout(_holdTimer); card.classList.remove('card-zoomed'); });
+    card.addEventListener('pointerleave', () => { clearTimeout(_holdTimer); card.classList.remove('card-zoomed'); });
+  }
+  return card;
+}
+
+function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
+  const cardArea = document.getElementById('card-hand-area');
+  const handEl   = document.getElementById('card-hand');
+  const itemHandEl = document.getElementById('item-hand');
+  const deckCounter = document.getElementById('deck-counter');
+  const playedRow = document.getElementById('played-card-row');
+  if(!handEl) return;
+  if(cardArea) cardArea.style.display = '';
+  if(playedRow) playedRow.style.display = '';
+  handEl.innerHTML = '';
+  if(itemHandEl) itemHandEl.innerHTML = '';
+  let deckCount = 0;
+
+  const stormRushQueued = (combat.actionQueue||[]).some(a => a.stormRushAction);
+  const nonFreeQueued = (combat.actionQueue||[]).filter(a=>!a.isFree && !a.isPlasma).length;
+
+  player.spellbook.forEach((spell) => {
+    // ── Built-in: Basic Attack ────────────────────────────────────────────
+    if(spell.id === '_basic') {
+      const _elemBasicNames = {Fire:'Ember Strike',Water:'Tidal Jab',Ice:'Frost Jab',Earth:'Stone Fist',Nature:'Vine Whip',Lightning:'Spark Strike',Plasma:'Surge Bolt',Air:'Gust Slash'};
+      const _elemBasicIcons = {Fire:'🔥',Water:'💧',Ice:'❄️',Earth:'🪨',Nature:'🌿',Lightning:'⚡',Plasma:'🔮',Air:'💨'};
+      const basicLevel = player[('_elementalBasic'+playerElement)] || 0;
+      const hasElemBasic = basicLevel > 0;
+      const basicName = hasElemBasic ? (_elemBasicNames[playerElement]||'Basic Attack') : 'Basic Attack';
+      const basicIcon = hasElemBasic ? (_elemBasicIcons[playerElement]||'⚔') : '⚔';
+      const basicOnCD = combat.basicCD > 0;
+      const basicQueued = (combat.actionQueue||[]).some(a => a.label === `${basicIcon} ${basicName}`);
+      if(basicOnCD) { deckCount++; return; }
+      const basicOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
+      const basicDmgEst = Math.max(1, Math.round(
+        (BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasic?10:0)) * (player.basicDmgMult||1.0)
+        + attackPowerFor('player')));
+      const _fakeSpell = {emoji: basicIcon, name: basicName, element: playerElement};
+      const card = _makeSpellCard(
+        _fakeSpell,
+        () => {
+          if(!isMyTurn || queueFull || basicOnCD || basicQueued || basicOutOfPP) return;
+          const snapTgt = combat.targetIdx;
+          const snapCD = adjustedCooldownFor('player',1)||1;
+          queueAction(`${basicIcon} ${basicName}`, () => {
+            combat.basicCD = snapCD;
+            if((spell.currentPP||0) > 0) spell.currentPP--;
+            setActiveEnemy(snapTgt);
+            const ctx = makeSpellCtx('player','enemy',-1);
+            doBasicAttack(ctx);
+            updateHPBars(); renderStatusTags(); updateStatsUI();
+          }, {});
+          renderSpellButtons();
+        },
+        basicQueued,
+        false,
+        basicOutOfPP ? 'No PP' : `~${basicDmgEst} dmg`
+      );
+      if(basicQueued) card.classList.add('card-queued');
+      handEl.appendChild(card);
+      return;
+    }
+    // ── Built-in: Armor ───────────────────────────────────────────────────
+    if(spell.id === '_armor') {
+      const armAmt = armorBlockAmount();
+      const armorQueued = (combat.actionQueue||[]).some(a => a.label === '🛡 Armor');
+      const armorOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
+      const _fakeArmor = {emoji:'🛡', name:'Armor', element:'Neutral'};
+      const card = _makeSpellCard(
+        _fakeArmor,
+        () => {
+          if(!isMyTurn || armorQueued || queueFull || armorOutOfPP) return;
+          queueAction('🛡 Armor', () => {
+            if((spell.currentPP||0) > 0) spell.currentPP--;
+            status.player.block = (status.player.block||0) + armAmt;
+            log('🛡 You brace — +'+armAmt+' Block ('+status.player.block+' total).','player');
+            renderStatusTags();
+          }, {});
+          renderSpellButtons();
+        },
+        armorQueued,
+        false,
+        armorOutOfPP ? 'No PP' : `+${armAmt} Block`
+      );
+      if(armorQueued) card.classList.add('card-queued');
+      handEl.appendChild(card);
+      return;
+    }
+    // ── Regular spell ─────────────────────────────────────────────────────
+    const rawCD = spell.currentCD || 0;
+    const effectiveCD = Math.max(0, rawCD - cdPreviewReduce);
+    const onCD = !spell.multiUse && effectiveCD > 0;
+    if(onCD) { deckCount++; return; }
+    const outOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
+    const isFree = !!spell.isFreeAction;
+    const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name));
+    const canQueue = isFree
+      ? !outOfPP && (spell.baseCooldown === 0 || !alreadyQueued)
+      : !queueFull && !outOfPP && (spell.multiUse || !alreadyQueued);
+    const dmgPrev = (typeof _spellDmgPreview === 'function') ? _spellDmgPreview(spell) : '';
+    const hintText = outOfPP ? 'No PP' : (dmgPrev || (spell.baseCooldown > 0 ? `CD:${spell.baseCooldown}` : ''));
+    const card = _makeSpellCard(
+      spell,
+      () => {
+        if(!isMyTurn || !canQueue) return;
+        const snapTgt = combat.targetIdx;
+        const spellRef = spell;
+        const spellIdx = player.spellbook.indexOf(spell);
+        const snapCD = (!spell.multiUse) ? (adjustedCooldownFor('player', spell.baseCooldown)||1) : 0;
+        const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
+        const opts = {isFree, stormRushDependent: isStormRushDependent,
+          isSpellAction: true,
+          bookCatalogueId: (activeBook() && activeBook().catalogueId) ? activeBook().catalogueId : null,
+          spellObj: spell,
+        };
+        if(spell.onQueue) opts.onQueue = () => spell.onQueue();
+        if(spell.undoOnQueue) opts.undoOnQueue = () => spell.undoOnQueue();
+        if(spell.id === 'storm_rush') opts.stormRushAction = true;
+        queueAction(spell.emoji+' '+spell.name, () => {
+          if(!spellRef.multiUse) spellRef.currentCD = snapCD;
+          if((spellRef.currentPP||0) > 0) spellRef.currentPP--;
+          setActiveEnemy(snapTgt);
+          const ctx = makeSpellCtx('player','enemy', spellIdx);
+          spellRef.execute(ctx);
+          if(!combat.over && spellRef.element==='Water' && status.player.deepCurrentActive){
+            status.player.deepCurrentActive = false;
+            log('💠 Deep Current: '+spellRef.name+' fires again!','player');
+            setActiveEnemy(snapTgt);
+            const ctx2 = makeSpellCtx('player','enemy', spellIdx);
+            spellRef.execute(ctx2);
+          }
+          updateHPBars(); renderStatusTags(); updateStatsUI();
+        }, opts);
+        renderSpellButtons();
+      },
+      alreadyQueued,
+      false,
+      hintText
+    );
+    if(alreadyQueued) card.classList.add('card-queued');
+    handEl.appendChild(card);
+  });
+
+  // ── Item cards ───────────────────────────────────────────────────────────
+  if(itemHandEl) {
+    (player.inventory||[]).forEach((item, idx) => {
+      const ic = document.createElement('div');
+      ic.className = 'item-card';
+      ic.innerHTML =
+        `<div class="ic-emoji">${item.emoji}</div>` +
+        `<div class="ic-name">${item.name}</div>` +
+        `<div class="ic-cost">USE (1 action)</div>`;
+      ic.title = item.desc || item.name;
+      ic.onclick = () => {
+        if(typeof useItemInCombat === 'function') useItemInCombat(idx);
+      };
+      // Hold-to-zoom
+      let _hTimer = null;
+      ic.addEventListener('pointerdown', () => { _hTimer = setTimeout(() => ic.classList.add('card-zoomed'), 420); });
+      ic.addEventListener('pointerup', () => { clearTimeout(_hTimer); ic.classList.remove('card-zoomed'); });
+      ic.addEventListener('pointerleave', () => { clearTimeout(_hTimer); ic.classList.remove('card-zoomed'); });
+      itemHandEl.appendChild(ic);
+    });
+  }
+
+  // ── Deck counter ─────────────────────────────────────────────────────────
+  if(deckCounter) {
+    deckCounter.textContent = deckCount > 0
+      ? `📚 Deck: ${deckCount} spell${deckCount !== 1 ? 's' : ''} on cooldown`
+      : '📚 All spells in hand';
+  }
+}
+
+// ── DECK MODE: ARENA OVERLAY RENDERERS ────────────────────────────────────────
+
+// Left panel: one icon per spellbook, click to switch deck
+function _renderArenaDecks(isMyTurn, queueFull) {
+  const el = document.getElementById('arena-deck-switcher');
+  if(!el) return;
+  el.style.display = 'flex';
+  el.innerHTML = '';
+  if(!player.spellbooks || player.spellbooks.length <= 1) return;
+  player.spellbooks.forEach((book, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'arena-deck-icon' + (i === player.activeBookIdx ? ' active' : '');
+    btn.disabled = (i === player.activeBookIdx) || !isMyTurn || queueFull;
+    btn.title = book.name + (book.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'
+      ? '\n' + (SPELLBOOK_CATALOGUE[book.catalogueId]||{}).desc || '' : '');
+    // Show book emoji + short name
+    const emoji = book.emoji || '🃏';
+    const shortName = book.name.replace(/['s]/g,'').split(' ').slice(0,2).join('\n');
+    btn.innerHTML = `<span class="adi-emoji">${emoji}</span><span class="adi-name">${shortName}</span>`;
+    btn.onclick = () => { if(typeof queueSwitchBook === 'function') queueSwitchBook(i); };
+    el.appendChild(btn);
+  });
+}
+
+// Bottom-right: end turn button + actions remaining
+function _renderArenaEndTurn(isMyTurn) {
+  const panel = document.getElementById('arena-endturn-panel');
+  const btn   = document.getElementById('arena-end-turn-btn');
+  const label = document.getElementById('arena-actions-left-label');
+  if(!panel) return;
+  panel.style.display = 'flex';
+  const hasActions = (combat.actionQueue||[]).length > 0;
+  const queued = (combat.actionQueue||[]).filter(a=>!a.isFree).length;
+  const total  = combat.actionsLeft || 0;
+  if(btn) {
+    btn.disabled = !combat.playerTurn || combat.over || !hasActions;
+    btn.className = 'arena-endturn-btn' + (hasActions ? ' ready' : '');
+    btn.textContent = hasActions ? `⚔ End Turn (${combat.actionQueue.length})` : '⚔ End Turn';
+  }
+  if(label) {
+    label.textContent = `${queued} / ${total} actions`;
+  }
+}
+
+// Below player HUD: passive pips
+function _renderArenaPassives() {
+  const el = document.getElementById('arena-passives');
+  if(!el) return;
+  el.style.display = 'flex';
+  el.innerHTML = '';
+  const book = (typeof activeBook === 'function') ? activeBook() : null;
+  const passiveIds = book ? book.passives : (player.passives||[]);
+  passiveIds.forEach(pid => {
+    let pdef = null;
+    Object.values(PASSIVE_CHOICES||{}).forEach(arr => {
+      const found = (arr||[]).find(p => p.id === pid);
+      if(found) pdef = found;
+    });
+    const pip = document.createElement('div');
+    pip.className = 'arena-passive-pip';
+    pip.innerHTML = pdef ? passiveIconSVG(pdef, 13) : '<svg viewBox="0 0 16 16" width="13" height="13" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="4" fill="#a09080" opacity=".6"/></svg>';
+    if(pdef) pip.title = (pdef.title||pdef.name||pid) + '\n' + (pdef.desc||'');
+    else pip.title = pid;
+    el.appendChild(pip);
+  });
+}
+
 // ===============================
 // GAME OVER SCREEN

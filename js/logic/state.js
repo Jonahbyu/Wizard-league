@@ -32,6 +32,8 @@ const player = {
   activeBookIdx: 0,     // which book is active
   _activeBookAura: null,   // {atk,def,efx,catalogueId} currently applied aura
   _chosenStartBookId: null, // catalogue ID chosen at run start (null = default)
+  // ── UI mode ──
+  deckMode: false,      // true = card hand UI; false = classic spell buttons
 };
 
 // ── SPELLBOOK HELPERS ─────────────────────────────────────────────────────────

@@ -440,6 +440,64 @@ function renderQueue(){
   const slots=document.getElementById("queue-slots");
   const endBtn=document.getElementById("end-turn-btn");
   if(!slots) return;
+
+  // ── Deck mode: render played cards in #played-card-row ──────────────────
+  if(player.deckMode) {
+    const playedRow = document.getElementById('played-card-row');
+    slots.innerHTML = '';
+    if(playedRow) {
+      playedRow.innerHTML = '';
+      let _dragSrcIdx = null;
+      combat.actionQueue.forEach((a, i) => {
+        const pc = document.createElement('div');
+        pc.className = 'played-card';
+        pc.draggable = true;
+        pc.innerHTML = `<div class="pc-emoji">${(a.label||'').split(' ')[0]||'✦'}</div><div class="pc-name">${(a.label||'').replace(/^[^\s]+\s*/,'')}</div>`;
+        pc.title = 'Drag to reorder · Click to unqueue';
+        // Click to unqueue
+        pc.onclick = () => removeFromQueue(i);
+        // Drag to reorder
+        pc.addEventListener('dragstart', e => {
+          _dragSrcIdx = i;
+          pc.style.opacity = '0.5';
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        pc.addEventListener('dragend', () => { pc.style.opacity = ''; });
+        pc.addEventListener('dragover', e => { e.preventDefault(); pc.classList.add('drag-over'); e.dataTransfer.dropEffect = 'move'; });
+        pc.addEventListener('dragleave', () => pc.classList.remove('drag-over'));
+        pc.addEventListener('drop', e => {
+          e.preventDefault(); pc.classList.remove('drag-over');
+          if(_dragSrcIdx === null || _dragSrcIdx === i) return;
+          const moved = combat.actionQueue.splice(_dragSrcIdx, 1)[0];
+          combat.actionQueue.splice(i, 0, moved);
+          _dragSrcIdx = null;
+          renderQueue(); renderSpellButtons();
+        });
+        playedRow.appendChild(pc);
+      });
+      // Drop zone on card-hand-area to drag a played card back to hand (unqueue)
+      const handArea = document.getElementById('card-hand-area');
+      if(handArea) {
+        handArea.ondragover = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+        handArea.ondrop = e => {
+          e.preventDefault();
+          if(_dragSrcIdx !== null) { removeFromQueue(_dragSrcIdx); _dragSrcIdx = null; }
+        };
+      }
+    }
+    if(typeof renderEnemyCards === 'function') renderEnemyCards();
+    // Sync the arena end-turn panel (deck mode)
+    if(typeof _renderArenaEndTurn === 'function') _renderArenaEndTurn(combat.playerTurn && !combat.over);
+    // Keep the hidden #end-turn-btn in sync (other code reads its state)
+    if(endBtn){
+      const hasActions = combat.actionQueue && combat.actionQueue.length > 0;
+      endBtn.disabled = !combat.playerTurn || combat.over;
+      endBtn.className = hasActions ? 'end-turn-btn ready' : 'end-turn-btn';
+    }
+    return;
+  }
+
+  // ── Spellbook mode: classic queue list ──────────────────────────────────
   slots.innerHTML="";
   if(!combat.actionQueue||combat.actionQueue.length===0){
     slots.innerHTML='<span class="queue-empty">No actions queued — select actions below</span>';
@@ -962,16 +1020,15 @@ function endBattle(won){
       }
 
       advanceToNextGym(); // resets zoneBattleCount and gymSkips
-      // After the final zone gym — start gauntlet sequence.
-      // Non-sandbox: 3 released-element gyms (indices 0-2), then jump straight to
-      // The Dark One (GAUNTLET_ROSTER index 2), skipping Skar and Vael for the base run.
-      // Sandbox: 8 gyms (indices 0-7), then full gauntlet starting from Skar (index 0).
-      const lastGymIdx = sandboxMode ? 2 : (GYM_ROSTER.length - 1);
+      // After the final zone gym — arm the gauntlet sequence.
+      // showMap() will detect gymDefeated and redirect into the gauntlet after rewards.
+      // Non-sandbox: 3 released-element gyms (indices 0-2) → Dark One (GAUNTLET_ROSTER index 2).
+      // Sandbox: 8 gyms (indices 0-7) → full gauntlet from Skar (index 0).
+      const lastGymIdx = GYM_ROSTER.length - 1;
       if (_beatenGymIdx === lastGymIdx) {
         _gauntletBossIdx = sandboxMode ? 0 : 2; // sandbox: full gauntlet; non-sandbox: Dark One only
         battleNumber++;
-        setTimeout(_loadGauntletBoss, 1400);
-        return;
+        // Fall through to showPostBattleLoot — showMap() will load gauntlet after rewards
       }
     } else if(isRival){
       log('⚔ Rival '+RIVAL.name+' defeated! Passive reward incoming...','win');

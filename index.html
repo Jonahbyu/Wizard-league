@@ -71,6 +71,24 @@
   </div>
 </div>
 
+<!-- MODE SELECT -->
+<div id="mode-select-screen" class="screen">
+  <h2 style="font-family:'Cinzel',serif;color:#c8a060;letter-spacing:.1em;">Choose Your Style</h2>
+  <p class="subtitle">How would you like to play?</p>
+  <div class="mode-options">
+    <div class="mode-card" onclick="selectGameMode(false)">
+      <div class="mode-icon">📖</div>
+      <div class="mode-name">Spellbook</div>
+      <div class="mode-desc">Classic spell buttons with cooldowns</div>
+    </div>
+    <div class="mode-card" onclick="selectGameMode(true)">
+      <div class="mode-icon">🃏</div>
+      <div class="mode-name">Deck</div>
+      <div class="mode-desc">Draw cards from your hand each turn</div>
+    </div>
+  </div>
+</div>
+
 <!-- ELEMENT SELECT -->
 <div id="element-screen" class="screen">
   <h2 id="welcome-msg">Choose Your Element</h2>
@@ -346,6 +364,17 @@
 
       <!-- Summon indicators — bottom right -->
       <div class="arena-summons" id="arena-summons"></div>
+
+      <!-- DECK MODE overlays (hidden in spellbook mode) -->
+      <!-- Left: deck switcher icons -->
+      <div id="arena-deck-switcher" style="display:none;"></div>
+      <!-- Bottom right: end turn + actions left -->
+      <div id="arena-endturn-panel" style="display:none;">
+        <button id="arena-end-turn-btn" class="arena-endturn-btn" onclick="commitEndTurn()" disabled>⚔ End Turn</button>
+        <div id="arena-actions-left-label" class="arena-actions-label"></div>
+      </div>
+      <!-- Below player HUD: passives -->
+      <div id="arena-passives" style="display:none;"></div>
     </div>
   </div>
 
@@ -389,13 +418,26 @@
           <div class="queue-slots" id="queue-slots"><span class="queue-empty">No actions queued</span></div>
         </div>
 
-        <!-- Spell grid (3 cols) -->
+        <!-- Spell grid (3 cols) — hidden in deck mode -->
         <div class="sb-spell-grid" id="spell-grid"></div>
 
-        <!-- Inventory panel -->
+        <!-- Inventory panel (spellbook mode) -->
         <div class="inv-panel" id="inv-panel"></div>
 
       </div>
+
+      <!-- Deck mode: played cards row — full width, outside spellbook widget -->
+      <div id="played-card-row" style="display:none;"></div>
+
+      <!-- Deck mode: card hand area — full width, outside spellbook widget -->
+      <div id="card-hand-area" style="display:none;">
+        <div id="card-hand-row">
+          <div id="card-hand"></div>
+          <div id="item-hand"></div>
+        </div>
+        <div id="deck-counter">📚 Deck: 0</div>
+      </div>
+
     </div>
 
     <!-- LOG tab -->
@@ -490,9 +532,9 @@
 
 <!-- RUN BOOK SELECTION SCREEN -->
 <div id="bookselect-screen" class="screen">
-  <div class="level-badge">Starting Spellbook</div>
-  <div class="prog-title">✦ Choose Your Book ✦</div>
-  <div class="prog-sub">Pick the spellbook you'll begin this run with.</div>
+  <div class="level-badge" id="bs-badge">Starting Spellbook</div>
+  <div class="prog-title" id="bs-title">✦ Choose Your Book ✦</div>
+  <div class="prog-sub" id="bs-sub">Pick the spellbook you'll begin this run with.</div>
   <div class="prog-choices" id="bs-choices"></div>
 </div>
 
@@ -553,6 +595,7 @@
 <!-- Rendering -->
 <script src="js/rendering/cutscene.js"></script>
 <script src="js/rendering/castle_cutscene.js"></script>
+<script src="js/rendering/dark_one_intro.js"></script>
 <script src="js/rendering/animations.js"></script>
 <script src="js/data/sprite_data.js"></script>
 <script src="js/rendering/sprites.js"></script>

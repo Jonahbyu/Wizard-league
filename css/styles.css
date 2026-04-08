@@ -1633,3 +1633,244 @@
   font-family:'Cinzel',serif; text-align:center; padding:.2rem 0;
 }
 
+/* ── DECK MODE UI ────────────────────────────────────────────────────────── */
+
+/* Mode select screen */
+.mode-options {
+  display: flex; gap: 24px; justify-content: center; margin-top: 32px;
+  flex-wrap: wrap;
+}
+.mode-card {
+  width: 160px; padding: 24px 16px; border-radius: 12px;
+  border: 2px solid #3a2a10; background: #1a1208;
+  text-align: center; cursor: pointer;
+  transition: border-color 0.2s, transform 0.1s, box-shadow 0.2s;
+}
+.mode-card:hover {
+  border-color: #f0c060; transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(200,140,30,0.25);
+}
+.mode-icon { font-size: 2.5rem; }
+.mode-name {
+  font-size: 1rem; font-weight: bold; margin: 8px 0 4px;
+  font-family: 'Cinzel', serif; color: #c8a060; letter-spacing: .08em;
+}
+.mode-desc { font-size: 0.68rem; color: #7a6040; }
+
+/* Played card row (queued actions in deck mode) — full width strip */
+#played-card-row {
+  display: flex; flex-direction: row; gap: 8px; align-items: center;
+  justify-content: center; flex-wrap: nowrap;
+  width: 100%; padding: 6px 12px;
+  min-height: 50px;
+  border-bottom: 1px solid #2a1e0e;
+  background: rgba(0,0,0,0.18);
+  overflow-x: auto;
+}
+.played-card {
+  width: 60px; height: 82px; border-radius: 8px;
+  border: 2px solid #3a3a4a; background: #0c0c18;
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2px;
+  cursor: grab; font-size: 0.55rem;
+  transition: opacity 0.15s, border-color 0.15s, transform 0.1s;
+  color: #999; text-align: center; padding: 4px;
+  user-select: none; opacity: 0.88;
+}
+.played-card:hover { opacity: 1; transform: translateY(-3px); }
+.played-card:active { cursor: grabbing; }
+.played-card.drag-over { border-color: #f0c060; opacity: 1; }
+.played-card .pc-emoji { font-size: 1rem; line-height: 1; }
+.played-card .pc-name { font-size: 0.46rem; color: #777; word-break: break-word; line-height: 1.2; }
+
+/* Card hand area — full width, sits below played row */
+#card-hand-area {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; padding: 8px 12px 4px;
+  gap: 6px;
+}
+#card-hand-row {
+  display: flex; flex-direction: row; align-items: flex-end;
+  justify-content: center; gap: 10px;
+  width: 100%; flex-wrap: nowrap; overflow-x: auto;
+}
+#card-hand {
+  display: flex; flex-direction: row; align-items: flex-end;
+  gap: 8px; flex-wrap: nowrap;
+}
+#item-hand {
+  display: flex; flex-direction: row; align-items: flex-end;
+  gap: 6px; flex-wrap: nowrap;
+  padding-left: 12px;
+  border-left: 1px solid #3a2a10;
+  margin-left: 4px;
+}
+#deck-counter {
+  font-size: 0.65rem; color: #6a5030; text-align: center;
+  font-family: 'Cinzel', serif; letter-spacing: .06em;
+}
+
+/* Spell cards (in hand) */
+.spell-card {
+  width: 76px; height: 112px; border-radius: 10px;
+  border: 2px solid #4a3a1a; background: #15100a;
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: space-between; padding: 7px 5px;
+  cursor: pointer; position: relative;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  font-size: 0.62rem; text-align: center; user-select: none;
+}
+.spell-card:hover {
+  transform: translateY(-14px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.7);
+  border-color: #c8a060;
+  z-index: 10;
+}
+.spell-card .card-emoji { font-size: 1.5rem; line-height: 1; }
+.spell-card .card-name {
+  font-size: 0.51rem; color: #d0a060; font-family: 'Cinzel', serif;
+  letter-spacing: .04em; word-break: break-word; line-height: 1.2;
+}
+.spell-card .card-hint { font-size: 0.47rem; color: #7a9a78; }
+.spell-card .card-type {
+  font-size: 0.42rem; color: #5a4a2a; text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.spell-card.card-queued {
+  opacity: 0.35; pointer-events: none;
+  border-color: #2a2a3a;
+}
+.spell-card.card-zoomed {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -55%) scale(2.5) !important;
+  z-index: 9998; width: 90px; height: 130px;
+  box-shadow: 0 0 0 4000px rgba(0,0,0,0.6), 0 0 40px rgba(200,160,50,0.5);
+  border-color: #f0c060;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+/* Item cards (always visible in deck mode, right side of hand) */
+.item-card {
+  width: 62px; height: 88px; border-radius: 8px;
+  border: 2px solid #4a3618; background: #120d06;
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; cursor: pointer; gap: 3px;
+  font-size: 0.54rem; transition: transform 0.15s, border-color 0.15s;
+  text-align: center; padding: 4px; color: #b08040;
+  user-select: none;
+}
+.item-card:hover { transform: translateY(-10px); border-color: #c8a060; }
+.item-card .ic-emoji { font-size: 1.2rem; }
+.item-card .ic-name { font-size: 0.47rem; color: #c8a060; font-family: 'Cinzel', serif; }
+.item-card .ic-cost { font-size: 0.42rem; color: #5a4a2a; }
+
+/* ── Arena overlays (deck mode) ──────────────────────────────────────────── */
+
+/* Left side: deck switcher */
+#arena-deck-switcher {
+  position: absolute;
+  left: 6px; top: 50%; transform: translateY(-50%);
+  flex-direction: column; gap: 6px;
+  z-index: 8;
+}
+.arena-deck-icon {
+  width: 48px; min-height: 56px; border-radius: 8px;
+  border: 2px solid #4a3a18; background: rgba(15,10,4,0.88);
+  color: #c8a060; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2px; padding: 4px 2px;
+  font-family: 'Cinzel', serif;
+  transition: border-color 0.15s, transform 0.1s, background 0.15s;
+}
+.arena-deck-icon:hover:not(:disabled) {
+  border-color: #c8a060; background: rgba(40,25,8,0.95);
+  transform: translateX(3px);
+}
+.arena-deck-icon.active {
+  border-color: #f0c060; background: rgba(50,30,8,0.95);
+  box-shadow: 0 0 8px rgba(200,150,30,0.35);
+}
+.arena-deck-icon:disabled { opacity: 0.45; cursor: default; }
+.arena-deck-icon .adi-emoji { font-size: 1.3rem; line-height: 1; }
+.arena-deck-icon .adi-name {
+  font-size: 0.38rem; color: #9a7a40; letter-spacing: .04em;
+  text-align: center; white-space: pre-line; line-height: 1.2;
+}
+
+/* Bottom right: end turn + actions */
+#arena-endturn-panel {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  flex-direction: column; align-items: flex-end; gap: 3px;
+  z-index: 8;
+}
+.arena-endturn-btn {
+  padding: .35rem .85rem;
+  background: #0f0d08; border: 2px solid #3a2a10;
+  color: #8a6a30; border-radius: 6px; cursor: pointer;
+  font-family: 'Cinzel', serif; font-size: .65rem;
+  letter-spacing: .08em; text-transform: uppercase;
+  transition: border-color .15s, color .15s, background .15s;
+  white-space: nowrap;
+}
+.arena-endturn-btn.ready {
+  border-color: #c8a060; color: #f0c060; background: #1a1208;
+  box-shadow: 0 0 10px rgba(200,150,30,0.3);
+}
+.arena-endturn-btn:disabled { opacity: 0.4; cursor: default; }
+.arena-actions-label {
+  font-size: 0.52rem; color: #6a5028;
+  font-family: 'Cinzel', serif; letter-spacing: .08em;
+  text-align: right;
+}
+
+/* Below player HUD: passives */
+#arena-passives {
+  position: absolute;
+  bottom: 7px; left: 170px;
+  flex-direction: row; gap: 4px; align-items: center;
+  z-index: 8; flex-wrap: wrap; max-width: 120px;
+}
+.arena-passive-pip {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(10,6,2,0.7); border: 1px solid #3a2a10;
+  display: flex; align-items: center; justify-content: center;
+  cursor: help;
+}
+
+/* Deck mode: hide the queue-slots text list (replaced by played-card-row) */
+.deck-mode-active .queue-slots { display: none !important; }
+/* Hide the empty spellbook widget border */
+.deck-mode-active .spellbook-widget {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  margin: 0 auto;
+}
+.deck-mode-active .spellbook-widget::before,
+.deck-mode-active .spellbook-widget::after {
+  display: none !important;
+}
+.deck-mode-active .sb-topbar {
+  border-radius: 6px;
+  background: rgba(20,12,4,0.6);
+  border: 1px solid #2a1e0e;
+}
+.deck-mode-active .sb-passives-row {
+  border-bottom: none;
+}
+.deck-mode-active .sb-queue-bar {
+  border-top: none;
+  background: transparent;
+}
+/* Played card row label strip */
+.deck-mode-active #played-card-row:empty::after {
+  content: 'No cards played yet';
+  color: #3a2a10; font-size: 0.6rem; font-family: 'Cinzel', serif;
+  letter-spacing: .08em;
+}
+

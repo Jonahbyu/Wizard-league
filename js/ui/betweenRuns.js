@@ -20,7 +20,7 @@ function lobbyStartRun() {
   playerCharId = _wizBuild.archetype || slotData.savedCharId || 'arcanist';
   const welcomeEl = document.getElementById('welcome-msg');
   if (welcomeEl) welcomeEl.textContent = `${playerName}, choose your element`;
-  showElementScreen();
+  showScreen('mode-select-screen');
 }
 
 function renderBrunLastRun() {
