@@ -2,6 +2,12 @@
 // ─── MAP SCREEN — encounter selection, zone specials, canvas node rendering ───
 
 function showMap(){
+  // If all gyms beaten and gauntlet hasn't loaded yet, redirect into gauntlet
+  if(gymDefeated && _gauntletBossIdx < GAUNTLET_ROSTER.length){
+    setTimeout(_loadGauntletBoss, 400);
+    return;
+  }
+
   const _gymDef = currentGymDef();
   _setZoneElement((_gymDef && _gymDef.element) ? _gymDef.element : playerElement);
 
@@ -49,7 +55,7 @@ function showMap(){
       zonePill.style.borderColor = '#5a4aaa';
       zonePill.style.color = '#9a7aff';
     } else if(gym){
-      zonePill.textContent = `${gym.element} Zone · Battle ${zoneBattleCount}`;
+      zonePill.textContent = `Zone ${currentGymIdx + 1} · ${gym.element} · Battle ${zoneBattleCount}`;
       zonePill.style.borderColor = gym.color+'55';
       zonePill.style.color = gym.color;
     }
@@ -448,10 +454,10 @@ function makeGymCard(forced){
   const gym=currentGymDef(); if(!gym) return document.createElement("div");
   const card=document.createElement("div");
   card.className=`special-card ${forced?"card-gym-warn":"card-gym"}`;
-  const bHP=gymBossHP();
+  const bHP=gymBossDisplayHP();
   const battlesLeft = GYM_ZONE_FORCE - zoneBattleCount;
-  const bonus=gymSkips>0?` (+${gymSkips*GYM_SKIP_BONUS} HP from skips)`:"";
-  card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${forced?"#cc4444":gym.color}">🏛 Gym ${currentGymIdx+1} — ${gym.name}</div><div class="enc-desc" style="color:${forced?"#7a2a2a":"#888"}">${gym.element} · HP:${bHP}${bonus} · ${forced?"MUST FIGHT NOW":"zone battle "+zoneBattleCount+"/"+GYM_ZONE_FORCE}</div><div style="font-size:.57rem;color:#555;margin-top:2px;">${gym.signature}</div></div><div class="enc-right" style="color:${forced?"#cc4444":gym.color};font-family:'Cinzel',serif;font-size:.62rem;">${forced?"FORCED":"BOSS"}</div>`;
+  const skipNote=gymSkips>0?` (+${gymSkips*GYM_SKIP_BONUS} skip HP)`:"";
+  card.innerHTML=`<div class="enc-left"><div class="enc-name" style="color:${forced?"#cc4444":gym.color}">🏛 Gym ${currentGymIdx+1} — ${gym.name}</div><div class="enc-desc" style="color:${forced?"#7a2a2a":"#888"}">${gym.element} · HP:${bHP}${skipNote} · Dmg:${gymBossDisplayDmg()} · ${forced?"MUST FIGHT NOW":"zone battle "+zoneBattleCount+"/"+GYM_ZONE_FORCE}</div><div style="font-size:.57rem;color:#555;margin-top:2px;">${gym.signature}</div></div><div class="enc-right" style="color:${forced?"#cc4444":gym.color};font-family:'Cinzel',serif;font-size:.62rem;">${forced?"FORCED":"BOSS"}</div>`;
   card.onclick=()=>showGymIntro(forced);
   return card;
 }

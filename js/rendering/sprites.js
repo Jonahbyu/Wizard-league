@@ -36,7 +36,7 @@ function charToColor(c, pal) {
   }
 }
 
-function drawSprite(ctx, rows, x, y, scale, pal, cols) {
+function drawSprite(ctx, rows, x, y, scale, pal, cols, flipH) {
   cols = cols || 12;
   for (let row = 0; row < rows.length; row++) {
     for (let col = 0; col < cols; col++) {
@@ -44,7 +44,8 @@ function drawSprite(ctx, rows, x, y, scale, pal, cols) {
       const color = charToColor(c, pal);
       if (!color) continue;
       ctx.fillStyle = color;
-      ctx.fillRect(Math.floor(x + col * scale), Math.floor(y + row * scale), scale, scale);
+      const drawCol = flipH ? (cols - 1 - col) : col;
+      ctx.fillRect(Math.floor(x + drawCol * scale), Math.floor(y + row * scale), scale, scale);
     }
   }
 }
@@ -55,6 +56,11 @@ function drawSprite(ctx, rows, x, y, scale, pal, cols) {
 // Ground line sits at GROUND_Y = H * 0.62. Both fighters stand on it.
 
 const _bBGtick = () => Date.now();
+
+// In deck mode the horizon sits higher so the sky dominates and enemies stand near the top
+function _horizonFrac() {
+  return (typeof player !== 'undefined' && player.deckMode) ? 0.25 : 0.55;
+}
 
 function _bSkyGrad(ctx, W, H, c0, c1, horizFrac) {
   const g = ctx.createLinearGradient(0, 0, 0, H * horizFrac);
@@ -92,7 +98,7 @@ function _bStars(ctx, W, H, horizFrac, n) {
 
 // ─── FIRE battle arena ───────────────────────────────────────────────────────
 function _bbFire(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#1a0500', '#3d0800', hf);
   _bHillSil(ctx, W, H, hf-0.08, '#1a0500', 0.3);
   // Lava glow on horizon
@@ -126,7 +132,7 @@ function _bbFire(ctx, W, H) {
 
 // ─── WATER battle arena ──────────────────────────────────────────────────────
 function _bbWater(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#040d1a', '#0a2035', hf);
   _bStars(ctx, W, H, hf, 40);
   // Moon reflection
@@ -158,7 +164,7 @@ function _bbWater(ctx, W, H) {
 
 // ─── ICE battle arena ────────────────────────────────────────────────────────
 function _bbIce(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#060c18', '#0a1628', hf);
   _bStars(ctx, W, H, hf, 50);
   // Aurora (horizontal wavy bands)
@@ -193,7 +199,7 @@ function _bbIce(ctx, W, H) {
 
 // ─── LIGHTNING battle arena ──────────────────────────────────────────────────
 function _bbLightning(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#06040e', '#100830', hf);
   _bStars(ctx, W, H, hf, 35);
   // Storm clouds (dark rolling masses)
@@ -229,7 +235,7 @@ function _bbLightning(ctx, W, H) {
 
 // ─── EARTH battle arena ──────────────────────────────────────────────────────
 function _bbEarth(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#08040a', '#1a0e04', hf);
   _bStars(ctx, W, H, hf, 30);
   _bHillSil(ctx, W, H, hf-0.10, '#1a0c04', 0.3);
@@ -256,7 +262,7 @@ function _bbEarth(ctx, W, H) {
 
 // ─── NATURE battle arena ─────────────────────────────────────────────────────
 function _bbNature(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#030c06', '#062010', hf);
   _bStars(ctx, W, H, hf, 30);
   _bHillSil(ctx, W, H, hf-0.12, '#041008', 0.4);
@@ -289,7 +295,7 @@ function _bbNature(ctx, W, H) {
 
 // ─── PLASMA battle arena ─────────────────────────────────────────────────────
 function _bbPlasma(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
   _bSkyGrad(ctx, W, H, '#08020e', '#180330', hf);
   _bStars(ctx, W, H, hf, 45);
   // Phase shimmer on horizon
@@ -319,7 +325,7 @@ function _bbPlasma(ctx, W, H) {
 
 // ─── AIR battle arena ────────────────────────────────────────────────────────
 function _bbAir(ctx, W, H) {
-  const t = _bBGtick(), hf = 0.55;
+  const t = _bBGtick(), hf = _horizonFrac();
 
   // Night sky — full canvas
   const sky = ctx.createLinearGradient(0, 0, 0, H);
@@ -444,12 +450,16 @@ function enemySpritePos(idx, allEnemies, W, H) {
   const rows = getEnemySprite(e);
   const sw = 24 * E_SCALE, sh = rows.length * E_SCALE;
 
-  // Spread enemies across right 55% of canvas
-  const areaX = W * 0.42, areaW = W * 0.52;
+  // Spread enemies across canvas — center-right + higher in deck mode
+  const isDeck = typeof player !== 'undefined' && player.deckMode;
+  const areaX = isDeck ? W * 0.42 : W * 0.42;
+  const areaW = isDeck ? W * 0.36 : W * 0.52;
   const xFrac = n <= 1 ? 0.5 : idx / Math.max(n - 1, 1);
   // Alternate depth: even-idx slightly further back (higher Y), odd slightly closer
-  const depthOffset = n > 1 ? (idx % 2 === 0 ? 0 : Math.round(H * 0.08)) : 0;
-  const groundBottom = Math.round(H * 0.72) + depthOffset;
+  const depthOffset = n > 1 ? (idx % 2 === 0 ? 0 : Math.round(H * 0.06)) : 0;
+  const groundBottom = isDeck
+    ? Math.round(H * (_horizonFrac() + 0.1)) + depthOffset
+    : Math.round(H * 0.72) + depthOffset;
 
   return {
     x: Math.round(areaX + xFrac * (areaW - sw)),
@@ -476,11 +486,11 @@ function triggerHitFlash(defenderSide, enemyIdx) {
   });
 }
 
-// Draws a perspective ground band from enemy ground line (H*0.55) to player ground line (H*0.90)
+// Draws a perspective ground band from horizon line to player ground line (H*0.90)
 // Zone-tinted so it blends with the background scene
 function _drawBattleForeground(ctx, W, H) {
   const el = (typeof currentZoneElement !== 'undefined' && currentZoneElement) ? currentZoneElement : ((typeof playerElement !== 'undefined') ? playerElement : 'Earth');
-  const enemyGnd  = Math.round(H * 0.55);  // where enemy feet land (top of mid-ground band)
+  const enemyGnd  = Math.round(H * _horizonFrac());  // top of ground band (horizon)
   const playerGnd = Math.round(H * 0.90);  // where player feet land
   const tick = Date.now();
 
@@ -590,6 +600,159 @@ function _drawBattleForeground(ctx, W, H) {
   ctx.fillRect(0, enemyGnd, W, 1);
   ctx.fillStyle = 'rgba(255,255,255,0.04)';
   ctx.fillRect(0, playerGnd - 1, W, 1);
+}
+
+// ═══ FLOATING AURA (deck mode) ════════════════════════════════════════════════
+// Drawn beneath the enemy sprite when they're levitating above the horizon.
+function _drawFloatAura(ctx, cx, cy, r, element, t) {
+  const el = (element || '').split('/')[0];
+  ctx.save();
+
+  switch (el) {
+    case 'Fire': {
+      // Pulsing ember ring
+      const pulse = 0.55 + 0.3 * Math.sin(t * 0.11);
+      const g = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+      g.addColorStop(0, `rgba(255,120,0,${pulse})`);
+      g.addColorStop(0.55, `rgba(220,50,0,${pulse * 0.6})`);
+      g.addColorStop(1, 'rgba(180,20,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+      // Ember sparks orbiting
+      for (let i = 0; i < 5; i++) {
+        const a = (t * 0.04 + i * 1.26) % (Math.PI * 2);
+        const sx = cx + Math.cos(a) * r * 0.8, sy = cy + Math.sin(a) * r * 0.22;
+        const bright = 0.5 + 0.5 * Math.sin(t * 0.09 + i * 1.7);
+        ctx.fillStyle = `rgba(255,${Math.round(80 + 80 * bright)},0,${bright.toFixed(2)})`;
+        ctx.fillRect(Math.round(sx), Math.round(sy), 2, 2);
+      }
+      break;
+    }
+    case 'Water': {
+      // Rippling water rings
+      for (let ring = 0; ring < 3; ring++) {
+        const phase = ((t * 0.05 + ring * 0.7) % 1);
+        const rr = r * (0.4 + phase * 0.6);
+        const alpha = (1 - phase) * 0.55;
+        ctx.strokeStyle = `rgba(80,180,220,${alpha.toFixed(2)})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rr, rr * 0.25, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      break;
+    }
+    case 'Ice': {
+      // Snowflake arms radiating out
+      const numArms = 6;
+      ctx.strokeStyle = `rgba(180,230,255,0.7)`;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < numArms; i++) {
+        const a = (i / numArms) * Math.PI * 2 + t * 0.012;
+        const x1 = cx + Math.cos(a) * r * 0.15, y1 = cy + Math.sin(a) * r * 0.04;
+        const x2 = cx + Math.cos(a) * r * 0.9,  y2 = cy + Math.sin(a) * r * 0.24;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        // crossbars
+        const mx = cx + Math.cos(a) * r * 0.55, my = cy + Math.sin(a) * r * 0.15;
+        const pa = a + Math.PI * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(mx + Math.cos(pa) * r * 0.12, my + Math.sin(pa) * r * 0.03);
+        ctx.lineTo(mx - Math.cos(pa) * r * 0.12, my - Math.sin(pa) * r * 0.03);
+        ctx.stroke();
+      }
+      // Glow disk
+      const ig = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.5);
+      ig.addColorStop(0, 'rgba(200,240,255,0.35)'); ig.addColorStop(1, 'rgba(160,210,255,0)');
+      ctx.fillStyle = ig;
+      ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.5, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'Lightning': {
+      // Electric arc ring with crackling spokes
+      const arcAlpha = 0.5 + 0.4 * Math.sin(t * 0.18);
+      ctx.strokeStyle = `rgba(180,160,255,${arcAlpha.toFixed(2)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.26, 0, 0, Math.PI * 2); ctx.stroke();
+      // Lightning spokes
+      for (let i = 0; i < 6; i++) {
+        if ((t + i * 7) % 12 > 4) continue;
+        const a = (i / 6) * Math.PI * 2 + t * 0.03;
+        ctx.strokeStyle = `rgba(220,210,255,0.85)`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * r * 0.2, cy + Math.sin(a) * r * 0.05);
+        ctx.lineTo(cx + Math.cos(a + 0.15) * r * 0.7, cy + Math.sin(a + 0.15) * r * 0.18);
+        ctx.lineTo(cx + Math.cos(a) * r * 0.95, cy + Math.sin(a) * r * 0.25);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'Earth': {
+      // Floating stone disk
+      const eg = ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+      eg.addColorStop(0, 'rgba(110,70,30,0.75)'); eg.addColorStop(0.6, 'rgba(80,50,20,0.5)'); eg.addColorStop(1, 'rgba(60,35,10,0)');
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.27, 0, 0, Math.PI * 2); ctx.fill();
+      // Rock cracks
+      ctx.strokeStyle = 'rgba(50,30,8,0.6)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.4;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * r * 0.15, cy + Math.sin(a) * r * 0.04);
+        ctx.lineTo(cx + Math.cos(a + 0.3) * r * 0.7, cy + Math.sin(a + 0.3) * r * 0.19);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'Nature': {
+      // Vine/leaf circle
+      const ng = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      ng.addColorStop(0, 'rgba(60,160,40,0.4)'); ng.addColorStop(1, 'rgba(30,100,15,0)');
+      ctx.fillStyle = ng;
+      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+      // Leaf pips orbiting
+      for (let i = 0; i < 6; i++) {
+        const a = (t * 0.025 + i * 1.047) % (Math.PI * 2);
+        const lx = cx + Math.cos(a) * r * 0.78, ly = cy + Math.sin(a) * r * 0.21;
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(80,180,40,0.75)' : 'rgba(50,140,25,0.6)';
+        ctx.fillRect(Math.round(lx) - 1, Math.round(ly) - 1, 3, 3);
+      }
+      break;
+    }
+    case 'Plasma': {
+      // Rotating dual-ring
+      for (let ring = 0; ring < 2; ring++) {
+        const spin = t * (ring === 0 ? 0.05 : -0.03);
+        const rr = r * (ring === 0 ? 1.0 : 0.55);
+        const alpha = 0.5 + 0.3 * Math.sin(t * 0.1 + ring);
+        ctx.strokeStyle = ring === 0 ? `rgba(180,60,255,${alpha.toFixed(2)})` : `rgba(120,220,255,${alpha.toFixed(2)})`;
+        ctx.lineWidth = ring === 0 ? 2 : 1;
+        ctx.beginPath();
+        ctx.ellipse(cx + Math.cos(spin) * 2, cy + Math.sin(spin) * r * 0.04, rr, rr * 0.25, spin * 0.1, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'Air': {
+      // Swirling wind spiral
+      for (let i = 0; i < 4; i++) {
+        const a = (t * 0.06 + i * 1.57) % (Math.PI * 2);
+        const rr = r * (0.3 + i * 0.18);
+        const alpha = 0.2 + 0.15 * Math.sin(t * 0.08 + i);
+        ctx.strokeStyle = `rgba(200,220,240,${alpha.toFixed(2)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rr, rr * 0.25, a, 0, Math.PI * 1.4); ctx.stroke();
+      }
+      break;
+    }
+    default: {
+      // Neutral: simple soft glow
+      const dg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      dg.addColorStop(0, 'rgba(200,180,120,0.45)'); dg.addColorStop(1, 'rgba(160,130,80,0)');
+      ctx.fillStyle = dg;
+      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  ctx.restore();
 }
 
 // ═══ MAIN RENDER ══════════════════════════════════════════════════════════════

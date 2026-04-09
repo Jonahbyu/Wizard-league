@@ -34,10 +34,10 @@ function startRivalBattle() {
 
 function showGymIntro(forced){
   const gym=currentGymDef(); if(!gym) return;
-  const bHP=gymBossHP();
+  const bHP=gymBossDisplayHP();
   document.getElementById("gym-title").textContent=`🏛 Gym ${currentGymIdx+1} — ${gym.name}`;
   document.getElementById("gym-boss-hp-display").textContent=bHP;
-  document.getElementById("gym-boss-dmg-display").textContent=`${gym.baseDmg} → ${gym.phase2Dmg} (phase 2)`;
+  document.getElementById("gym-boss-dmg-display").textContent=`${gymBossDisplayDmg()} → ${gym.phase2Dmg} (phase 2)`;
   document.getElementById("gym-subtitle").textContent=gym.signature;
   if(forced){
     document.getElementById("gym-warn-txt").textContent=gymSkips>0?`Skipped ${gymSkips}× — +${gymSkips*GYM_SKIP_BONUS} HP on boss.`:`Zone battle ${zoneBattleCount} — no more delays.`;

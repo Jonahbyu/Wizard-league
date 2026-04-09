@@ -289,6 +289,22 @@ function gymBossHP(){
   const g = currentGymDef();
   return g ? g.baseHP + gymSkips*GYM_SKIP_BONUS : 300;
 }
+// Actual in-battle HP (mirrors makeEnemyObj scaling: zone mult + bn ramp + 0.77 global)
+function gymBossDisplayHP(){
+  const g = currentGymDef(); if(!g) return 300;
+  const rawHP  = g.baseHP + gymSkips * GYM_SKIP_BONUS;
+  const zoneHP = Math.round(rawHP * (1 + currentGymIdx * 0.336));
+  const _bnRaw  = battleNumber > 6 ? battleNumber - 6 : 0;
+  const _bnFlat = battleNumber > 3 ? (battleNumber - 3) * 13 : 0;
+  const _bnBase = battleNumber > 3 ? 1.20 : 1.0;
+  const _bnMult = _bnBase + (_bnRaw > 0 ? _bnRaw * 0.09 + Math.pow(_bnRaw / 12, 2) : 0);
+  return Math.round((zoneHP * _bnMult + _bnFlat) * 0.77);
+}
+// Actual in-battle phase-1 dmg (zone scaled + 0.80 mult - 5 flat)
+function gymBossDisplayDmg(){
+  const g = currentGymDef(); if(!g) return 30;
+  return Math.max(1, Math.round(Math.round(g.baseDmg * (1 + currentGymIdx * 0.22)) * 0.80) - 5);
+}
 // Gym card shows up as an option once the zone has run 7 battles
 function gymShouldAppear(){
   if(gymDefeated) return false;
