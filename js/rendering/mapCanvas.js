@@ -46,6 +46,24 @@ function showMap(){
   const livesEl = document.getElementById('map-lives-inline');
   if(livesEl) livesEl.textContent = '❤'.repeat(Math.max(0,player.revives));
 
+  // ── Gold ──
+  const goldEl = document.getElementById('map-gold-inline');
+  if(goldEl) goldEl.textContent = `💰 ${player.gold}g`;
+
+  // ── Stats strip (ATK / EFX / DEF) ──
+  const statsStrip = document.getElementById('map-stats-strip');
+  if(statsStrip){
+    const atk = player.attackPower || 0;
+    const efx = player.effectPower || 0;
+    const def = player.defense || 0;
+    const chips = [];
+    if(atk !== 0) chips.push(`<span class="map-stat-chip" style="color:#e07050;">⚔ <b>${atk>0?'+':''}${atk}</b> ATK</span>`);
+    if(efx !== 0) chips.push(`<span class="map-stat-chip" style="color:#8080e0;">✦ <b>${efx>0?'+':''}${efx}</b> EFX</span>`);
+    if(def !== 0) chips.push(`<span class="map-stat-chip" style="color:#50a0e0;">🛡 <b>${def>0?'+':''}${def}</b> DEF</span>`);
+    statsStrip.innerHTML = chips.length ? chips.join('<span style="color:#2a2040;font-size:.55rem;"> · </span>') : '';
+    statsStrip.style.display = chips.length ? 'flex' : 'none';
+  }
+
   // ── Zone pill ──
   const gym = currentGymDef();
   const zonePill = document.getElementById('map-zone-label');

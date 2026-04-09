@@ -21,6 +21,22 @@ function updateStatsUI(){
     const lh=document.getElementById(prefix+"-lives");  if(lh) lh.textContent=heartsStr;
   });
   const mi=document.getElementById("map-items");    if(mi) mi.textContent=player.inventory.length;
+  // Deck mode stats panel
+  const dsp = document.getElementById('deck-stats-panel');
+  if(dsp && typeof player !== 'undefined' && player.deckMode) {
+    dsp.style.display = 'flex';
+    const _e = id => document.getElementById(id);
+    const a = _e('dsp-atk'); if(a) a.textContent = dispAtk;
+    const e = _e('dsp-efx'); if(e) e.textContent = dispEfx;
+    const d = _e('dsp-def'); if(d) d.textContent = dispDef;
+    const g = _e('dsp-gold'); if(g) g.textContent = player.gold + 'g';
+    const l = _e('dsp-lives'); if(l) l.textContent = heartsStr;
+    // Position above the player HUD
+    const hud = document.getElementById('arena-player-hud');
+    if(hud) dsp.style.bottom = (hud.offsetHeight + 14) + 'px';
+  } else if(dsp) {
+    dsp.style.display = 'none';
+  }
 }
 
 // ===============================
@@ -146,7 +162,58 @@ function renderEnemyCards(){
     if(_mistHPPct > 0){ const t=tag(`🌫+${_mistHPPct}%HP`,'tag-block',`Mist — The Veil grants this enemy +${_mistHPPct}% max HP (cannot be removed)`); t.style.opacity='.7'; row.appendChild(t); }
   });
 
+  renderEnemyIntentOverlay();
   renderBattlefield();
+}
+
+function renderEnemyIntentOverlay() {
+  const overlay = document.getElementById('enemy-intent-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = '';
+
+  const canvas = document.getElementById('battle-canvas');
+  if (!canvas || !canvas.offsetWidth) return;
+
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  const allE = combat.enemies || [];
+  const CARD_H = 72;
+
+  allE.forEach((e, i) => {
+    if (!e.alive || !e.intentQueue || e.intentQueue.length === 0) return;
+
+    const ep = enemySpritePos(i, allE, W, H);
+    const cx = ep.x + ep.w / 2;
+    const nameLabelY = ep.y - E_SCALE * 4 - 2;
+
+    const maxShow = Math.min(3, e.intentQueue.length);
+    const row = document.createElement('div');
+    row.className = 'enemy-intent-row';
+    row.style.left = cx + 'px';
+    row.style.top = (nameLabelY - CARD_H - 6) + 'px';
+
+    for (let j = 0; j < maxShow; j++) {
+      const intent = e.intentQueue[j];
+      const raw = (intent && intent.label) || '?';
+      const isHidden = !!(intent && intent.hidden);
+
+      const emojiMatch = raw.match(/^([\p{Emoji}]+)\s*/u);
+      const icon = (emojiMatch ? emojiMatch[1] : '') || '⚔';
+      const textPart = raw.replace(/^[\p{Emoji}\s]+/u, '').trim() || raw;
+      const nameStr = isHidden ? '???' : (textPart.length > 8 ? textPart.slice(0, 7) + '…' : textPart);
+
+      const card = document.createElement('div');
+      card.className = 'enemy-intent-card' + (j === 0 ? ' next' : '') + (isHidden ? ' eic-hidden' : '');
+      const elemColor = _ELEM_CARD_COLORS[e.element] || _ELEM_CARD_COLORS.Neutral;
+      card.style.borderColor = isHidden ? '#503030' : (j === 0 ? elemColor + 'cc' : elemColor + '55');
+
+      card.innerHTML =
+        `<div class="eic-art">${isHidden ? '?' : icon}</div>` +
+        `<div class="eic-name">${nameStr}</div>`;
+
+      row.appendChild(card);
+    }
+    overlay.appendChild(row);
+  });
 }
 
 function renderSummonsRow(){
@@ -624,6 +691,11 @@ function renderSpellButtons(){
     const _ap = document.getElementById('arena-passives');
     if(_ap) _ap.style.display = 'none';
     if(_combatScreen) _combatScreen.classList.remove('deck-mode-active');
+    const _arena = document.querySelector('.battle-arena');
+    if (_arena && _arena._battleResizeObserver) {
+      _arena._battleResizeObserver.disconnect();
+      _arena._battleResizeObserver = null;
+    }
   }
 
   // ── PLASMA: full custom grid (shown whenever the plasma abilities book is active) ─────────────────────────────────────────────
@@ -1267,6 +1339,12 @@ function _renderArenaEndTurn(isMyTurn) {
   }
   if(label) {
     label.textContent = `${queued} / ${total} actions`;
+  }
+  // Mirror actions count into the deck stats panel
+  const dspActions = document.getElementById('dsp-actions');
+  if(dspActions) {
+    dspActions.textContent = `${queued} / ${total}`;
+    dspActions.style.color = queued >= total && total > 0 ? '#f0c060' : '#8a6a40';
   }
 }
 

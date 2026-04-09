@@ -432,7 +432,7 @@ function playerSpritePos(W, H) {
   const rows = getPlayerCharSprite();
   const sw = 24 * P_SCALE, sh = rows.length * P_SCALE;
   const groundBottom = Math.round(H * 0.90);
-  return { x: Math.round(W * 0.06), y: groundBottom - sh, w: sw, h: sh };
+  return { x: Math.round(W * 0.14), y: groundBottom - sh, w: sw, h: sh };
 }
 
 function getEnemySprite(e) {
@@ -847,6 +847,7 @@ function renderBattlefield() {
         ctx.fillText('▼', ep.x + ep.w / 2, ep.y - 5);
         ctx.restore();
       }
+
     }
   });
 
@@ -906,4 +907,17 @@ function initBattleCanvas() {
   // Stretch canvas CSS to fill the arena
   canvas.style.width  = '100%';
   canvas.style.height = '100%';
+  // Re-size on container resize (mobile orientation change, browser bar show/hide)
+  if (arena && !arena._battleResizeObserver) {
+    arena._battleResizeObserver = new ResizeObserver(() => {
+      const nw = arena.offsetWidth || 480;
+      const nh = Math.max(160, arena.offsetHeight || Math.round(nw * 0.38));
+      if (nw !== canvas.width || nh !== canvas.height) {
+        canvas.width  = nw;
+        canvas.height = nh;
+        if (typeof renderEnemyCards === 'function') renderEnemyCards();
+      }
+    });
+    arena._battleResizeObserver.observe(arena);
+  }
 }

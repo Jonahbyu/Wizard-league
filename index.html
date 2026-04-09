@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Wizard's League</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
@@ -128,10 +128,13 @@
       <span class="map-topbar-sep">·</span>
       <div id="map-lives-inline" style="color:#e84a4a;font-size:.7rem;"></div>
       <span class="map-topbar-sep">·</span>
+      <span id="map-gold-inline" class="map-gold-txt"></span>
+      <span class="map-topbar-sep">·</span>
       <button onclick="showBookEditor()" style="background:none;border:none;color:#8a6a40;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Manage spellbooks">📚 Books</button>
       <span class="map-topbar-sep">·</span>
       <button onclick="showLibrary()" style="background:none;border:none;color:#6a5a8a;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Spell Library">📖 Library</button>
     </div>
+    <div class="map-stats-strip" id="map-stats-strip"></div>
     <div id="gym-warning-banner" style="display:none;" class="gym-warning"></div>
     <div id="map-hint" class="map-hint">Click a path to travel</div>
     <!-- Sandbox zone switcher -->
@@ -329,6 +332,7 @@
         <div class="stat-item"><div class="stat-label">Skill Pts</div><div class="stat-value sp" id="combat-sp">0</div></div>
         <div class="stat-item"><div class="stat-label">Gold</div><div class="stat-value gold" id="combat-gold">0</div></div>
         <div class="stat-item"><div class="stat-label">Lives</div><div class="stat-value" id="combat-lives" style="color:#e84a4a;">❤❤❤</div></div>
+        <div class="stat-item" id="stats-bar-actions-row" style="display:none;border-top:1px solid rgba(80,50,20,0.4);padding-top:4px;margin-top:2px;"><div class="stat-label">Actions</div><div class="stat-value" id="stats-bar-actions-chip" style="color:#8a6a40;">0 / 0</div></div>
       </div>
       <!-- Tab bar (moved to topbar) -->
       <div class="combat-tabs" id="combat-tabs">
@@ -351,8 +355,21 @@
     <div class="battle-arena" id="battle-arena">
       <canvas id="battle-canvas"></canvas>
 
+      <!-- Enemy intent card overlay — HTML cards above sprites -->
+      <div id="enemy-intent-overlay"></div>
+
       <!-- Enemy HUD panels — top right -->
       <div class="arena-enemy-hud" id="arena-enemy-hud"></div>
+
+      <!-- Deck mode stats panel — sits above the player HUD, bottom-left -->
+      <div id="deck-stats-panel" style="display:none;">
+        <div class="dsp-row"><span class="dsp-label">ATK</span><span class="dsp-val power" id="dsp-atk">0</span></div>
+        <div class="dsp-row"><span class="dsp-label">EFX</span><span class="dsp-val sp" id="dsp-efx">0</span></div>
+        <div class="dsp-row"><span class="dsp-label">DEF</span><span class="dsp-val" style="color:#4aaa8a" id="dsp-def">0</span></div>
+        <div class="dsp-row"><span class="dsp-label">Gold</span><span class="dsp-val gold" id="dsp-gold">0</span></div>
+        <div class="dsp-row"><span class="dsp-label">Lives</span><span class="dsp-val" style="color:#e84a4a;" id="dsp-lives">❤</span></div>
+        <div class="dsp-row dsp-actions"><span class="dsp-label">Actions</span><span class="dsp-val" id="dsp-actions">0 / 0</span></div>
+      </div>
 
       <!-- Player HUD — bottom left -->
       <div class="arena-player-hud" id="arena-player-hud">

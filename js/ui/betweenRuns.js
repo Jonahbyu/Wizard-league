@@ -283,7 +283,7 @@ function renderTalentTab(content, meta) {
   const allSections = Object.keys(TALENT_TREE);
   const sections = sandboxMode
     ? allSections
-    : allSections.filter(k => k === 'Universal' || RELEASED_ELEMENTS.includes(k));
+    : allSections.filter(k => k === 'universal' || RELEASED_ELEMENTS.includes(k));
   html += `<div class="talent-section-tabs" id="talent-section-tabs">`;
   sections.forEach((key, i) => {
     html += `<button class="talent-sec-btn${i===0?' active':''}" onclick="switchTalentSection('${key}',this)">${TALENT_TREE[key].label}</button>`;

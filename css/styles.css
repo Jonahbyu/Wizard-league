@@ -1321,6 +1321,35 @@
       border-radius: 3px;
       transition: width .4s, background .4s;
     }
+    .map-gold-txt {
+      font-family: 'Cinzel', serif;
+      font-size: .65rem;
+      color: #c8a030;
+      white-space: nowrap;
+    }
+    .map-stats-strip {
+      position: absolute;
+      top: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      padding: .22rem .7rem;
+      background: rgba(4,2,14,0.65);
+      border: 1px solid rgba(80,60,160,0.22);
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+      backdrop-filter: blur(2px);
+      white-space: nowrap;
+    }
+    .map-stat-chip {
+      font-size: .6rem;
+      font-family: 'Cinzel', serif;
+      letter-spacing: .04em;
+    }
+    .map-stat-chip b { font-weight: 700; }
     .map-hint {
       position: absolute;
       bottom: 10px;
@@ -1770,6 +1799,72 @@
   transition: transform 0.12s, box-shadow 0.12s;
 }
 
+/* Deck mode stats panel — above player portrait, bottom-left of arena */
+#deck-stats-panel {
+  position: absolute;
+  left: 7px;
+  background: rgba(8, 6, 4, 0.88);
+  border: 1px solid #2a3a28;
+  border-radius: 6px;
+  padding: 5px 10px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.dsp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.5rem;
+  font-family: 'Cinzel', serif;
+}
+.dsp-label { color: #4a4a5a; letter-spacing: .05em; text-transform: uppercase; }
+.dsp-val { font-weight: 700; color: #c8b89a; }
+.dsp-val.power { color: #e07050; }
+.dsp-val.sp { color: #8080e0; }
+.dsp-val.gold { color: #c8a030; }
+.dsp-actions { border-top: 1px solid rgba(80,50,20,0.35); padding-top: 3px; margin-top: 1px; }
+.dsp-actions .dsp-val { color: #8a6a40; }
+
+/* Enemy intent card overlay */
+#enemy-intent-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 8;
+}
+.enemy-intent-row {
+  position: absolute;
+  display: flex; flex-direction: row; gap: 4px;
+  transform: translateX(-50%);
+}
+.enemy-intent-card {
+  width: 52px; height: 72px;
+  border-radius: 8px;
+  border: 2px solid #4a3a1a;
+  background: #15100a;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px; padding: 4px 3px;
+  font-family: 'Cinzel', serif;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+}
+.enemy-intent-card:not(.next) { opacity: 0.55; }
+.enemy-intent-card .eic-art {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; line-height: 1;
+}
+.enemy-intent-card .eic-name {
+  font-size: 0.42rem; color: #d0a060;
+  letter-spacing: .03em; line-height: 1.2;
+  text-align: center; word-break: break-word;
+  padding: 0 2px;
+}
+.enemy-intent-card.eic-hidden .eic-art { color: #604040; font-size: 1rem; }
+.enemy-intent-card.eic-hidden .eic-name { color: #604040; }
+
 /* Spell tooltip (long-press on hand cards) */
 #spell-tooltip {
   position: fixed; z-index: 9999;
@@ -1953,21 +2048,9 @@
 #combat-screen.deck-mode-active .combat-topbar .combat-tabs {
   display: none;
 }
-/* Pull stats-bar out of topbar, stack above the end-turn button */
+/* Stats-bar stays in topbar in deck mode (hidden behind the arena) — real stats shown in #deck-stats-panel */
 #combat-screen.deck-mode-active .combat-topbar .stats-bar {
-  position: fixed;
-  bottom: 100px; right: 12px;
-  z-index: 28;
-  flex-direction: column;
-  gap: 3px;
-  background: rgba(8, 8, 13, 0.82);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(50, 35, 15, 0.5);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 0.52rem;
-  min-width: 130px;
+  display: none;
 }
 /* Enemy HUD in deck mode: full-arena overlay, cards positioned individually under sprites */
 #combat-screen.deck-mode-active .arena-enemy-hud {
@@ -1981,9 +2064,16 @@
   pointer-events: all;
   transform: translateX(-50%);
 }
+/* Canvas stretches to fill the full arena in deck mode */
+#combat-screen.deck-mode-active #battle-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
 /* battle-arena fills all of combat-top (topbar is absolute so arena starts at 0) */
 #combat-screen.deck-mode-active .battle-arena {
   flex: 1 1 0;
+  width: 100% !important;
+  max-width: none !important;
   height: 100% !important;
   max-height: none !important;
   min-height: 0;
@@ -2015,7 +2105,7 @@
 #combat-screen.deck-mode-active #card-hand-area {
   pointer-events: all;
   background: transparent;
-  padding: 4px 8px 10px !important;
+  padding: 4px 8px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
 }
 #combat-screen.deck-mode-active #card-hand-row {
   align-items: flex-end;
@@ -2030,12 +2120,35 @@
 /* End-turn button + actions label: fixed bottom-right */
 #combat-screen.deck-mode-active #arena-endturn-panel {
   position: fixed !important;
-  bottom: 10px;
-  right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
   z-index: 30;
   transform: none;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 3px;
+}
+#combat-screen.deck-mode-active .arena-endturn-btn {
+  padding: .6rem 1.4rem;
+  font-size: .8rem;
+  letter-spacing: .1em;
+  border-radius: 8px;
+  border-width: 2px;
+  min-height: 44px;
+  min-width: 44px;
+}
+#combat-screen.deck-mode-active .arena-actions-label {
+  font-size: .6rem;
+  color: #8a6a40;
+}
+@media (max-width: 480px) {
+  #combat-screen.deck-mode-active .arena-endturn-btn {
+    padding: .45rem .9rem;
+    font-size: .7rem;
+  }
+  #combat-screen.deck-mode-active #deck-stats-panel {
+    font-size: .55rem;
+    gap: 3px;
+  }
 }
 
