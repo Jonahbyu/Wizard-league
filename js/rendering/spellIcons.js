@@ -712,6 +712,12 @@ const SPELL_ICON_DATA = {
      <polygon points="1,11 7,11 7,9.5 11,12.5 7,15.5 7,14 1,14" fill="currentColor" opacity=".5"/>`,
 
   // ── NEUTRAL ───────────────────────────────────────────────────────────────
+  _armor:
+    `<path d="M3 2 Q3 11 8 14 Q13 11 13 2 Q8 0 3 2Z" fill="currentColor" opacity=".25"/>
+     <path d="M3 2 Q3 11 8 14 Q13 11 13 2 Q8 0 3 2Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="8" y1="5" x2="8" y2="11" stroke="currentColor" stroke-width="1.2" opacity=".7"/>
+     <line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.2" opacity=".7"/>`,
+
   power_strike:
     `<rect x="4" y="7" width="7" height="7" fill="currentColor" opacity=".5" rx="1"/>
      <rect x="4" y="7" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1" rx="1"/>

@@ -88,6 +88,7 @@ function restoreAllPP(){
 }
 
 function loadBattle(enc){
+  if(typeof resetDeckHandTracking === 'function') resetDeckHandTracking();
   combat.over=false; combat.tempDmgBonus=0; combat.playerTurn=false;
   combat._gen=0; combat.basicCD=0; combat.actionQueue=[]; combat.summons=[];
   combat.totalGold=0; combat.hitFlashes=[]; combat.turnInBattle=0;
@@ -226,7 +227,11 @@ function loadBattle(enc){
 function _loadGauntletBoss(){
   if(_gauntletBossIdx >= GAUNTLET_ROSTER.length) return;
   const enc = GAUNTLET_ROSTER[_gauntletBossIdx];
-  loadBattle({ ...enc, _rewardType: 'gym' });
+  if(enc.name === 'The Dark One' && typeof playDarkOneIntro === 'function'){
+    playDarkOneIntro(() => loadBattle({ ...enc, _rewardType: 'gym' }));
+  } else {
+    loadBattle({ ...enc, _rewardType: 'gym' });
+  }
 }
 
 function applyGymEntryEffect(effect, enc){

@@ -452,7 +452,10 @@ function renderQueue(){
         const pc = document.createElement('div');
         pc.className = 'played-card';
         pc.draggable = true;
-        pc.innerHTML = `<div class="pc-emoji">${(a.label||'').split(' ')[0]||'✦'}</div><div class="pc-name">${(a.label||'').replace(/^[^\s]+\s*/,'')}</div>`;
+        const _pcIcon = (a.spellObj && typeof spellIconSVG === 'function')
+          ? spellIconSVG(a.spellObj, 22)
+          : `<span>${(a.label||'').split(' ')[0]||'✦'}</span>`;
+        pc.innerHTML = `<div class="pc-emoji">${_pcIcon}</div><div class="pc-name">${(a.label||'').replace(/^[^\s]+\s*/,'')}</div>`;
         pc.title = 'Drag to reorder · Click to unqueue';
         // Click to unqueue
         pc.onclick = () => removeFromQueue(i);

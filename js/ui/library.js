@@ -738,7 +738,7 @@ function _libPassiveRow(passive, revealed) {
       <span style="flex-shrink:0;display:flex;align-items:center;">${passiveIconSVG(passive, 20)}</span>
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;margin-bottom:.18rem;">
-          <span style="font-size:.68rem;color:#a080c0;font-family:'Cinzel',serif;">${passive.title}${infoHint}</span>
+          <span style="font-size:.68rem;color:#f0f0f8;font-family:'Cinzel',serif;">${passive.title}${infoHint}</span>
           ${legBadge}
         </div>
         <div style="font-size:.6rem;color:#5a5a5a;line-height:1.5;white-space:normal;">${passive.desc || ''}</div>

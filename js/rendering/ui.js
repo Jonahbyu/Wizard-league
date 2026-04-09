@@ -38,6 +38,12 @@ function renderEnemyCards(){
   const fs  = b => (b * scl).toFixed(2) + 'rem';
   hud.style.setProperty('--cfs', scl.toFixed(3));
 
+  // For deck mode: get canvas dimensions to position cards under sprites
+  const _canvas = document.getElementById('battle-canvas');
+  const _canvasW = _canvas ? _canvas.offsetWidth  : 0;
+  const _canvasH = _canvas ? _canvas.offsetHeight : 0;
+  const _isDeck = typeof player !== 'undefined' && player.deckMode;
+
   (combat.enemies||[]).forEach((e, i)=>{
     const pct = Math.max(0, (e.hp / e.enemyMaxHP) * 100);
     const card = document.createElement('div');
@@ -46,6 +52,14 @@ function renderEnemyCards(){
       + (e.alive ? '' : ' dead');
     card.dataset.idx = i;
     card.style.padding = pad;
+
+    // In deck mode, position each card below its sprite
+    if(_isDeck && _canvasW > 0 && typeof enemySpritePos === 'function') {
+      const ep = enemySpritePos(i, combat.enemies, _canvasW, _canvasH);
+      card.style.left = (ep.x + ep.w / 2) + 'px';
+      card.style.top  = (ep.y + ep.h + 6) + 'px';
+      card.style.minWidth = '110px';
+    }
 
     if(e.alive){
       card.onclick = ()=>{
@@ -297,12 +311,16 @@ function confirmAbandon(){
 // ===============================
 // SPELL BUTTONS & TURN UI
 // ===============================
+let _drawAnimPending = false;
+let _prevHandSpellIds = new Set();
+
 function setPlayerTurnUI(isPlayerTurn){
   combat.playerTurn=isPlayerTurn;
   const endBtn=document.getElementById("end-turn-btn");
   const invBtn=document.getElementById("inv-toggle-btn");
   if(endBtn) endBtn.disabled=!isPlayerTurn;
   if(invBtn) invBtn.disabled=!isPlayerTurn;
+  if(isPlayerTurn && player.deckMode) _drawAnimPending = true;
   renderSpellButtons();
   renderQueue();
   updateActionUI();
@@ -450,6 +468,10 @@ function _spellDmgPreview(spell) {
   return parts.join(' · ');
 }
 
+let _deckModeLayoutActive = false;
+// Reset on new battle so first draw animates all cards
+function resetDeckHandTracking() { _prevHandSpellIds = new Set(); }
+
 function renderSpellButtons(){
   const grid = document.getElementById("spell-grid");
   if(!grid) return;
@@ -570,12 +592,17 @@ function renderSpellButtons(){
     const _sbPassives = document.getElementById('sb-passives-row');
     if(_sbPassives) _sbPassives.style.display = 'none';
     if(_combatScreen) _combatScreen.classList.add('deck-mode-active');
+    if(!_deckModeLayoutActive) {
+      _deckModeLayoutActive = true;
+      setTimeout(() => { if(typeof initBattleCanvas === 'function') initBattleCanvas(); }, 50);
+    }
     _renderCardHand(isMyTurn, queueFull, cdPreviewReduce);
     _renderArenaDecks(isMyTurn, queueFull);
     _renderArenaEndTurn(isMyTurn);
     _renderArenaPassives();
     return;
   } else {
+    _deckModeLayoutActive = false;
     grid.style.display = '';
     const _chArea = document.getElementById('card-hand-area');
     if(_chArea) _chArea.style.display = 'none';
@@ -925,24 +952,73 @@ function _makeSpellCard(spell, clickFn, isQueued, isOnCD, hintText) {
   const rarityInfo = (typeof SPELL_RARITY !== 'undefined' && spell.rarity) ? SPELL_RARITY[spell.rarity] : null;
   const rarityColor = rarityInfo && rarityInfo.color ? rarityInfo.color : null;
   if(rarityColor) card.style.borderColor = rarityColor;
+  if(spell.id) card.dataset.spellId = spell.id;
+  const _iconHTML = (typeof spellIconSVG === 'function') ? spellIconSVG(spell, 50) : (spell.emoji||'✦');
+  const _cdStr = spell.baseCooldown > 1 ? `CD:${spell.baseCooldown}` : (spell.baseCooldown === 0 ? '✦' : '');
+  const _ppStr = spell.maxPP !== undefined ? `${spell.currentPP||0}/${spell.maxPP}` : '';
   card.innerHTML =
-    `<div class="card-type">${spell.element||''}</div>` +
-    `<div class="card-emoji">${spell.emoji||'✦'}</div>` +
+    `<div class="card-top-row">` +
+      `<div class="card-cd">${_cdStr}</div>` +
+      `<div class="card-type">${spell.element||''}</div>` +
+      `<div class="card-pp">${_ppStr}</div>` +
+    `</div>` +
+    `<div class="card-art">${_iconHTML}</div>` +
     `<div class="card-name">${spell.name}</div>` +
     `<div class="card-hint">${hintText||''}</div>`;
   if(!isQueued && clickFn) {
     card.onclick = clickFn;
-    // Hold-to-zoom
+    // Hold-to-info tooltip
     let _holdTimer = null;
-    card.addEventListener('pointerdown', () => {
+    card.addEventListener('pointerdown', e => {
       _holdTimer = setTimeout(() => {
-        card.classList.add('card-zoomed');
+        _showSpellTooltip(spell, hintText, card);
       }, 420);
     });
-    card.addEventListener('pointerup', () => { clearTimeout(_holdTimer); card.classList.remove('card-zoomed'); });
-    card.addEventListener('pointerleave', () => { clearTimeout(_holdTimer); card.classList.remove('card-zoomed'); });
+    card.addEventListener('pointerup',    () => { clearTimeout(_holdTimer); _hideSpellTooltip(); });
+    card.addEventListener('pointerleave', () => { clearTimeout(_holdTimer); _hideSpellTooltip(); });
   }
   return card;
+}
+
+function _showSpellTooltip(spell, hintText, cardEl) {
+  const tip = document.getElementById('spell-tooltip');
+  if(!tip) return;
+  const rarityInfo = (typeof SPELL_RARITY !== 'undefined' && spell.rarity) ? SPELL_RARITY[spell.rarity] : null;
+  const rarityColor = rarityInfo ? rarityInfo.color : '#8a6a30';
+  const rarityLabel = rarityInfo ? rarityInfo.label : '';
+  const elemColor = _ELEM_CARD_COLORS[spell.element] || '#a09080';
+  const iconHTML = (typeof spellIconSVG === 'function') ? spellIconSVG(spell, 52) : (spell.emoji||'✦');
+  const cdText = spell.baseCooldown > 1 ? `<span class="stt-stat">CD <b>${spell.baseCooldown}</b></span>` : (spell.baseCooldown === 0 ? `<span class="stt-stat" style="color:#c8a060;">✦ Free</span>` : '');
+  const ppText = spell.maxPP !== undefined ? `<span class="stt-stat">PP <b>${spell.currentPP||0}/${spell.maxPP}</b></span>` : '';
+  const dmgText = hintText && hintText !== 'No PP' ? `<span class="stt-stat">${hintText}</span>` : '';
+
+  tip.innerHTML =
+    `<div class="stt-header" style="border-color:${rarityColor}33;">` +
+      `<div class="stt-icon">${iconHTML}</div>` +
+      `<div class="stt-title-block">` +
+        `<div class="stt-name" style="color:#f0f0f8;">${spell.name}</div>` +
+        `<div class="stt-badges">` +
+          `<span class="stt-elem" style="color:${elemColor};">${spell.element||''}</span>` +
+          (rarityLabel ? `<span class="stt-rarity" style="color:${rarityColor};">${rarityLabel}</span>` : '') +
+        `</div>` +
+      `</div>` +
+    `</div>` +
+    (spell.desc ? `<div class="stt-desc">${spell.desc}</div>` : '') +
+    `<div class="stt-stats">${cdText}${ppText}${dmgText}</div>`;
+
+  // Position above the card
+  const rect = cardEl.getBoundingClientRect();
+  tip.style.display = 'block';
+  const tipW = 220;
+  let left = rect.left + rect.width / 2 - tipW / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+  tip.style.left = left + 'px';
+  tip.style.top  = Math.max(8, rect.top - tip.offsetHeight - 10) + 'px';
+}
+
+function _hideSpellTooltip() {
+  const tip = document.getElementById('spell-tooltip');
+  if(tip) tip.style.display = 'none';
 }
 
 function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
@@ -972,12 +1048,15 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
       const basicIcon = hasElemBasic ? (_elemBasicIcons[playerElement]||'⚔') : '⚔';
       const basicOnCD = combat.basicCD > 0;
       const basicQueued = (combat.actionQueue||[]).some(a => a.label === `${basicIcon} ${basicName}`);
-      if(basicOnCD) { deckCount++; return; }
+      if(basicOnCD || basicQueued) { deckCount++; return; }
       const basicOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
       const basicDmgEst = Math.max(1, Math.round(
         (BASE_DMG + (combat.tempDmgBonus||0) + (player.basicDmgFlat||0) + (hasElemBasic?10:0)) * (player.basicDmgMult||1.0)
         + attackPowerFor('player')));
-      const _fakeSpell = {emoji: basicIcon, name: basicName, element: playerElement};
+      const _basicIconIds = {Fire:'ignite',Water:'tidal_surge',Ice:'frost_bolt',Lightning:'zap',Earth:'seismic_wave',Nature:'vine_strike',Plasma:'plasma_lance',Air:'twin_strike'};
+      const _fakeSpell = {id: _basicIconIds[playerElement]||'power_strike', emoji: basicIcon, name: basicName, element: playerElement,
+        baseCooldown: adjustedCooldownFor('player',1)||1,
+        currentPP: spell.currentPP, maxPP: spell.maxPP};
       const card = _makeSpellCard(
         _fakeSpell,
         () => {
@@ -991,14 +1070,13 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
             const ctx = makeSpellCtx('player','enemy',-1);
             doBasicAttack(ctx);
             updateHPBars(); renderStatusTags(); updateStatsUI();
-          }, {});
+          }, {spellObj: _fakeSpell});
           renderSpellButtons();
         },
-        basicQueued,
+        false,
         false,
         basicOutOfPP ? 'No PP' : `~${basicDmgEst} dmg`
       );
-      if(basicQueued) card.classList.add('card-queued');
       handEl.appendChild(card);
       return;
     }
@@ -1006,25 +1084,26 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
     if(spell.id === '_armor') {
       const armAmt = armorBlockAmount();
       const armorQueued = (combat.actionQueue||[]).some(a => a.label === '🛡 Armor');
+      if(armorQueued) { deckCount++; return; }
       const armorOutOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
-      const _fakeArmor = {emoji:'🛡', name:'Armor', element:'Neutral'};
+      const _fakeArmor = {id:'_armor', emoji:'🛡', name:'Armor', element:'Neutral',
+        baseCooldown: 0, currentPP: spell.currentPP, maxPP: spell.maxPP};
       const card = _makeSpellCard(
         _fakeArmor,
         () => {
-          if(!isMyTurn || armorQueued || queueFull || armorOutOfPP) return;
+          if(!isMyTurn || queueFull || armorOutOfPP) return;
           queueAction('🛡 Armor', () => {
             if((spell.currentPP||0) > 0) spell.currentPP--;
             status.player.block = (status.player.block||0) + armAmt;
             log('🛡 You brace — +'+armAmt+' Block ('+status.player.block+' total).','player');
             renderStatusTags();
-          }, {});
+          }, {spellObj: _fakeArmor});
           renderSpellButtons();
         },
-        armorQueued,
+        false,
         false,
         armorOutOfPP ? 'No PP' : `+${armAmt} Block`
       );
-      if(armorQueued) card.classList.add('card-queued');
       handEl.appendChild(card);
       return;
     }
@@ -1035,12 +1114,15 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
     if(onCD) { deckCount++; return; }
     const outOfPP = (spell.currentPP !== undefined) && spell.currentPP <= 0;
     const isFree = !!spell.isFreeAction;
-    const alreadyQueued = !spell.multiUse && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name));
+    const isZeroCD = spell.baseCooldown === 0;
+    const alreadyQueued = !spell.multiUse && !isZeroCD && (combat.actionQueue||[]).some(a => a.label && a.label.includes(spell.name));
+    // Queued non-multiUse cards disappear from hand (they show in played-card-row)
+    if(alreadyQueued) { deckCount++; return; }
     const canQueue = isFree
-      ? !outOfPP && (spell.baseCooldown === 0 || !alreadyQueued)
-      : !queueFull && !outOfPP && (spell.multiUse || !alreadyQueued);
+      ? !outOfPP
+      : !queueFull && !outOfPP;
     const dmgPrev = (typeof _spellDmgPreview === 'function') ? _spellDmgPreview(spell) : '';
-    const hintText = outOfPP ? 'No PP' : (dmgPrev || (spell.baseCooldown > 0 ? `CD:${spell.baseCooldown}` : ''));
+    const hintText = outOfPP ? 'No PP' : (dmgPrev || '');
     const card = _makeSpellCard(
       spell,
       () => {
@@ -1048,7 +1130,8 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
         const snapTgt = combat.targetIdx;
         const spellRef = spell;
         const spellIdx = player.spellbook.indexOf(spell);
-        const snapCD = (!spell.multiUse) ? (adjustedCooldownFor('player', spell.baseCooldown)||1) : 0;
+        // CD:0 spells never go on cooldown — they redraw immediately
+        const snapCD = (spell.multiUse || isZeroCD) ? 0 : (adjustedCooldownFor('player', spell.baseCooldown)||1);
         const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
         const opts = {isFree, stormRushDependent: isStormRushDependent,
           isSpellAction: true,
@@ -1075,11 +1158,10 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
         }, opts);
         renderSpellButtons();
       },
-      alreadyQueued,
+      false,
       false,
       hintText
     );
-    if(alreadyQueued) card.classList.add('card-queued');
     handEl.appendChild(card);
   });
 
@@ -1105,11 +1187,42 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
     });
   }
 
+  // ── Card fan + draw animation ─────────────────────────────────────────────
+  const _fanCards = Array.from(handEl.querySelectorAll('.spell-card'));
+  const _fanN = _fanCards.length;
+  const _doDrawAnim = _drawAnimPending;
+  if(_doDrawAnim) _drawAnimPending = false;
+
+  let _newHandIds = new Set();
+  let _newCardDelay = 0;
+
+  _fanCards.forEach((card, i) => {
+    const relI = _fanN > 1 ? (i - (_fanN - 1) / 2) / Math.max(_fanN - 1, 1) : 0;
+    const angle = relI * (_fanN > 1 ? 14 : 0);
+    const yDrop = Math.abs(relI) * 20;
+    card.style.transformOrigin = '50% 120%';
+    card.style.position = 'relative';
+    card.style.zIndex   = String(_fanN - Math.round(Math.abs(relI) * (_fanN - 1)));
+    card.style.transform = `rotate(${angle.toFixed(1)}deg) translateY(${yDrop.toFixed(0)}px)`;
+
+    const sid = card.dataset.spellId || '';
+    if(sid) _newHandIds.add(sid);
+
+    // Only animate cards that weren't in hand last render (newly drawn)
+    if(_doDrawAnim && !_prevHandSpellIds.has(sid)) {
+      const delay = _newCardDelay * 75;
+      _newCardDelay++;
+      card.style.animation = `cardFlyIn 0.42s cubic-bezier(0.22, 0.68, 0, 1.2) ${delay}ms both`;
+    }
+  });
+
+  _prevHandSpellIds = _newHandIds;
+
   // ── Deck counter ─────────────────────────────────────────────────────────
   if(deckCounter) {
     deckCounter.textContent = deckCount > 0
-      ? `📚 Deck: ${deckCount} spell${deckCount !== 1 ? 's' : ''} on cooldown`
-      : '📚 All spells in hand';
+      ? `📚 ${deckCount} on cooldown`
+      : '';
   }
 }
 

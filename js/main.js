@@ -331,7 +331,7 @@ function showPassiveScreen(element){
   const list    = document.getElementById('passive-choices-screen');
   const startBtn= document.getElementById('passive-start-btn');
   const pool    = (PASSIVE_CHOICES[element] || []).filter(p => !p.legendary);
-  const choices = sandboxMode ? pool : pickRandom(pool, Math.min(2, pool.length));
+  const choices = sandboxMode ? pool : pickRandom(pool, Math.min(3, pool.length));
 
   pendingStartPassive = null;
   startBtn.disabled = true;

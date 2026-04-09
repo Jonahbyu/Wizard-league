@@ -712,9 +712,11 @@ function showIncantationChoiceScreen(level) {
     const btn = document.createElement('button');
     btn.className = 'prog-choice-btn spell-btn-el';
     btn.style.borderColor = rarityColor;
+    const _incIconHTML = (typeof spellIconSVG === 'function') ? spellIconSVG(spell, 48) : (spell.emoji || '✦');
     btn.innerHTML =
       `<div class="pc-tag" style="color:${rarityColor};">${rarityInfo.label} · Level ${spell.incantationLevel || 1} → ${nextLevel}</div>` +
-      `<div class="pc-name" style="display:flex;align-items:center;gap:.35rem;">${spellIconSVG(spell, 20)} ${spell.name}</div>` +
+      `<div style="display:flex;align-items:center;justify-content:center;padding:6px 0 4px;">${_incIconHTML}</div>` +
+      `<div class="pc-name">${spell.name}</div>` +
       `<div class="pc-desc">${spell.desc || ''}</div>` +
       `<div class="pc-desc" style="color:#c8e0ff;margin-top:2px;">${upgradeStr}</div>`;
     btn.onclick = () => {
