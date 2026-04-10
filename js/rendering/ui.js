@@ -31,9 +31,18 @@ function updateStatsUI(){
     const d = _e('dsp-def'); if(d) d.textContent = dispDef;
     const g = _e('dsp-gold'); if(g) g.textContent = player.gold + 'g';
     const l = _e('dsp-lives'); if(l) l.textContent = heartsStr;
-    // Position above the player HUD
-    const hud = document.getElementById('arena-player-hud');
-    if(hud) dsp.style.bottom = (hud.offsetHeight + 14) + 'px';
+    // Position above the player sprite on the canvas
+    const _bc = document.getElementById('battle-canvas');
+    const _arena = _bc && _bc.parentElement;
+    if (_bc && _arena && typeof playerSpritePos === 'function' && _bc.width && _bc.height) {
+      const pp = playerSpritePos(_bc.width, _bc.height);
+      const scaleY = (_bc.offsetHeight || _bc.height) / _bc.height;
+      const spriteTopCSS = pp.y * scaleY;
+      dsp.style.bottom = (_arena.offsetHeight - spriteTopCSS + 8) + 'px';
+    } else {
+      const hud = document.getElementById('arena-player-hud');
+      if(hud) dsp.style.bottom = (hud.offsetHeight + 14) + 'px';
+    }
   } else if(dsp) {
     dsp.style.display = 'none';
   }
