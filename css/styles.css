@@ -2106,12 +2106,14 @@
   pointer-events: all;
   background: transparent;
   padding: 4px 8px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  min-height: calc(169px + env(safe-area-inset-bottom, 0px));
 }
 #combat-screen.deck-mode-active #card-hand-row {
   align-items: flex-end;
   overflow-x: visible;
   padding: 6px 0 0;
-  padding-left: 55px;
+  justify-content: flex-start;
+  padding-left: 8px;
 }
 /* Tighter card spacing for fan layout */
 #combat-screen.deck-mode-active #card-hand {
@@ -2151,6 +2153,23 @@
   #combat-screen.deck-mode-active #deck-stats-panel {
     font-size: .55rem;
     gap: 3px;
+  }
+  /* Smaller cards in hand on mobile */
+  #combat-screen.deck-mode-active .spell-card {
+    width: 70px;
+    height: 100px;
+    padding: 5px 4px;
+    border-radius: 7px;
+    font-size: 0.45rem;
+  }
+  #combat-screen.deck-mode-active .spell-card .card-emoji { font-size: 1.1rem; }
+  #combat-screen.deck-mode-active .spell-card .card-name { font-size: 0.42rem; }
+  #combat-screen.deck-mode-active .spell-card .card-hint { font-size: 0.38rem; }
+  #combat-screen.deck-mode-active .spell-card .card-cd,
+  #combat-screen.deck-mode-active .spell-card .card-pp { font-size: 0.38rem; min-width: 16px; }
+  /* Adjust hand min-height for smaller cards */
+  #combat-screen.deck-mode-active #card-hand-area {
+    min-height: calc(114px + env(safe-area-inset-bottom, 0px));
   }
 }
 
