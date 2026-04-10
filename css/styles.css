@@ -2112,8 +2112,8 @@
   align-items: flex-end;
   overflow-x: visible;
   padding: 6px 0 0;
-  justify-content: flex-start;
-  padding-left: 8px;
+  justify-content: flex-end;
+  padding-right: 8px;
 }
 /* Tighter card spacing for fan layout */
 #combat-screen.deck-mode-active #card-hand {
