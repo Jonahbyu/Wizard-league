@@ -37,6 +37,22 @@ let _lobbyCinematicTick = 0;
 let _lobbyPathCanvas = null;
 let _lobbyPathCacheW = 0, _lobbyPathCacheH = 0;
 
+// Mobile Y-coordinate transform — on portrait screens compress sky into top 20%
+// and expand the map area to fill the remaining 80%.
+// All fractional Y values (0–1) that are multiplied by H should go through this.
+function _lobbyMY(y, W, H) {
+  if (W >= H) return y; // landscape / desktop: no transform
+  const ho = 0.60, hn = 0.30; // old horizon 60%, new horizon 30% (leaves sky gap above castle)
+  if (y <= ho) return y / ho * hn;
+  return hn + (y - ho) / (1.0 - ho) * (1.0 - hn);
+}
+// Returns the pixel Y for the bottom of the drawbridge — capped on mobile so bridge isn't stretched
+function _lobbyBridgeBotY(W, H) {
+  const baseY = _lobbyMY(0.60, W, H) * H;
+  if (W < H) return baseY + W * 0.50 * 0.385; // proportional to castle scale (30% shorter)
+  return H * 0.76;
+}
+
 // ── Zone background panels (randomized per session / run) ─────────────────────
 let _lobbyBgZones = null; // array of 3 element strings
 
@@ -52,8 +68,8 @@ function _initLobbyBgZones() {
 
 function _drawLobbyZonePanels(ctx, W, H) {
   if (!_lobbyBgZones) return;
-  const topY   = H * 0.12;
-  const botY   = H * 0.60;
+  const topY   = _lobbyMY(0.12, W, H) * H;
+  const botY   = _lobbyMY(0.60, W, H) * H;
   const panelH = botY - topY;
   const panelW = W / 3;
   const t      = _lobbyTick;
@@ -894,21 +910,24 @@ function _drawLobbyMap(ctx, W, H) {
   // Zone backgrounds in the distance (H*0.12 → H*0.60)
   _drawLobbyZonePanels(ctx, W, H);
 
-  // Ground (horizon at H*0.60) — dark grassy green
-  const gnd = ctx.createLinearGradient(0, H * 0.60, 0, H);
+  // Ground (horizon) — dark grassy green
+  const _hz = _lobbyMY(0.60, W, H) * H;
+  const gnd = ctx.createLinearGradient(0, _hz, 0, H);
   gnd.addColorStop(0,   '#0e1e08');
   gnd.addColorStop(0.4, '#0c1a07');
   gnd.addColorStop(1,   '#081205');
   ctx.fillStyle = gnd;
-  ctx.fillRect(0, H * 0.60, W, H);
+  ctx.fillRect(0, _hz, W, H);
 
   // Thin horizon glow
-  const hglow = ctx.createLinearGradient(0, H * 0.57, 0, H * 0.63);
+  const _hzT = _lobbyMY(0.57, W, H) * H;
+  const _hzB = _lobbyMY(0.63, W, H) * H;
+  const hglow = ctx.createLinearGradient(0, _hzT, 0, _hzB);
   hglow.addColorStop(0, 'transparent');
   hglow.addColorStop(0.5, 'rgba(30,60,12,0.28)');
   hglow.addColorStop(1, 'transparent');
   ctx.fillStyle = hglow;
-  ctx.fillRect(0, H * 0.57, W, H * 0.06);
+  ctx.fillRect(0, _hzT, W, _hzB - _hzT);
 
   // Winding dirt paths + foreground detail
   _drawLobbyPaths(ctx, W, H);
@@ -921,7 +940,7 @@ function _drawLobbyMap(ctx, W, H) {
   ctx.save();
   for (let i = 0; i < 80; i++) {
     const sx = ((i * 137 + 17) % W);
-    const sy = ((i * 97 + 31) % (H * 0.55));
+    const sy = ((i * 97 + 31) % (_lobbyMY(0.55, W, H) * H));
     const flicker = 0.25 + 0.65 * Math.abs(Math.sin(_lobbyTick * (0.012 + (i % 7) * 0.004) + i * 1.3));
     ctx.globalAlpha = flicker;
     // Some stars are cross/plus shaped for extra sparkle
@@ -1041,8 +1060,8 @@ function _drawStoneBlocks(ctx, rx, ry, rw, rh, blockH, seed) {
 
 function _drawLobbycastle(ctx, W, H) {
   const cx    = W * 0.50;
-  const baseY = H * 0.60;          // horizon line where castle meets ground
-  const s     = W * 0.38;          // master scale — bigger than before
+  const baseY = _lobbyMY(0.60, W, H) * H;  // horizon line where castle meets ground
+  const s     = W * (W < H ? 0.50 : 0.38); // zoom castle on portrait mobile
   const t     = _lobbyTick;
 
   ctx.save();
@@ -1230,7 +1249,7 @@ function _drawLobbycastle(ctx, W, H) {
   const bridgeW    = gateW * 1.05;
   const bridgeX    = cx - bridgeW / 2;
   const bridgeTopY = baseY;
-  const bridgeBotY = H * 0.76;
+  const bridgeBotY = _lobbyBridgeBotY(W, H);
   const bridgeLen  = bridgeBotY - bridgeTopY;
   const parapetW   = bridgeW * 0.08;
 
@@ -1343,7 +1362,7 @@ function _drawLobbycastle(ctx, W, H) {
 
 function _drawLobbyFountain(ctx, W, H) {
   const cx = LOBBY_FOUNTAIN.x * W;
-  const cy = LOBBY_FOUNTAIN.y * H;
+  const cy = _lobbyMY(LOBBY_FOUNTAIN.y, W, H) * H;
   const r  = Math.max(22, W * 0.055);
   const t  = _lobbyTick;
 
@@ -1453,8 +1472,9 @@ function _drawLobbyPaths(ctx, W, H) {
   ctx.drawImage(_lobbyPathCanvas, 0, 0);
 }
 function _drawLobbyPathsActual(ctx, W, H) {
+  const my = y => _lobbyMY(y, W, H) * H; // shorthand: fractional Y → pixel Y
   const fcx = LOBBY_FOUNTAIN.x * W;
-  const fcy = LOBBY_FOUNTAIN.y * H;
+  const fcy = my(LOBBY_FOUNTAIN.y);
   const pathW   = Math.max(5, W * 0.012);
   const branchW = pathW * 0.75;            // side branches slightly thinner
   const plazaRX = Math.max(30, W * 0.076);
@@ -1475,14 +1495,14 @@ function _drawLobbyPathsActual(ctx, W, H) {
   // ── LEFT TRUNK: fountain → archive (farthest left) ──────────────────────
   const archLoc  = LOBBY_LOCATIONS.find(l => l.id === 'archive');
   const guildLoc = LOBBY_LOCATIONS.find(l => l.id === 'guild');
-  const [ls0x, ls0y] = edgePt(archLoc.x * W, archLoc.y * H);
-  const ls_cpx = 0.14*W, ls_cpy = 0.79*H;   // trunk control point
-  const ls_ex  = archLoc.x * W, ls_ey = archLoc.y * H;
+  const [ls0x, ls0y] = edgePt(archLoc.x * W, my(archLoc.y));
+  const ls_cpx = 0.14*W, ls_cpy = my(0.79);   // trunk control point
+  const ls_ex  = archLoc.x * W, ls_ey = my(archLoc.y);
   _drawCobblestonePath(ctx, ls0x, ls0y, ls_cpx, ls_cpy, ls_ex, ls_ey, pathW);
 
   // Branch off trunk at t≈0.40 → guild
   const [ljx, ljy] = bezPt(ls0x, ls0y, ls_cpx, ls_cpy, ls_ex, ls_ey, 0.40);
-  const gl_ex = guildLoc.x * W, gl_ey = guildLoc.y * H;
+  const gl_ex = guildLoc.x * W, gl_ey = my(guildLoc.y);
   _drawCobblestonePath(ctx, ljx, ljy,
     (ljx + gl_ex)*0.5 + W*0.02, (ljy + gl_ey)*0.5,
     gl_ex, gl_ey, branchW);
@@ -1490,14 +1510,14 @@ function _drawLobbyPathsActual(ctx, W, H) {
   // ── RIGHT TRUNK: fountain → vault (farthest right) ──────────────────────
   const vaultLoc  = LOBBY_LOCATIONS.find(l => l.id === 'vault');
   const tailorLoc = LOBBY_LOCATIONS.find(l => l.id === 'tailor');
-  const [rs0x, rs0y] = edgePt(vaultLoc.x * W, vaultLoc.y * H);
-  const rs_cpx = 0.86*W, rs_cpy = 0.79*H;
-  const rs_ex  = vaultLoc.x * W, rs_ey = vaultLoc.y * H;
+  const [rs0x, rs0y] = edgePt(vaultLoc.x * W, my(vaultLoc.y));
+  const rs_cpx = 0.86*W, rs_cpy = my(0.79);
+  const rs_ex  = vaultLoc.x * W, rs_ey = my(vaultLoc.y);
   _drawCobblestonePath(ctx, rs0x, rs0y, rs_cpx, rs_cpy, rs_ex, rs_ey, pathW);
 
   // Branch off trunk at t≈0.40 → tailor
   const [rjx, rjy] = bezPt(rs0x, rs0y, rs_cpx, rs_cpy, rs_ex, rs_ey, 0.40);
-  const tl_ex = tailorLoc.x * W, tl_ey = tailorLoc.y * H;
+  const tl_ex = tailorLoc.x * W, tl_ey = my(tailorLoc.y);
   _drawCobblestonePath(ctx, rjx, rjy,
     (rjx + tl_ex)*0.5 - W*0.02, (rjy + tl_ey)*0.5,
     tl_ex, tl_ey, branchW);
@@ -1505,15 +1525,15 @@ function _drawLobbyPathsActual(ctx, W, H) {
   // ── BOTTOM PATHS: direct from plaza edge ────────────────────────────────
   ['library','talents'].forEach((id, i) => {
     const loc = LOBBY_LOCATIONS.find(l => l.id === id);
-    const [sx, sy] = edgePt(loc.x * W, loc.y * H);
+    const [sx, sy] = edgePt(loc.x * W, my(loc.y));
     const cpx = i === 0 ? 0.22*W : 0.76*W;
-    _drawCobblestonePath(ctx, sx, sy, cpx, 0.96*H, loc.x*W, loc.y*H, pathW);
+    _drawCobblestonePath(ctx, sx, sy, cpx, my(0.96), loc.x*W, my(loc.y), pathW);
   });
 
   // ── BRIDGE PATH: plaza top edge → drawbridge bottom ─────────────────────
   const castleLoc = LOBBY_LOCATIONS.find(l => l.id === 'castle');
-  const [bp0x, bp0y] = edgePt(castleLoc.x * W, castleLoc.y * H);
-  const bridgeBotX = 0.50 * W, bridgeBotY = H * 0.76;
+  const [bp0x, bp0y] = edgePt(castleLoc.x * W, my(castleLoc.y));
+  const bridgeBotX = 0.50 * W, bridgeBotY = _lobbyBridgeBotY(W, H);
   _drawCobblestonePath(ctx, bp0x, bp0y, 0.50*W, (bp0y + bridgeBotY)*0.5, bridgeBotX, bridgeBotY, pathW);
 
   // ── VEIL PATH: branch left from bridge path toward grass beside bridge ───
@@ -1521,7 +1541,7 @@ function _drawLobbyPathsActual(ctx, W, H) {
   // Branch starts partway along bridge path (t≈0.55, near the lower portion)
   const bpCPy = (bp0y + bridgeBotY) * 0.5;
   const [vjx, vjy] = bezPt(bp0x, bp0y, 0.50*W, bpCPy, bridgeBotX, bridgeBotY, 0.55);
-  const vl_ex = veilLoc.x * W, vl_ey = veilLoc.y * H;
+  const vl_ex = veilLoc.x * W, vl_ey = my(veilLoc.y);
   _drawCobblestonePath(ctx, vjx, vjy,
     (vjx + vl_ex) * 0.5, (vjy + vl_ey) * 0.5 - H * 0.01,
     vl_ex, vl_ey, branchW);
@@ -1636,16 +1656,17 @@ function _drawCobblestoneRing(ctx, cx, cy, rX, rY, pathW) {
 // ── Foreground environmental detail ───────────────────────────────────────
 function _drawLobbyForeground(ctx, W, H) {
   const t = _lobbyTick;
+  const my = y => _lobbyMY(y, W, H) * H; // fractional Y → pixel Y
 
   // ── River (horizontal across foreground, bridge passes over it) ────────
   const spts = [
-    [-0.02*W, 0.634*H],
-    [ 0.13*W, 0.622*H],
-    [ 0.28*W, 0.638*H],
-    [ 0.50*W, 0.628*H],
-    [ 0.72*W, 0.638*H],
-    [ 0.87*W, 0.622*H],
-    [ 1.02*W, 0.634*H],
+    [-0.02*W, my(0.634)],
+    [ 0.13*W, my(0.622)],
+    [ 0.28*W, my(0.638)],
+    [ 0.50*W, my(0.628)],
+    [ 0.72*W, my(0.638)],
+    [ 0.87*W, my(0.622)],
+    [ 1.02*W, my(0.634)],
   ];
   // Draw river: dark shadow, water body, shimmer, bank edges
   const drawStream = (col, lw, off) => {
@@ -1676,7 +1697,7 @@ function _drawLobbyForeground(ctx, W, H) {
     [0.85,0.67],[0.90,0.74],[0.94,0.67],[0.11,0.86],[0.89,0.82],
   ];
   tufts.forEach(([fx, fy], i) => {
-    const gx = fx*W, gy = fy*H;
+    const gx = fx*W, gy = my(fy);
     const gs = Math.max(4, W*0.006);
     const sway = Math.sin(t*0.022 + i*1.4) * gs*0.35;
     ctx.strokeStyle = i%3===0 ? '#2a4410' : i%3===1 ? '#1e3808' : '#163010';
@@ -1693,7 +1714,7 @@ function _drawLobbyForeground(ctx, W, H) {
   // ── Small rocks scattered here and there ──────────────────────────────
   const rocks = [[0.09,0.67],[0.38,0.74],[0.62,0.81],[0.88,0.70],[0.23,0.88]];
   rocks.forEach(([fx, fy], i) => {
-    const rx = fx*W, ry = fy*H, rs = Math.max(2, W*0.005);
+    const rx = fx*W, ry = my(fy), rs = Math.max(2, W*0.005);
     ctx.fillStyle = '#14120e';
     ctx.beginPath();
     ctx.ellipse(Math.round(rx), Math.round(ry), Math.round(rs*(1.4+i*0.1)), Math.round(rs*0.7), 0.2+i*0.3, 0, Math.PI*2);
@@ -1711,7 +1732,7 @@ function _drawLobbyForeground(ctx, W, H) {
     {x:0.01, y:0.78, s:0.55},{x:0.99, y:0.79, s:0.50},
   ];
   edgeTrees.forEach(tr => {
-    const txp = tr.x*W, typ = tr.y*H, trs = tr.s * Math.max(16, W*0.022);
+    const txp = tr.x*W, typ = my(tr.y), trs = tr.s * Math.max(16, W*0.022);
     ctx.fillStyle = '#1a0e06';
     ctx.fillRect(Math.round(txp-trs*0.16), Math.round(typ-trs*1.2), Math.round(trs*0.32), Math.round(trs*1.2));
     ctx.fillStyle = '#061208';
@@ -1723,7 +1744,7 @@ function _drawLobbyForeground(ctx, W, H) {
   // ── Small wildflowers along river banks ────────────────────────────────
   const flowers = [[0.08,0.65],[0.20,0.66],[0.42,0.64],[0.62,0.65],[0.78,0.66],[0.92,0.65]];
   flowers.forEach(([fx,fy],i) => {
-    const flx = fx*W, fly = fy*H, flr = Math.max(1, W*0.004);
+    const flx = fx*W, fly = my(fy), flr = Math.max(1, W*0.004);
     const fc = ['#3a1a30','#1a1a40','#2a1a10','#1a2a10'][i];
     ctx.fillStyle = fc;
     ctx.beginPath(); ctx.arc(Math.round(flx), Math.round(fly), Math.round(flr), 0, Math.PI*2); ctx.fill();
@@ -1776,8 +1797,8 @@ function _lobbyBuildingHasNotif(id) {
 function _drawLobbyBuilding(ctx, loc, W, H) {
   const hovered = _lobbyHoveredId === loc.id;
   const bx = Math.round(loc.x * W);
-  const by = Math.round(loc.y * H);
-  const bs = Math.max(14, Math.round(Math.min(W * 0.034, H * 0.050)));
+  const by = Math.round(_lobbyMY(loc.y, W, H) * H);
+  const bs = Math.max(14, Math.round(Math.min(W * (W < H ? 0.050 : 0.034), H * 0.060)));
   const t  = _lobbyTick;
 
   ctx.save();
@@ -2254,7 +2275,7 @@ function _drawLobbyPlayer(ctx, W, H) {
   if (_lobbyCinematic === 'castle_teeth' || _lobbyCinematic === 'castle_fade') return;
 
   const x = Math.round(_lobbyPlayerX * W);
-  const y = Math.round(_lobbyPlayerY * H);
+  const y = Math.round(_lobbyMY(_lobbyPlayerY, W, H) * H);
   let scale = Math.max(1, Math.min(2, Math.floor(W / 400)));
 
   // During castle_enter: shrink and fade as wizard walks into the gate
@@ -2358,7 +2379,7 @@ function _lobbyHover(e) {
   const W = canvas.width, H = canvas.height;
   let hit = null;
   LOBBY_LOCATIONS.forEach(loc => {
-    const lx = loc.x * W, ly = loc.y * H;
+    const lx = loc.x * W, ly = _lobbyMY(loc.y, W, H) * H;
     const dist = Math.sqrt((mx - lx) ** 2 + (my - ly) ** 2);
     const radius = loc.id === 'castle' ? W * 0.14 : Math.max(28, W * 0.065);
     if (dist < radius) hit = loc.id;
@@ -2486,7 +2507,7 @@ function _lobbyClick(e) {
 
   let hit = null;
   LOBBY_LOCATIONS.forEach(loc => {
-    const lx = loc.x * W, ly = loc.y * H;
+    const lx = loc.x * W, ly = _lobbyMY(loc.y, W, H) * H;
     const dist = Math.sqrt((mx - lx) ** 2 + (my - ly) ** 2);
     const radius = loc.id === 'castle' ? W * 0.14 : Math.max(28, W * 0.065);
     if (dist < radius) hit = loc;

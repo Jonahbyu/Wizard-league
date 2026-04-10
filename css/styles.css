@@ -2106,7 +2106,9 @@
   pointer-events: all;
   background: transparent;
   padding: 4px 8px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
-  min-height: calc(169px + env(safe-area-inset-bottom, 0px));
+  height: calc(195px + env(safe-area-inset-bottom, 0px));
+  min-height: calc(195px + env(safe-area-inset-bottom, 0px));
+  justify-content: flex-end;
 }
 #combat-screen.deck-mode-active #card-hand-row {
   align-items: flex-end;
@@ -2167,9 +2169,10 @@
   #combat-screen.deck-mode-active .spell-card .card-hint { font-size: 0.38rem; }
   #combat-screen.deck-mode-active .spell-card .card-cd,
   #combat-screen.deck-mode-active .spell-card .card-pp { font-size: 0.38rem; min-width: 16px; }
-  /* Adjust hand min-height for smaller cards */
+  /* Fixed hand height for smaller cards — prevents queue from dropping */
   #combat-screen.deck-mode-active #card-hand-area {
-    min-height: calc(114px + env(safe-area-inset-bottom, 0px));
+    height: calc(140px + env(safe-area-inset-bottom, 0px));
+    min-height: calc(140px + env(safe-area-inset-bottom, 0px));
   }
 }
 
