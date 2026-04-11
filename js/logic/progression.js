@@ -722,6 +722,37 @@ function _terrainFire(ctx, W, H, horizY, tick) {
   // Charred dead trees
   _fireDeadTrees(ctx, W, H, horizY);
   _fireDeadTrees_fg(ctx, W, H, horizY);
+  // Ash particles drifting down
+  for (let i = 0; i < 12; i++) {
+    const phase = (tick * 0.0003 + i * 0.21) % 1;
+    const ax = ((i * 197 + 23) % W) + Math.round(Math.sin(tick * 0.0009 + i) * 6);
+    const ay = Math.round(phase * H);
+    const alpha = Math.sin(phase * Math.PI) * 0.4;
+    if (alpha < 0.05) continue;
+    ctx.fillStyle = `rgba(80,40,20,${alpha.toFixed(2)})`;
+    ctx.fillRect(ax, ay, i % 4 === 0 ? 3 : 2, 1);
+  }
+  // Foreground lava pool with glow
+  const poolX = Math.round(W * 0.38), poolY = Math.round(H * 0.88);
+  const poolW = Math.round(W * 0.14), poolH = Math.round((H - horizY) * 0.05);
+  for (let px2 = poolX; px2 < poolX + poolW; px2++) {
+    const wave = Math.sin(px2 * 0.07 + tick * 0.004) * 2;
+    const glow = 0.55 + 0.35 * Math.sin(px2 * 0.11 + tick * 0.006);
+    ctx.fillStyle = `rgb(${Math.round(210+45*glow)},${Math.round(30+25*glow)},0)`;
+    ctx.fillRect(px2, poolY + Math.round(wave), 1, poolH);
+  }
+  const plg = ctx.createRadialGradient(poolX + poolW/2, poolY, 0, poolX + poolW/2, poolY, poolW * 0.6);
+  plg.addColorStop(0, 'rgba(255,80,0,0.22)'); plg.addColorStop(1, 'transparent');
+  ctx.fillStyle = plg; ctx.fillRect(poolX - Math.round(poolW * 0.3), poolY - 8, Math.round(poolW * 1.6), poolH + 16);
+  // Smoke columns rising from lava
+  for (let i = 0; i < 3; i++) {
+    const scx = Math.round(W * (0.22 + i * 0.28));
+    const sPhase = (tick * 0.0006 + i * 0.38) % 1;
+    const scy = Math.round(H * 0.62 - sPhase * H * 0.18);
+    const salpha = Math.sin(sPhase * Math.PI) * 0.18;
+    ctx.fillStyle = `rgba(60,30,15,${salpha.toFixed(2)})`;
+    ctx.fillRect(scx - 4, scy, 8 + Math.round(sPhase * 4), 6);
+  }
 }
 
 // Generic pine and oak (used by Nature zone and any zone that needs generic trees)
@@ -841,6 +872,25 @@ function _terrainWater(ctx, W, H, horizY, tick) {
     const ty = Math.round(_hillY(tx, horizY, H)) - 4;
     _palmTree(ctx, tx, ty, 0.4 + (i%3)*0.15);
   }
+  // Distant ship silhouette
+  const shipX = Math.round(W * 0.68), shipY = Math.round(horizY - 6);
+  ctx.fillStyle = '#060e18';
+  ctx.fillRect(shipX - 12, shipY, 24, 5);
+  ctx.fillRect(shipX - 8,  shipY - 2, 16, 2);
+  ctx.fillRect(shipX - 2,  shipY - 14, 2, 12);
+  ctx.fillRect(shipX + 1,  shipY - 14, 8, 2);
+  ctx.fillRect(shipX + 1,  shipY - 10, 6, 4);
+  // Shore sheen at tide line
+  for (let x = 0; x < W; x++) {
+    const sheen = Math.sin(x * 0.04 + tick * 0.0012) * 0.5 + 0.5;
+    const sheenY = Math.round(H * 0.82 - sheen * 3);
+    ctx.fillStyle = `rgba(120,200,240,${(sheen * 0.08).toFixed(2)})`;
+    ctx.fillRect(x, sheenY, 1, 2);
+  }
+  // Reef tint in shallow water
+  const reefG = ctx.createLinearGradient(0, Math.round(H * 0.82), 0, Math.round(H * 0.88));
+  reefG.addColorStop(0, 'rgba(0,120,80,0.10)'); reefG.addColorStop(1, 'rgba(0,80,60,0)');
+  ctx.fillStyle = reefG; ctx.fillRect(0, Math.round(H * 0.82), W, Math.round(H * 0.06));
 }
 
 function _palmTree(ctx, cx, baseY, sc) {
@@ -927,6 +977,34 @@ function _terrainIce(ctx, W, H, horizY, tick) {
   _snowPine(ctx, Math.round(W*0.93), Math.round(H*0.88), 0.85);
   _snowPine(ctx, Math.round(W*0.11), Math.round(H*0.91), 0.7);
   _snowPine(ctx, Math.round(W*0.87), Math.round(H*0.91), 0.7);
+  // Aurora bands in sky
+  const aurColors = ['rgba(0,220,160,', 'rgba(60,120,255,', 'rgba(180,80,255,'];
+  for (let i = 0; i < 3; i++) {
+    const aY = Math.round(horizY * (0.12 + i * 0.16) + Math.sin(tick * 0.005 + i * 1.2) * 6);
+    const aH = Math.round(horizY * 0.07);
+    const ag = ctx.createLinearGradient(0, aY, 0, aY + aH);
+    ag.addColorStop(0, 'transparent');
+    ag.addColorStop(0.4, aurColors[i] + (0.14 + 0.08 * Math.sin(tick * 0.007 + i)) + ')');
+    ag.addColorStop(1, 'transparent');
+    ctx.fillStyle = ag; ctx.fillRect(0, aY, W, aH);
+  }
+  // Frozen cliff waterfall (right side)
+  const fwX = Math.round(W * 0.80), fwTopY = Math.round(horizY + (H-horizY)*0.06);
+  const fwBotY = Math.round(horizY + (H-horizY)*0.44);
+  ctx.fillStyle = '#3a4858'; ctx.fillRect(fwX - 7, fwTopY, 14, fwBotY - fwTopY);
+  for (let i = 0; i < 5; i++) {
+    const iAlpha = 0.55 + 0.25 * Math.sin(tick * 0.004 + i);
+    ctx.fillStyle = `rgba(180,230,255,${iAlpha.toFixed(2)})`;
+    ctx.fillRect(fwX - 4 + i * 2, fwTopY, 2, fwBotY - fwTopY);
+  }
+  // Ice crack patterns on ground surface
+  for (let i = 0; i < 8; i++) {
+    const icx = Math.round(((i * 211 + 41) % 997) / 997 * W);
+    const icy = Math.round(_hillY(icx, horizY, H)) + Math.round((i * 73 + 7) % ((H - horizY) * 0.4));
+    ctx.strokeStyle = 'rgba(180,220,255,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(icx, icy);
+    ctx.lineTo(icx + (i % 2 ? 12 : -10), icy + 4 + i % 4); ctx.stroke();
+  }
 }
 
 function _snowPine(ctx, cx, baseY, sc) {
@@ -1004,6 +1082,25 @@ function _terrainLightning(ctx, W, H, horizY, tick) {
   }
   _lightningTree(ctx,Math.round(W*0.05),Math.round(H*0.88),0.9);
   _lightningTree(ctx,Math.round(W*0.93),Math.round(H*0.88),0.85);
+  // Rain streaks
+  for (let i = 0; i < 30; i++) {
+    const rx2 = ((i * 173 + 41) % W);
+    const rPhase = (tick * 0.0014 + i * 0.17) % 1;
+    const ry2 = Math.round(rPhase * H * 1.2 - H * 0.1);
+    const rAlpha = Math.sin(rPhase * Math.PI) * 0.22;
+    if (rAlpha < 0.03) continue;
+    ctx.fillStyle = `rgba(160,180,220,${rAlpha.toFixed(2)})`;
+    ctx.fillRect(rx2, ry2, 1, 6 + Math.round(rPhase * 4));
+  }
+  // Storm cloud mass layered over horizon
+  for (let ci = 0; ci < 4; ci++) {
+    const cX2 = Math.round(W * (0.12 + ci * 0.22));
+    const cY2 = Math.round(horizY * (0.55 + ci * 0.08));
+    const cW2 = Math.round(W * (0.18 + ci * 0.04));
+    const cg = ctx.createRadialGradient(cX2, cY2, 4, cX2, cY2, Math.round(cW2 * 0.55));
+    cg.addColorStop(0, 'rgba(18,12,35,0.55)'); cg.addColorStop(1, 'rgba(8,5,18,0)');
+    ctx.fillStyle = cg; ctx.fillRect(cX2 - Math.round(cW2 * 0.6), cY2 - Math.round(horizY * 0.12), Math.round(cW2 * 1.2), Math.round(horizY * 0.24));
+  }
 }
 
 function _lightningTree(ctx, cx, baseY, sc) {
@@ -1076,6 +1173,24 @@ function _terrainEarth(ctx, W, H, horizY, tick) {
   }
   _scrubTree(ctx,Math.round(W*0.07),Math.round(H*0.87),0.9);
   _scrubTree(ctx,Math.round(W*0.91),Math.round(H*0.87),0.85);
+  // Cave entrance in cliff
+  const caveX = Math.round(W * 0.10), caveY = Math.round(horizY + (H-horizY)*0.28);
+  const caveW = Math.round(W * 0.07), caveH = Math.round((H-horizY) * 0.12);
+  ctx.fillStyle = '#0e0804';
+  ctx.beginPath(); ctx.ellipse(caveX, caveY, caveW/2, caveH/2, 0, Math.PI, Math.PI*2); ctx.fill();
+  ctx.fillRect(caveX - Math.round(caveW/2), caveY, caveW, Math.round(caveH/2));
+  const caveGlow = ctx.createRadialGradient(caveX, caveY + caveH*0.2, 2, caveX, caveY + caveH*0.2, caveW*0.5);
+  caveGlow.addColorStop(0, 'rgba(120,60,10,0.15)'); caveGlow.addColorStop(1, 'transparent');
+  ctx.fillStyle = caveGlow; ctx.fillRect(caveX - caveW, caveY - Math.round(caveH*0.3), caveW*2, Math.round(caveH*1.3));
+  // Rock arch (right side)
+  const archX = Math.round(W * 0.62), archY = Math.round(horizY + (H-horizY)*0.22);
+  const archW = Math.round(W * 0.09), archH = Math.round((H-horizY) * 0.18);
+  ctx.fillStyle = '#4a2c10';
+  ctx.fillRect(archX, archY, Math.round(archW*0.18), archH);
+  ctx.fillRect(archX + Math.round(archW*0.82), archY, Math.round(archW*0.18), archH);
+  ctx.fillRect(archX, archY, archW, Math.round(archH*0.22));
+  ctx.fillStyle = '#3a2008';
+  ctx.fillRect(archX + Math.round(archW*0.18), archY + Math.round(archH*0.22), Math.round(archW*0.64), Math.round(archH*0.08));
 }
 
 function _scrubTree(ctx, cx, baseY, sc) {
@@ -1172,6 +1287,25 @@ function _terrainNature(ctx, W, H, horizY, tick) {
   _drawOak(ctx,  Math.round(W*0.78),  Math.round(H*0.90), 0.82);
   _drawPine(ctx, Math.round(W*0.87),  Math.round(H*0.88), 0.92);
   _drawOak(ctx,  Math.round(W*0.94),  Math.round(H*0.91), 0.77);
+  // Ground mist layer between tree rows
+  const mistG = ctx.createLinearGradient(0, Math.round(horizY + (H-horizY)*0.55), 0, Math.round(horizY + (H-horizY)*0.75));
+  mistG.addColorStop(0, 'rgba(160,210,190,0.12)'); mistG.addColorStop(1, 'rgba(120,180,160,0)');
+  ctx.fillStyle = mistG; ctx.fillRect(0, Math.round(horizY + (H-horizY)*0.55), W, Math.round((H-horizY)*0.20));
+  // Fern fronds at foreground tree bases
+  [[W*0.05, H*0.91],[W*0.15, H*0.93],[W*0.82, H*0.91],[W*0.92, H*0.93]].forEach(([fx, fy]) => {
+    ctx.strokeStyle = '#1a4a0a'; ctx.lineWidth = 2;
+    for (let fi = 0; fi < 5; fi++) {
+      const angle = (fi / 5) * Math.PI - Math.PI * 0.1;
+      const flen = Math.round(W * 0.04);
+      ctx.beginPath(); ctx.moveTo(Math.round(fx), Math.round(fy));
+      ctx.lineTo(Math.round(fx + Math.cos(angle) * flen), Math.round(fy - Math.sin(angle) * flen * 0.5)); ctx.stroke();
+    }
+  });
+  // Mossy stones scattered on ground
+  [[W*0.30, H*0.88],[W*0.48, H*0.90],[W*0.65, H*0.87]].forEach(([sx2, sy2]) => {
+    ctx.fillStyle = '#2a4018'; ctx.fillRect(Math.round(sx2)-5, Math.round(sy2)-3, 10, 6);
+    ctx.fillStyle = '#3a5a22'; ctx.fillRect(Math.round(sx2)-5, Math.round(sy2)-3, 10, 2);
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1220,6 +1354,28 @@ function _terrainPlasma(ctx, W, H, horizY, tick) {
   const hg = ctx.createLinearGradient(0, horizY-12, 0, horizY+8);
   hg.addColorStop(0, 'rgba(180,20,220,0.22)'); hg.addColorStop(1, 'rgba(180,20,220,0)');
   ctx.fillStyle = hg; ctx.fillRect(0, horizY-12, W, 20);
+  // Void ground rifts
+  for (let i = 0; i < 6; i++) {
+    const rfX = Math.round(((i * 197 + 53) % 997) / 997 * W);
+    const rfY = Math.round(_hillY(rfX, horizY, H)) + Math.round((i * 89 + 11) % ((H - horizY) * 0.6));
+    const rfGlow = 0.4 + 0.4 * Math.sin(tick * 0.006 + i * 1.3);
+    ctx.fillStyle = `rgba(200,60,255,${(rfGlow * 0.35).toFixed(2)})`;
+    ctx.fillRect(rfX, rfY, 14 + i * 3, 2);
+    ctx.strokeStyle = `rgba(180,40,255,${rfGlow.toFixed(2)})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(rfX, rfY); ctx.lineTo(rfX + 14 + i * 3, rfY + 3); ctx.stroke();
+  }
+  // Alien stalks with glowing caps
+  [[W*0.22,H*0.82],[W*0.55,H*0.84],[W*0.78,H*0.80]].forEach(([ax2, ay2], i) => {
+    const stGlow = 0.5 + 0.4 * Math.sin(tick * 0.004 + i * 1.5);
+    ctx.fillStyle = '#2a0840'; ctx.fillRect(Math.round(ax2)-2, Math.round(ay2)-14, 4, 14);
+    ctx.fillStyle = `rgba(${i%2?200:140},40,255,${stGlow.toFixed(2)})`;
+    ctx.fillRect(Math.round(ax2)-7, Math.round(ay2)-18, 14, 5);
+    ctx.fillRect(Math.round(ax2)-5, Math.round(ay2)-20, 10, 3);
+    ctx.fillRect(Math.round(ax2)-3, Math.round(ay2)-21, 6, 2);
+    const capG = ctx.createRadialGradient(Math.round(ax2), Math.round(ay2)-16, 0, Math.round(ax2), Math.round(ay2)-16, 10);
+    capG.addColorStop(0, `rgba(200,100,255,${(stGlow*0.4).toFixed(2)})`); capG.addColorStop(1, 'transparent');
+    ctx.fillStyle = capG; ctx.fillRect(Math.round(ax2)-12, Math.round(ay2)-24, 24, 16);
+  });
 }
 
 function _crystalSpire(ctx, cx, baseY, sc, tick, seed) {
@@ -1267,6 +1423,37 @@ function _terrainAir(ctx, W, H, horizY, tick) {
   ctx.fillStyle='#ddeeff'; ctx.fillRect(mx-7,my-7,14,14);
   ctx.fillStyle='#0a1422'; ctx.fillRect(mx+2,my-6,6,12);
   // No platforms here — drawn per-node and at player origin
+  // Layered cloud formations drifting across sky
+  const cloudLayers = [
+    { yf: 0.18, count: 3, alpha: 0.08, speed: 0.04 },
+    { yf: 0.30, count: 4, alpha: 0.06, speed: 0.025 },
+    { yf: 0.45, count: 5, alpha: 0.05, speed: 0.015 },
+  ];
+  cloudLayers.forEach(({ yf, count, alpha, speed }) => {
+    for (let ci = 0; ci < count; ci++) {
+      const cX2 = ((tick * speed + ci * (W / count + 40)) % (W + 120)) - 60;
+      const cY2 = Math.round(H * yf + Math.sin(tick * 0.003 + ci) * 5);
+      const cW3 = 60 + ci * 20;
+      const clg = ctx.createLinearGradient(cX2, cY2, cX2, cY2 + 18);
+      clg.addColorStop(0, `rgba(140,170,220,${alpha})`);
+      clg.addColorStop(0.5, `rgba(160,190,240,${(alpha*0.7).toFixed(2)})`);
+      clg.addColorStop(1, 'transparent');
+      ctx.fillStyle = clg;
+      ctx.fillRect(Math.round(cX2), cY2, cW3, 18);
+      ctx.fillRect(Math.round(cX2) + 8, cY2 - 7, cW3 - 16, 10);
+    }
+  });
+  // Shooting star (occasional)
+  const sStar = (tick * 0.001) % 1;
+  if (sStar > 0.85) {
+    const ssProg = (sStar - 0.85) / 0.15;
+    const ssX = Math.round(W * 0.1 + ssProg * W * 0.5);
+    const ssY = Math.round(H * 0.06 + ssProg * H * 0.08);
+    ctx.fillStyle = `rgba(240,245,255,${(1 - ssProg).toFixed(2)})`;
+    ctx.fillRect(ssX, ssY, 4, 1);
+    ctx.fillStyle = `rgba(200,215,255,${((1-ssProg)*0.5).toFixed(2)})`;
+    ctx.fillRect(ssX + 4, ssY, 6, 1);
+  }
 }
 
 function _cloudPlatform(ctx, cx, cy, w, h, bright) {
@@ -1530,6 +1717,20 @@ function _zoneDetailFire(ctx, W, H, horizY, fg, tick) {
     ctx.fillStyle='#2a0c08'; ctx.fillRect(Math.round(rx)-6,Math.round(ry)-3,12,2);
     ctx.fillStyle='#cc3300'; ctx.fillRect(Math.round(rx)-2,Math.round(ry),4,1);
   });
+  // Lava geyser (periodic eruption)
+  const geyserX = Math.round(W * 0.58);
+  const geyserPhase = (tick * 0.0005) % 1;
+  if (geyserPhase < 0.15) {
+    const eruptA = Math.sin(geyserPhase / 0.15 * Math.PI);
+    const gH = Math.round(H * 0.08 * eruptA);
+    const gBase = Math.round(H * 0.65);
+    ctx.fillStyle = `rgba(255,80,0,${(0.6 * eruptA).toFixed(2)})`;
+    ctx.fillRect(geyserX - 3, gBase - gH, 6, gH);
+    ctx.fillRect(geyserX - 5, gBase - gH, 10, 3);
+    const gg = ctx.createRadialGradient(geyserX, gBase - gH, 0, geyserX, gBase - gH, 14);
+    gg.addColorStop(0, `rgba(255,120,0,${(0.4*eruptA).toFixed(2)})`); gg.addColorStop(1, 'transparent');
+    ctx.fillStyle = gg; ctx.fillRect(geyserX - 16, gBase - gH - 16, 32, 32);
+  }
 }
 
 function _zoneDetailWater(ctx, W, H, horizY, fg, tick) {
@@ -1566,6 +1767,18 @@ function _zoneDetailWater(ctx, W, H, horizY, fg, tick) {
   ctx.fillStyle='#8a5a20'; ctx.fillRect(Math.round(W*0.62),Math.round(H*0.82),10,7);
   ctx.fillStyle='#c8901c'; ctx.fillRect(Math.round(W*0.62),Math.round(H*0.82),10,3);
   ctx.fillStyle='#f0c040'; ctx.fillRect(Math.round(W*0.66),Math.round(H*0.84),3,2);
+  // Jellyfish in ocean
+  for (let i = 0; i < 3; i++) {
+    const jx = Math.round(W * (0.15 + i * 0.28) + Math.sin(tick * 0.0005 + i * 1.2) * 8);
+    const jy = Math.round(H * (0.87 + Math.sin((tick * 0.0004 + i * 0.5) * Math.PI * 2) * 0.02));
+    const jAlpha = 0.35 + 0.2 * Math.sin(tick * 0.003 + i);
+    ctx.fillStyle = `rgba(180,120,255,${jAlpha.toFixed(2)})`;
+    ctx.beginPath(); ctx.ellipse(jx, jy, 6, 4, 0, Math.PI, Math.PI*2); ctx.fill();
+    for (let t2 = 0; t2 < 4; t2++) {
+      ctx.fillStyle = `rgba(200,140,255,${(jAlpha * 0.6).toFixed(2)})`;
+      ctx.fillRect(jx - 4 + t2 * 3, jy, 1, 4 + Math.round(Math.sin(tick * 0.002 + t2) * 2));
+    }
+  }
 }
 
 function _zoneDetailIce(ctx, W, H, horizY, fg, tick) {
@@ -1602,6 +1815,27 @@ function _zoneDetailIce(ctx, W, H, horizY, fg, tick) {
   // Frozen treasure under ice
   ctx.fillStyle='rgba(120,190,230,0.5)'; ctx.fillRect(Math.round(W*0.48),Math.round(H*0.83),14,6);
   ctx.fillStyle='rgba(240,200,40,0.5)';  ctx.fillRect(Math.round(W*0.50),Math.round(H*0.84),6,4);
+  // Wind-driven snow drift streaks
+  for (let i = 0; i < 8; i++) {
+    const dPhase = (tick * 0.0005 + i * 0.145) % 1;
+    const dx2 = Math.round(dPhase * (W + 60) - 30);
+    const dy2 = Math.round(H * (0.65 + (i * 0.04) % 0.2) + Math.sin(dPhase * Math.PI * 4) * 4);
+    const dAlpha = Math.sin(dPhase * Math.PI) * 0.2;
+    ctx.fillStyle = `rgba(220,240,255,${dAlpha.toFixed(2)})`;
+    ctx.fillRect(dx2, dy2, 8 + i * 2, 1);
+  }
+  // Ice crystal clusters
+  [[W*0.20, H*0.84],[W*0.68, H*0.82]].forEach(([icx2, icy2]) => {
+    for (let c = 0; c < 5; c++) {
+      const cH2 = 4 + c * 3;
+      const cX3 = Math.round(icx2) - 6 + c * 3;
+      ctx.fillStyle = `rgba(160,220,255,${(0.5 + c * 0.08).toFixed(2)})`;
+      for (let row = 0; row < cH2; row++) {
+        const cw = Math.max(1, Math.round((1 - row/cH2) * 2));
+        ctx.fillRect(cX3 - cw, Math.round(icy2) - row, cw*2, 1);
+      }
+    }
+  });
 }
 
 function _zoneDetailLightning(ctx, W, H, horizY, fg, tick) {
@@ -1637,6 +1871,28 @@ function _zoneDetailLightning(ctx, W, H, horizY, fg, tick) {
   ctx.fillStyle='#100c20'; ctx.fillRect(stX-4,stY-8,8,12);
   ctx.fillStyle='#1a1630'; ctx.fillRect(stX-4,stY-8,8,2);
   if((tick%900)<100){ ctx.fillStyle='rgba(220,200,60,0.7)'; ctx.fillRect(stX-1,stY-9,2,2); }
+  // Rain streaks over battlefield
+  for (let i = 0; i < 20; i++) {
+    const rPhase2 = (tick * 0.0012 + i * 0.13) % 1;
+    const rx3 = ((i * 211 + 57) % W);
+    const ry3 = Math.round(rPhase2 * H * 1.1 - H * 0.05);
+    const rA = Math.sin(rPhase2 * Math.PI) * 0.18;
+    if (rA < 0.02) continue;
+    ctx.fillStyle = `rgba(140,160,220,${rA.toFixed(2)})`;
+    ctx.fillRect(rx3, ry3, 1, 5);
+  }
+  // Ground electric tendril (low arc on floor)
+  const arcTick2 = (tick * 0.0015) % 1;
+  if (arcTick2 < 0.08) {
+    const baseY3 = Math.round(H * 0.76);
+    const arcFade = 1 - arcTick2 / 0.08;
+    ctx.strokeStyle = `rgba(220,200,60,${(0.5 * arcFade).toFixed(2)})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(W*0.38), baseY3);
+    for (let s = 0; s < 5; s++) {
+      ctx.lineTo(Math.round(W*0.38 + s*10), baseY3 - Math.round(((s*97+13)%5)));
+    }
+    ctx.stroke();
+  }
 }
 
 function _zoneDetailEarth(ctx, W, H, horizY, fg, tick) {
@@ -1670,6 +1926,26 @@ function _zoneDetailEarth(ctx, W, H, horizY, fg, tick) {
   const ewX=Math.round(W*0.60), ewY=Math.round(H*0.88);
   ctx.fillStyle='#8a5030';
   for(let s=0;s<4;s++){const sx=ewX+s*4,sy=ewY+Math.round(Math.sin(tick*0.003+s)*2);ctx.fillRect(sx,sy,4,3);}
+  // Scorpion
+  const scX = Math.round(W * 0.74 + Math.sin(tick * 0.0004) * 8);
+  const scY = Math.round(H * 0.84);
+  ctx.fillStyle = '#5a3010';
+  ctx.fillRect(scX - 4, scY - 3, 8, 5);
+  ctx.fillRect(scX - 6, scY - 2, 3, 2);
+  ctx.fillRect(scX + 3, scY - 2, 3, 2);
+  ctx.fillStyle = '#7a4018';
+  ctx.fillRect(scX + 4, scY - 3, 2, 2);
+  ctx.fillRect(scX + 6, scY - 5, 2, 2);
+  ctx.fillRect(scX + 7, scY - 7, 2, 2);
+  ctx.fillStyle = '#cc8830'; ctx.fillRect(scX + 8, scY - 8, 2, 2);
+  // Tumbleweed rolling across
+  const twPhase = (tick * 0.0004) % 1;
+  const twX = Math.round(twPhase * (W + 30) - 15);
+  const twY = Math.round(H * 0.80 + Math.sin(twPhase * Math.PI * 8) * 3);
+  ctx.strokeStyle = 'rgba(120,80,30,0.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(twX, twY, 6, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(twX - 5, twY - 3); ctx.lineTo(twX + 5, twY + 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(twX + 5, twY - 3); ctx.lineTo(twX - 5, twY + 3); ctx.stroke();
 }
 
 function _zoneDetailNature(ctx, W, H, horizY, fg, tick) {
@@ -1713,6 +1989,25 @@ function _zoneDetailNature(ctx, W, H, horizY, fg, tick) {
   const mAlpha=0.12+0.06*Math.sin(tick*0.004);
   ctx.fillStyle=`rgba(200,235,255,${mAlpha.toFixed(2)})`;
   ctx.beginPath(); ctx.ellipse(wfMistX,wfMistY,16,6,0,0,Math.PI*2); ctx.fill();
+  // Frog on mossy stone
+  const frogX = Math.round(W * 0.52 + Math.sin(tick * 0.0005) * 4);
+  const frogY = Math.round(H * 0.82);
+  ctx.fillStyle = '#3a8a20';
+  ctx.fillRect(frogX - 4, frogY - 4, 8, 5);
+  ctx.fillRect(frogX - 5, frogY - 5, 10, 2);
+  ctx.fillStyle = '#88dd44';
+  ctx.fillRect(frogX - 4, frogY - 6, 3, 3); ctx.fillRect(frogX + 1, frogY - 6, 3, 3);
+  ctx.fillStyle = '#000'; ctx.fillRect(frogX - 3, frogY - 5, 1, 1); ctx.fillRect(frogX + 2, frogY - 5, 1, 1);
+  ctx.fillStyle = '#2a7018';
+  ctx.fillRect(frogX - 6, frogY, 3, 2); ctx.fillRect(frogX + 3, frogY, 3, 2);
+  // Butterfly near flower patch
+  const bfPhase2 = (tick * 0.0008) % (Math.PI * 2);
+  const bfx2 = Math.round(W * 0.33 + Math.cos(bfPhase2) * 12);
+  const bfy2 = Math.round(H * 0.80 + Math.sin(bfPhase2 * 0.5) * 6);
+  ctx.fillStyle = 'rgba(255,100,200,0.85)';
+  if (Math.sin(tick * 0.015) > 0) { ctx.fillRect(bfx2 - 5, bfy2 - 2, 4, 4); ctx.fillRect(bfx2 + 1, bfy2 - 2, 4, 4); }
+  else { ctx.fillRect(bfx2 - 3, bfy2 - 1, 3, 3); ctx.fillRect(bfx2, bfy2 - 1, 3, 3); }
+  ctx.fillStyle = '#1a0a04'; ctx.fillRect(bfx2 - 1, bfy2 - 3, 2, 6);
 }
 
 function _zoneDetailPlasma(ctx, W, H, horizY, fg, tick) {
@@ -1751,6 +2046,29 @@ function _zoneDetailPlasma(ctx, W, H, horizY, fg, tick) {
     ctx.fillText(['✦','◈','⬡','◉'][i],gx,gy);
   }
   ctx.textAlign='left';
+  // Void tentacles rising from ground
+  [[W*0.30, H*0.88],[W*0.62, H*0.86]].forEach(([tx3, ty3], ti) => {
+    for (let s = 0; s < 8; s++) {
+      const sY = Math.round(ty3 - s * 5);
+      const sX = Math.round(tx3 + Math.sin(tick * 0.003 + s * 0.7 + ti * 2.1) * (s * 2));
+      const tAlpha = (1 - s / 8) * (0.4 + 0.3 * Math.sin(tick * 0.005 + ti));
+      ctx.fillStyle = `rgba(140,20,220,${tAlpha.toFixed(2)})`;
+      ctx.fillRect(sX, sY, Math.max(1, 3 - Math.round(s / 4)), 5);
+    }
+  });
+  // Crystal growth from floor
+  [[W*0.44, H*0.90],[W*0.56, H*0.88]].forEach(([cx3, cy3], ci) => {
+    for (let c = 0; c < 4; c++) {
+      const cH3 = 6 + c * 4;
+      const cX4 = Math.round(cx3) - 4 + c * 3;
+      const cGlow2 = 0.5 + 0.4 * Math.sin(tick * 0.006 + c + ci * 1.8);
+      ctx.fillStyle = `rgba(${ci%2?180:140},60,255,${cGlow2.toFixed(2)})`;
+      for (let row = 0; row < cH3; row++) {
+        const cw2 = Math.max(1, Math.round((1 - row / cH3) * 2));
+        ctx.fillRect(cX4, Math.round(cy3) - row, cw2 * 2, 1);
+      }
+    }
+  });
 }
 
 function _zoneDetailAir(ctx, W, H, horizY, fg, tick) {
@@ -1797,6 +2115,25 @@ function _zoneDetailAir(ctx, W, H, horizY, fg, tick) {
     ctx.fill();
   }
   ctx.restore();
+  // Eagle/hawk soaring alone below the flock
+  const hawkAngle = tick * 0.0006;
+  const hawkX = Math.round(W * 0.5 + Math.cos(hawkAngle) * W * 0.3);
+  const hawkY = Math.round(H * 0.38 + Math.sin(hawkAngle * 0.4) * H * 0.06);
+  ctx.fillStyle = 'rgba(100,120,160,0.55)';
+  ctx.fillRect(hawkX - 7, hawkY, 6, 2);
+  ctx.fillRect(hawkX + 1, hawkY - 1, 6, 2);
+  ctx.fillRect(hawkX - 1, hawkY - 2, 2, 3);
+  // Shooting star (periodic)
+  const ssPhase2 = (tick * 0.0007) % 1;
+  if (ssPhase2 > 0.88) {
+    const ssProg2 = (ssPhase2 - 0.88) / 0.12;
+    const ssX2 = Math.round(W * 0.15 + ssProg2 * W * 0.45);
+    const ssY2 = Math.round(H * 0.05 + ssProg2 * H * 0.10);
+    ctx.fillStyle = `rgba(240,245,255,${(1-ssProg2).toFixed(2)})`;
+    ctx.fillRect(ssX2, ssY2, 4, 1);
+    ctx.fillStyle = `rgba(200,215,255,${((1-ssProg2)*0.5).toFixed(2)})`;
+    ctx.fillRect(ssX2 + 4, ssY2, 7, 1);
+  }
 }
 
 

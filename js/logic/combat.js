@@ -832,7 +832,7 @@ function buildEnemyQueueFor(idx, count){
           ability.cd = ability.baseCd;
           const snapAbility = ability;
           const abilLabel = snapAbility.emoji+' '+snapAbility.name;
-          const intentEntry = {label:abilLabel, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility.id]||''};
+          const intentEntry = {label:abilLabel, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility.id]||'', id:snapAbility.id};
           e.intentQueue.push(intentEntry);
           q.push({label:abilLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
             if(combat.over) return;
@@ -872,7 +872,7 @@ function buildEnemyQueueFor(idx, count){
         ability2.cd = ability2.baseCd;
         const snapAbility2 = ability2;
         const abilLabel2 = snapAbility2.emoji+' '+snapAbility2.name;
-        const intentEntry2 = {label:abilLabel2, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility2.id]||''};
+        const intentEntry2 = {label:abilLabel2, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility2.id]||'', id:snapAbility2.id};
         e.intentQueue.push(intentEntry2);
         q.push({label:abilLabel2, intentIdx:e.intentQueue.length-1, fn:()=>{
           if(combat.over) return;

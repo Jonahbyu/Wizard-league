@@ -36,6 +36,8 @@ let _lobbyCinematicTick = 0;
 // Offscreen canvas — paths are expensive to draw every frame; cache them
 let _lobbyPathCanvas = null;
 let _lobbyPathCacheW = 0, _lobbyPathCacheH = 0;
+// Offscreen canvas for post-processing (brightness+contrast in one drawImage)
+let _lobbySceneCanvas = null;
 
 // Mobile Y-coordinate transform — on portrait screens compress sky into top 20%
 // and expand the map area to fill the remaining 80%.
@@ -58,7 +60,12 @@ let _lobbyBgZones = null; // array of 3 element strings
 
 function _initLobbyBgZones() {
   const all = ['Fire','Water','Ice','Lightning','Earth','Nature','Plasma','Air','Camp'];
-  _lobbyBgZones = [...all].sort(() => Math.random() - 0.5).slice(0, 3);
+  // Fisher-Yates shuffle for unbiased ordering
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  _lobbyBgZones = all.slice(0, 3);
   // Camp must never appear in the middle panel (index 1)
   if (_lobbyBgZones[1] === 'Camp') {
     const swap = Math.random() < 0.5 ? 0 : 2;
@@ -100,14 +107,14 @@ function _drawZonePanel(ctx, px, py, pw, ph, el, t, idx) {
 
   // ── Sky gradient ──────────────────────────────────────────────────────────
   const SKY = {
-    Fire:      ['#120100','#2e0600','#4a1200'],
-    Water:     ['#00050e','#010c1c','#02152e'],
-    Ice:       ['#010408','#020a14','#041220'],
-    Lightning: ['#050310','#0b0620','#110830'],
-    Earth:     ['#080400','#120800','#1e1000'],
-    Nature:    ['#010601','#020e02','#041804'],
-    Plasma:    ['#0a0116','#160228','#220340'],
-    Air:       ['#040608','#080e14','#0e1620'],
+    Fire:      ['#120100','#3a0800','#601400'],
+    Water:     ['#00050e','#011a2e','#022848'],
+    Ice:       ['#010408','#031424','#082038'],
+    Lightning: ['#050310','#0f0a28','#1c1248'],
+    Earth:     ['#080400','#1c0e00','#341800'],
+    Nature:    ['#010601','#031803','#07280a'],
+    Plasma:    ['#0a0116','#1c0430','#300558'],
+    Air:       ['#040608','#0e1828','#1a2840'],
   };
   const cols = SKY[el] || SKY.Earth;
   const sg = ctx.createLinearGradient(px, py, px, botY);
@@ -896,107 +903,113 @@ function _drawShootingStars(ctx, W, H) {
 }
 
 function _drawLobbyMap(ctx, W, H) {
-  // Castle cinematic: brief thud shake when drawbridge slams fully up
+  // Render scene into offscreen canvas so we can apply brightness+contrast
+  // in a single drawImage — avoids the per-draw-call cost of ctx.filter.
+  if (!_lobbySceneCanvas || _lobbySceneCanvas.width !== W || _lobbySceneCanvas.height !== H) {
+    _lobbySceneCanvas = document.createElement('canvas');
+    _lobbySceneCanvas.width = W;
+    _lobbySceneCanvas.height = H;
+  }
+  const sc = _lobbySceneCanvas.getContext('2d');
+
+  // Base sky fill
+  sc.fillStyle = '#08050e';
+  sc.fillRect(0, 0, W, H);
+
+  // Zone backgrounds in the distance
+  _drawLobbyZonePanels(sc, W, H);
+
+  // Ground (horizon) — dark grassy green
+  const _hz = _lobbyMY(0.60, W, H) * H;
+  const gnd = sc.createLinearGradient(0, _hz, 0, H);
+  gnd.addColorStop(0,   '#0e1e08');
+  gnd.addColorStop(0.4, '#0c1a07');
+  gnd.addColorStop(1,   '#081205');
+  sc.fillStyle = gnd;
+  sc.fillRect(0, _hz, W, H);
+
+  // Thin horizon glow
+  const _hzT = _lobbyMY(0.57, W, H) * H;
+  const _hzB = _lobbyMY(0.63, W, H) * H;
+  const hglow = sc.createLinearGradient(0, _hzT, 0, _hzB);
+  hglow.addColorStop(0, 'transparent');
+  hglow.addColorStop(0.5, 'rgba(30,60,12,0.28)');
+  hglow.addColorStop(1, 'transparent');
+  sc.fillStyle = hglow;
+  sc.fillRect(0, _hzT, W, _hzB - _hzT);
+
+  // Winding dirt paths + foreground detail
+  _drawLobbyPaths(sc, W, H);
+  _drawLobbyForeground(sc, W, H);
+
+  // Shooting stars
+  _drawShootingStars(sc, W, H);
+
+  // Stars — varied sizes, flicker at different rates
+  sc.save();
+  for (let i = 0; i < 80; i++) {
+    const sx = ((i * 137 + 17) % W);
+    const sy = ((i * 97 + 31) % (_lobbyMY(0.55, W, H) * H));
+    const flicker = 0.25 + 0.65 * Math.abs(Math.sin(_lobbyTick * (0.012 + (i % 7) * 0.004) + i * 1.3));
+    sc.globalAlpha = flicker;
+    if (i % 9 === 0) {
+      const sz = 1.5 + (i % 3) * 0.5;
+      sc.fillStyle = '#ffffff';
+      sc.fillRect(sx - sz, sy, sz * 2 + 1, 1);
+      sc.fillRect(sx, sy - sz, 1, sz * 2 + 1);
+    } else {
+      const sz = i % 5 === 0 ? 2 : 1;
+      sc.fillStyle = i % 4 === 0 ? '#d0c8ff' : '#fffbe0';
+      sc.fillRect(sx, sy, sz, sz);
+    }
+  }
+  sc.restore();
+
+  // Moon
+  {
+    const mx = Math.round(W * 0.80), my = Math.round(H * 0.07);
+    const mr = Math.max(8, Math.round(W * 0.022));
+    sc.save();
+    const halo = sc.createRadialGradient(mx, my, mr * 0.6, mx, my, mr * 3.0);
+    halo.addColorStop(0, 'rgba(220,200,140,0.14)');
+    halo.addColorStop(1, 'transparent');
+    sc.fillStyle = halo;
+    sc.beginPath(); sc.arc(mx, my, mr * 3.0, 0, Math.PI * 2); sc.fill();
+    sc.globalAlpha = 0.82;
+    sc.fillStyle = '#e8e0c0';
+    sc.beginPath(); sc.arc(mx, my, mr, 0, Math.PI * 2); sc.fill();
+    sc.globalAlpha = 1;
+    sc.fillStyle = '#08051a';
+    sc.beginPath();
+    sc.arc(mx + Math.round(mr * 0.55), my - Math.round(mr * 0.15), Math.round(mr * 0.86), 0, Math.PI * 2);
+    sc.fill();
+    sc.restore();
+  }
+
+  _drawLobbycastle(sc, W, H);
+  _drawLobbyFountain(sc, W, H);
+  LOBBY_LOCATIONS.forEach(loc => {
+    if (loc.id === 'castle') return;
+    _drawLobbyBuilding(sc, loc, W, H);
+  });
+  _drawLobbyPlayer(sc, W, H);
+
+  // Foreground brightness gradient — ground and buildings brighter than sky
+  const fgLift = sc.createLinearGradient(0, H * 0.35, 0, H);
+  fgLift.addColorStop(0, 'rgba(255,255,255,0)');
+  fgLift.addColorStop(1, 'rgba(255,255,255,0.18)');
+  sc.fillStyle = fgLift;
+  sc.fillRect(0, H * 0.35, W, H * 0.65);
+
+  // Copy to main canvas — one filtered drawImage, negligible cost
   ctx.save();
   if (_lobbyCinematic === 'castle_teeth' && _lobbyCinematicTick >= 97 && _lobbyCinematicTick < 110) {
     const intensity = (1 - (_lobbyCinematicTick - 97) / 13) * 3;
     ctx.translate((Math.random() - 0.5) * intensity * 2, (Math.random() - 0.5) * intensity);
   }
-
-  // Base sky fill
-  ctx.fillStyle = '#08050e';
-  ctx.fillRect(0, 0, W, H);
-
-  // Zone backgrounds in the distance (H*0.12 → H*0.60)
-  _drawLobbyZonePanels(ctx, W, H);
-
-  // Ground (horizon) — dark grassy green
-  const _hz = _lobbyMY(0.60, W, H) * H;
-  const gnd = ctx.createLinearGradient(0, _hz, 0, H);
-  gnd.addColorStop(0,   '#0e1e08');
-  gnd.addColorStop(0.4, '#0c1a07');
-  gnd.addColorStop(1,   '#081205');
-  ctx.fillStyle = gnd;
-  ctx.fillRect(0, _hz, W, H);
-
-  // Thin horizon glow
-  const _hzT = _lobbyMY(0.57, W, H) * H;
-  const _hzB = _lobbyMY(0.63, W, H) * H;
-  const hglow = ctx.createLinearGradient(0, _hzT, 0, _hzB);
-  hglow.addColorStop(0, 'transparent');
-  hglow.addColorStop(0.5, 'rgba(30,60,12,0.28)');
-  hglow.addColorStop(1, 'transparent');
-  ctx.fillStyle = hglow;
-  ctx.fillRect(0, _hzT, W, _hzB - _hzT);
-
-  // Winding dirt paths + foreground detail
-  _drawLobbyPaths(ctx, W, H);
-  _drawLobbyForeground(ctx, W, H);
-
-  // Shooting stars
-  _drawShootingStars(ctx, W, H);
-
-  // Stars — varied sizes, flicker at different rates
-  ctx.save();
-  for (let i = 0; i < 80; i++) {
-    const sx = ((i * 137 + 17) % W);
-    const sy = ((i * 97 + 31) % (_lobbyMY(0.55, W, H) * H));
-    const flicker = 0.25 + 0.65 * Math.abs(Math.sin(_lobbyTick * (0.012 + (i % 7) * 0.004) + i * 1.3));
-    ctx.globalAlpha = flicker;
-    // Some stars are cross/plus shaped for extra sparkle
-    if (i % 9 === 0) {
-      const sz = 1.5 + (i % 3) * 0.5;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(sx - sz, sy, sz * 2 + 1, 1);
-      ctx.fillRect(sx, sy - sz, 1, sz * 2 + 1);
-    } else {
-      const sz = i % 5 === 0 ? 2 : 1;
-      ctx.fillStyle = i % 4 === 0 ? '#d0c8ff' : '#fffbe0';
-      ctx.fillRect(sx, sy, sz, sz);
-    }
-  }
-  ctx.restore();
-
-  // Moon — pixel-art style (crescent via two circles, matching campfire _cfMoon)
-  {
-    const mx = Math.round(W * 0.80), my = Math.round(H * 0.07);
-    const mr = Math.max(8, Math.round(W * 0.022));
-    ctx.save();
-    // Soft glow halo
-    const halo = ctx.createRadialGradient(mx, my, mr * 0.6, mx, my, mr * 3.0);
-    halo.addColorStop(0, 'rgba(220,200,140,0.14)');
-    halo.addColorStop(1, 'transparent');
-    ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(mx, my, mr * 3.0, 0, Math.PI * 2); ctx.fill();
-    // Moon body
-    ctx.globalAlpha = 0.82;
-    ctx.fillStyle = '#e8e0c0';
-    ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
-    // Shadow circle — creates crescent
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#08051a';
-    ctx.beginPath();
-    ctx.arc(mx + Math.round(mr * 0.55), my - Math.round(mr * 0.15), Math.round(mr * 0.86), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Draw castle
-  _drawLobbycastle(ctx, W, H);
-
-  // Draw fountain at town square center
-  _drawLobbyFountain(ctx, W, H);
-
-  // Draw location buildings (skip castle — already drawn as castle structure)
-  LOBBY_LOCATIONS.forEach(loc => {
-    if (loc.id === 'castle') return;
-    _drawLobbyBuilding(ctx, loc, W, H);
-  });
-
-
-  // Draw player
-  _drawLobbyPlayer(ctx, W, H);
-
+  ctx.filter = 'brightness(1.10) contrast(1.06)';
+  ctx.drawImage(_lobbySceneCanvas, 0, 0);
+  ctx.filter = 'none';
   ctx.restore(); // end shake transform
 
   // ── DEV: refresh-background button (top-right corner) ────────────────────

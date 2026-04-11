@@ -141,10 +141,7 @@ function renderEnemyCards(){
       </div>
       <div style="margin-top:2px;">
         <div class="arena-hud-hp-wrap" style="width:100%;margin-bottom:2px;"><div class="arena-hud-hp-fill" style="width:${pct}%;background:${hpColor(pct)}"></div></div>
-        <div style="display:flex;align-items:center;gap:4px;overflow:hidden;flex-wrap:nowrap;">
-          <div class="arena-hud-hp-text" style="white-space:nowrap;flex-shrink:0;">${e.hp}/${e.enemyMaxHP}</div>
-          <div style="display:flex;gap:2px;overflow:hidden;flex-wrap:nowrap;">${intentBadges}</div>
-        </div>
+        <div class="arena-hud-hp-text" style="white-space:nowrap;">${e.hp}/${e.enemyMaxHP}</div>
       </div>
       <div class="arena-hud-status" id="estatus-${i}" style="margin-top:2px;"></div>
     `;
@@ -185,7 +182,7 @@ function renderEnemyIntentOverlay() {
 
   const W = canvas.offsetWidth, H = canvas.offsetHeight;
   const allE = combat.enemies || [];
-  const CARD_H = 72;
+  const CARD_H = 58;
 
   allE.forEach((e, i) => {
     if (!e.alive || !e.intentQueue || e.intentQueue.length === 0) return;
@@ -198,7 +195,7 @@ function renderEnemyIntentOverlay() {
     const row = document.createElement('div');
     row.className = 'enemy-intent-row';
     row.style.left = cx + 'px';
-    row.style.top = (nameLabelY - CARD_H - 6) + 'px';
+    row.style.top = (nameLabelY - CARD_H + 8) + 'px';
 
     for (let j = 0; j < maxShow; j++) {
       const intent = e.intentQueue[j];
@@ -215,8 +212,19 @@ function renderEnemyIntentOverlay() {
       const elemColor = _ELEM_CARD_COLORS[e.element] || _ELEM_CARD_COLORS.Neutral;
       card.style.borderColor = isHidden ? '#503030' : (j === 0 ? elemColor + 'cc' : elemColor + '55');
 
+      // Use SVG icon if the ability/spell has a custom icon in SPELL_ICON_DATA
+      // Enemy ability IDs may have an element prefix (e.g. fire_ignite → ignite)
+      const _rawId = intent.id || '';
+      const _strippedId = _rawId.replace(/^(fire|water|ice|lightning|earth|nature|plasma|air)_/, '');
+      const _iconId = (SPELL_ICON_DATA && SPELL_ICON_DATA[_rawId]) ? _rawId
+                    : (SPELL_ICON_DATA && SPELL_ICON_DATA[_strippedId]) ? _strippedId : null;
+      const hasCustomIcon = !isHidden && _iconId;
+      const iconHTML = hasCustomIcon
+        ? spellIconSVG({id: _iconId, element: e.element || 'Neutral'}, 18)
+        : (isHidden ? '?' : icon);
+
       card.innerHTML =
-        `<div class="eic-art">${isHidden ? '?' : icon}</div>` +
+        `<div class="eic-art">${iconHTML}</div>` +
         `<div class="eic-name">${nameStr}</div>`;
 
       row.appendChild(card);

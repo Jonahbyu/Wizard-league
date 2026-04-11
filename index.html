@@ -581,15 +581,15 @@
 
 <!-- Volume widget -->
 <div id="vol-widget" style="
-  position:fixed; top:0; left:50%; transform:translateX(-50%); z-index:9999;
-  display:flex; align-items:center; gap:.3rem;
-  background:rgba(8,8,13,0.78); border-left:1px solid rgba(50,35,15,0.45); border-right:1px solid rgba(50,35,15,0.45); border-bottom:1px solid rgba(50,35,15,0.45);
-  border-radius:0 0 6px 6px;
-  padding:.2rem .55rem; backdrop-filter:blur(6px);">
-  <span id="vol-icon" style="font-size:0.8rem; cursor:pointer; color:#c8a060; user-select:none; line-height:1;" onclick="volumeToggleMute()">🔊</span>
+  position:fixed; top:44px; left:8px; z-index:9999;
+  display:flex; align-items:center; gap:.2rem;
+  background:rgba(8,8,13,0.78); border:1px solid rgba(50,35,15,0.45);
+  border-radius:4px;
+  padding:.14rem .38rem; backdrop-filter:blur(6px);">
+  <span id="vol-icon" style="font-size:0.56rem; cursor:pointer; color:#c8a060; user-select:none; line-height:1;" onclick="volumeToggleMute()">🔊</span>
   <input id="vol-slider" type="range" min="0" max="100" value="50"
     oninput="volumeSet(this.value)"
-    style="width:52px; accent-color:#c8a060; cursor:pointer; height:3px;">
+    style="width:36px; accent-color:#c8a060; cursor:pointer; height:2px;">
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ -->
