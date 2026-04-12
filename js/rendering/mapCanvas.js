@@ -523,12 +523,20 @@ function generateZoneGraph(){
   const MAX_CF = 4, MAX_SH = 4;
   // Skip rolls on tier 1 (start), rival tier, pre-gym, gym
   const noRollTiers = new Set([1, 2, 3, rivalTier, ZN_TIERS-1, ZN_TIERS]);
+  // Shop spacing: track placed shops {tier, col} — no shop within 3 tiers on same/adjacent col
+  const shopPlacements = [];
+
+  // Zone 2+: pre-shuffle all 4 reward types across the starting nodes so each shows a different reward
+  const _startRewards = currentGymIdx > 0
+    ? ['spell','incantation','minor','major'].sort(()=>Math.random()-0.5)
+    : null;
 
   // Build per-tier column lists (wider branching — 20/35/45 split toward 4 cols)
   const tierColsList = [];
   for(let t = 1; t <= ZN_TIERS; t++){
     let cols;
-    if(t === 1)                cols = [1.5];       // start node (centered)
+    // Zone 2+: tier 1 has 4 starting options (player picks their path entry point)
+    if(t === 1)                cols = currentGymIdx === 0 ? [1.5] : [0, 1, 2, 3];
     else if(t === ZN_TIERS)    cols = [1.5];       // gym node (centered)
     else if(t === ZN_TIERS-1)  cols = [0,2];       // pre-gym funnel
     else if(t === rivalTier-1) cols = [1,2];       // funnel toward middle before rival
@@ -566,7 +574,11 @@ function generateZoneGraph(){
         if(cfCount < MAX_CF && roll < 0.14){
           if((player._mistCampfireReduction||0) < 1){ type = 'campfire'; cfCount++; }
         } else if(shCount < MAX_SH && roll >= 0.14 && roll < 0.27){
-          type = 'shop'; shCount++;
+          // Spacing check: no shop within 3 tiers on same or adjacent column
+          const shopTooClose = shopPlacements.some(s =>
+            Math.abs(s.col - col) <= 1 && t - s.tier < 4
+          );
+          if(!shopTooClose){ type = 'shop'; shCount++; shopPlacements.push({tier:t, col}); }
         }
       }
 
@@ -574,8 +586,12 @@ function generateZoneGraph(){
       // Use tier as the slot (mirrors old system: each screen = one slot with two encounters)
       let rewardType = null, enc = null;
       if(type === 'battle'){
-        rewardType = getZoneRewardType(t, currentGymIdx, ci);
-        if(rewardType === 'primary_spell') rewardType = 'spell';
+        if(t === 1 && _startRewards){
+          rewardType = _startRewards[ci] || 'minor';
+        } else {
+          rewardType = getZoneRewardType(t, currentGymIdx, ci);
+          if(rewardType === 'primary_spell') rewardType = 'spell';
+        }
         enc = _pickZoneGraphEnc(zoneEl);
         enc._rewardType = rewardType;
       }
@@ -625,6 +641,9 @@ function generateZoneGraph(){
   }
 
   _zoneGraph = {nodes, edges};
+
+  // Zone 2+: player hasn't picked a starting tile yet — hide wizard until they choose
+  if(currentGymIdx > 0){ _znWizardX = 0; _znWizardY = 0; }
 
   // Zone 1: the tier-1 battle was the starting spell choice — already done before the map.
   // Mark it complete so the player lands on it and picks from tier 2 immediately.
@@ -942,6 +961,18 @@ function _animTravelToNode(nodeId, cb){
   const overlay = document.getElementById('zone-map-overlay');
   const stage   = document.getElementById('zone-map-stage');
   if(!overlay || !stage || !_zoneGraph){ cb(); return; }
+
+  // Zone 2+: picking a starting tile — snap wizard to chosen node, no travel animation
+  if(_playerNodeId === -1 && currentGymIdx > 0){
+    const tn = _zoneGraph.nodes.find(n=>n.id===nodeId);
+    if(tn){
+      const sw = overlay.clientWidth || window.innerWidth;
+      const sh = ZN_TIERS * ZN_TIER_H + ZN_PAD*2;
+      _znWizardX = _znColToX(tn.col, sw);
+      _znWizardY = _znTierToY(tn.tier, sh) - 28;
+    }
+    cb(); return;
+  }
 
   const fromNode = _playerNodeId >= 0
     ? _zoneGraph.nodes.find(n=>n.id===_playerNodeId)

@@ -758,8 +758,13 @@ function showBetweenRuns_map() {
   const canvas = document.getElementById('lobby-map-canvas');
   if (!canvas) return;
   const wrap = canvas.parentElement;
-  canvas.width  = Math.round(wrap.clientWidth  || window.innerWidth);
-  canvas.height = Math.round(wrap.clientHeight || window.innerHeight);
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = Math.round(wrap.clientWidth  || window.innerWidth);
+  const cssH = Math.round(wrap.clientHeight || window.innerHeight);
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
 
   // Start player at return position (e.g. tailor) or default plaza
   const _startX = _lobbyReturnPos ? _lobbyReturnPos.x : LOBBY_PLAZA.x;
@@ -813,8 +818,10 @@ function _lobbyCinematicStep() {
 
 function _lobbyMovePlayer() {
   if (!_lobbyWalking) return;
-  const W = document.getElementById('lobby-map-canvas')?.width || 400;
-  const H = document.getElementById('lobby-map-canvas')?.height || 600;
+  const _mc = document.getElementById('lobby-map-canvas');
+  const _dpr = window.devicePixelRatio || 1;
+  const W = (_mc?.width || 400) / _dpr;
+  const H = (_mc?.height || 600) / _dpr;
   const px = _lobbyPlayerX * W, py = _lobbyPlayerY * H;
   const tx = _lobbyTargetX * W, ty = _lobbyTargetY * H;
   const dx = tx - px, dy = ty - py;
@@ -846,7 +853,9 @@ function _lobbyDraw() {
   const canvas = document.getElementById('lobby-map-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = Math.round(canvas.width / dpr), H = Math.round(canvas.height / dpr);
   _drawLobbyMap(ctx, W, H);
 }
 
@@ -1201,9 +1210,10 @@ function _drawLobbycastle(ctx, W, H) {
   // ── "Begin Run" button in top keep section (fits between towers) ─────────
   {
     const hovered = _lobbyHoveredId === 'castle';
-    const btnMaxW = s * 0.20; // safe within the ~s*0.232 gap between towers
-    const btnH    = Math.max(12, s * 0.065);
-    const btnY    = keepY + keepH * 0.06;
+    const btnMaxW = s * 0.26; // fits within the ~s*0.232 gap between towers (scaled up)
+    const btnH    = Math.round(Math.max(16, s * 0.085));
+    const btnY    = Math.round(keepY + keepH * 0.06);
+    const bcx     = Math.round(cx);
 
     ctx.save();
     ctx.textAlign    = 'center';
@@ -1211,15 +1221,15 @@ function _drawLobbycastle(ctx, W, H) {
 
     // Shrink font until text fits
     let fs = Math.round(btnH * 0.55);
-    ctx.font = `bold ${fs}px 'Cinzel', serif`;
+    ctx.font = `${fs}px 'Cinzel', serif`;
     while (ctx.measureText('⚔ Begin Run').width > btnMaxW * 0.86 && fs > 5) {
       fs--;
-      ctx.font = `bold ${fs}px 'Cinzel', serif`;
+      ctx.font = `${fs}px 'Cinzel', serif`;
     }
     const txtW = ctx.measureText('⚔ Begin Run').width;
-    const btnW = txtW + btnH * 0.9;
-    const bx   = cx - btnW / 2;
-    const br   = btnH * 0.28;
+    const btnW = Math.round(txtW + btnH * 0.9);
+    const bx   = Math.round(bcx - btnW / 2);
+    const br   = Math.round(btnH * 0.28);
 
     // Dark background
     ctx.fillStyle   = hovered ? '#1e1608' : '#0a0806';
@@ -1242,25 +1252,16 @@ function _drawLobbycastle(ctx, W, H) {
     // Label
     ctx.fillStyle = hovered ? '#ffd080' : '#c8a060';
     if (hovered) { ctx.shadowColor = '#ffd080'; ctx.shadowBlur = 6; }
-    ctx.fillText('⚔ Begin Run', cx, btnY + btnH / 2);
+    ctx.fillText('⚔ Begin Run', bcx, btnY + Math.round(btnH / 2));
     ctx.restore();
   }
 
-  // ── Gate arch ────────────────────────────────────────────────────────────
+  // ── Gate dimensions (shared by arch + bridge) ────────────────────────────
   const gateW = keepW * 0.32, gateH = keepH * 0.45;
   const gateX = cx - gateW / 2, gateY = baseY - gateH;
-  // Gate opening — pure black, no decorations
-  ctx.fillStyle = '#000000';
-  ctx.beginPath();
-  ctx.moveTo(gateX, baseY);
-  ctx.lineTo(gateX, gateY + gateW / 2);
-  ctx.arc(cx, gateY + gateW / 2, gateW / 2, Math.PI, 0);
-  ctx.lineTo(gateX + gateW, baseY);
-  ctx.fill();
 
   // ── Long drawbridge (raises during castle-enter cinematic) ───────────────
-  const bridgeW    = gateW * 1.05;
-  const bridgeX    = cx - bridgeW / 2;
+  const bridgeW    = gateW; // exact match so bridge fills arch when raised
   const bridgeTopY = baseY;
   const bridgeBotY = _lobbyBridgeBotY(W, H);
   const bridgeLen  = bridgeBotY - bridgeTopY;
@@ -1271,25 +1272,44 @@ function _drawLobbycastle(ctx, W, H) {
   if (_lobbyCinematic === 'castle_teeth' || _lobbyCinematic === 'castle_fade') {
     const bt  = _lobbyCinematic === 'castle_fade' ? 110 : _lobbyCinematicTick;
     const raw = Math.max(0, Math.min(1, (bt - 6) / 92));
-    // Ease-in (slow taut start, accelerates like gravity pulling it up via chains)
     raiseP = raw * raw;
   }
-  // tiltScale: how much of the bridge is still visible (shrinks from bottom as bridge rises)
   const tiltScale  = Math.max(0, 1 - raiseP);
-  // Current Y of the bridge's far (player-side) edge as it rises
-  const bridgeFarY = bridgeTopY + bridgeLen * tiltScale;
 
   // Bridge body — foreshortens from pivot as it raises
   ctx.save();
   ctx.translate(cx, bridgeTopY);
   ctx.scale(1, tiltScale);
+  // Flip vertically so the arch crown is at the BOTTOM (far from gate)
+  // and the flat edge is at the TOP (touching the gate at baseY).
+  ctx.translate(0, bridgeLen);
+  ctx.scale(1, -1);
 
   const bridgeGrad = ctx.createLinearGradient(-bridgeW / 2, 0, bridgeW / 2, 0);
   bridgeGrad.addColorStop(0,   '#1e1408');
   bridgeGrad.addColorStop(0.5, '#2e2010');
   bridgeGrad.addColorStop(1,   '#1e1408');
+
+  // Arch crown at local y=0 (which after the flip appears at the bottom).
+  const archCenterY = bridgeW / 2;
+  ctx.beginPath();
+  ctx.moveTo(-bridgeW / 2, bridgeLen);
+  ctx.lineTo(-bridgeW / 2, archCenterY);
+  ctx.arc(0, archCenterY, bridgeW / 2, Math.PI, 0); // arch crown at y=0
+  ctx.lineTo(bridgeW / 2, bridgeLen);
+  ctx.closePath();
   ctx.fillStyle = bridgeGrad;
-  ctx.fillRect(-bridgeW / 2, 0, bridgeW, bridgeLen);
+  ctx.fill();
+
+  // Clip bricks/parapets to arch shape
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-bridgeW / 2, bridgeLen);
+  ctx.lineTo(-bridgeW / 2, archCenterY);
+  ctx.arc(0, archCenterY, bridgeW / 2, Math.PI, 0);
+  ctx.lineTo(bridgeW / 2, bridgeLen);
+  ctx.closePath();
+  ctx.clip();
 
   ctx.strokeStyle = '#0e0a04';
   ctx.lineWidth = 1;
@@ -1318,28 +1338,26 @@ function _drawLobbycastle(ctx, W, H) {
     }
   });
 
-  ctx.restore();
+  ctx.restore(); // end clip
+  ctx.restore(); // end bridge transform
 
-  // Thick rising edge — the far end of the bridge visibly sweeping upward
-  if (raiseP > 0 && tiltScale > 0) {
-    const edgeH = Math.max(4, bridgeLen * 0.04);
-    ctx.fillStyle = '#3a2810';
-    ctx.fillRect(bridgeX - 2, bridgeFarY - edgeH, bridgeW + 4, edgeH + 2);
-    // Shadow beneath the rising edge
-    const edgeShadow = ctx.createLinearGradient(0, bridgeFarY, 0, bridgeFarY + edgeH * 3);
-    edgeShadow.addColorStop(0, 'rgba(0,0,0,0.35)');
-    edgeShadow.addColorStop(1, 'transparent');
-    ctx.fillStyle = edgeShadow;
-    ctx.fillRect(bridgeX, bridgeFarY, bridgeW, edgeH * 3);
-  }
+  // ── Gate arch — drawn after bridge so black opening stays on top ──────────
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.moveTo(gateX, baseY);
+  ctx.lineTo(gateX, gateY + gateW / 2);
+  ctx.arc(cx, gateY + gateW / 2, gateW / 2, Math.PI, 0);
+  ctx.lineTo(gateX + gateW, baseY);
+  ctx.fill();
 
-  // Chains — upper endpoints stay at gate, lower follow the rising edge
+  // Chains — connect at arch springing points (base of the bottom semicircle)
+  const springY = baseY + (bridgeLen - bridgeW / 2) * tiltScale;
   ctx.strokeStyle = '#7a6030';
   ctx.lineWidth = 2;
-  [[bridgeX, -gateW * 0.35], [bridgeX + bridgeW, gateW * 0.35]].forEach(([btmX, gOff]) => {
+  [-1, 1].forEach(side => {
     ctx.beginPath();
-    ctx.moveTo(btmX, bridgeFarY);
-    ctx.lineTo(cx + gOff, gateY + gateW * 0.1);
+    ctx.moveTo(cx + side * bridgeW / 2, springY);
+    ctx.lineTo(cx + side * gateW * 0.35, gateY + gateW * 0.1);
     ctx.stroke();
   });
 

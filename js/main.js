@@ -389,6 +389,17 @@ function showRunBookSelectionScreen(onDone) {
     ? Object.keys(SPELLBOOK_CATALOGUE)
     : (meta.ownedBookIds || []);
 
+  // Deck is chosen in the lobby — auto-select or fall back to default, never show this screen
+  if (!sandboxMode) {
+    if (meta.startingBookId && typeof SPELLBOOK_CATALOGUE !== 'undefined') {
+      const sid = meta.startingBookId;
+      if (ownedBookIds.includes(sid) && SPELLBOOK_CATALOGUE[sid]) {
+        onDone(sid); return;
+      }
+    }
+    onDone(null); return;
+  }
+
   // Non-legendary owned books — randomly sample up to 3
   const regularIds = (typeof SPELLBOOK_CATALOGUE !== 'undefined')
     ? ownedBookIds.filter(id => { const cat = SPELLBOOK_CATALOGUE[id]; return cat && cat.rarity !== 'legendary'; })
