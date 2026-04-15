@@ -71,24 +71,6 @@
   </div>
 </div>
 
-<!-- MODE SELECT -->
-<div id="mode-select-screen" class="screen">
-  <h2 style="font-family:'Cinzel',serif;color:#c8a060;letter-spacing:.1em;">Choose Your Style</h2>
-  <p class="subtitle">How would you like to play?</p>
-  <div class="mode-options">
-    <div class="mode-card" onclick="selectGameMode(false)">
-      <div class="mode-icon">📖</div>
-      <div class="mode-name">Spellbook</div>
-      <div class="mode-desc">Classic spell buttons with cooldowns</div>
-    </div>
-    <div class="mode-card" onclick="selectGameMode(true)">
-      <div class="mode-icon">🃏</div>
-      <div class="mode-name">Deck</div>
-      <div class="mode-desc">Draw cards from your hand each turn</div>
-    </div>
-  </div>
-</div>
-
 <!-- ELEMENT SELECT -->
 <div id="element-screen" class="screen">
   <h2 id="welcome-msg">Choose Your Element</h2>
@@ -130,7 +112,7 @@
       <span class="map-topbar-sep">·</span>
       <span id="map-gold-inline" class="map-gold-txt"></span>
       <span class="map-topbar-sep">·</span>
-      <button onclick="showBookEditor()" style="background:none;border:none;color:#8a6a40;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Manage spellbooks">📚 Books</button>
+      <button onclick="showBookEditor()" style="background:none;border:none;color:#8a6a40;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Manage decks">📚 Decks</button>
       <span class="map-topbar-sep">·</span>
       <button onclick="showLibrary()" style="background:none;border:none;color:#6a5a8a;font-size:.68rem;cursor:pointer;padding:.1rem .3rem;font-family:'Cinzel',serif;letter-spacing:.04em;white-space:nowrap;" title="Spell Library">📖 Library</button>
     </div>
@@ -201,6 +183,12 @@
   <!-- Save Files button always visible -->
   <button onclick="showSaveSelect()" style="position:absolute;bottom:.6rem;left:.6rem;background:#0a0806;border:1px solid #2a1a08;color:#4a3820;font-family:'Cinzel',serif;font-size:.6rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;z-index:5;">← Files</button>
 
+  <!-- Veil Unlock Animation Overlay -->
+  <div id="veil-unlock-overlay" style="display:none;position:absolute;inset:0;background:#010008;z-index:20;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;">
+    <canvas id="veil-unlock-canvas" style="image-rendering:pixelated;"></canvas>
+    <div id="veil-unlock-title" style="font-family:'Cinzel',serif;font-size:1.3rem;color:#c080ff;letter-spacing:.12em;text-shadow:0 0 20px #8040cc,0 0 40px #5020aa;margin-top:1rem;opacity:0;text-align:center;"></div>
+    <div id="veil-unlock-sub" style="font-family:'Cinzel',serif;font-size:.75rem;color:#9070cc;letter-spacing:.06em;margin-top:.5rem;opacity:0;font-style:italic;text-align:center;"></div>
+  </div>
 
 </div>
 

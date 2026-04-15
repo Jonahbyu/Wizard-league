@@ -9,11 +9,11 @@ const LOBBY_PLAZA = { x: 0.50, y: 0.97 };
 const LOBBY_LOCATIONS = [
   { id:'castle',   label:'Begin Run',        desc:'Cross the drawbridge — start a new run',  x:0.50, y:0.42 },
   { id:'archive',  label:'History',          desc:'Review past adventures',                   x:0.09, y:0.67 },
-  { id:'vault',    label:'Artifacts',        desc:'Artifacts earned from Gym Leaders',        x:0.91, y:0.67 },
-  { id:'library',  label:'Spellbooks',       desc:'Manage your book upgrades',               x:0.23, y:0.91 },
+  { id:'vault',    label:'Artifacts',        desc:'Artifacts earned from Gym Leaders',        x:0.83, y:0.82 },
+  { id:'library',  label:'Spell Decks',       desc:'Manage your deck upgrades',               x:0.23, y:0.91 },
   { id:'talents',  label:'Talent Tree',      desc:'Spend Phos on permanent upgrades',        x:0.74, y:0.91 },
   { id:'guild',    label:'Library',           desc:'Browse your discovered spells and passives', x:0.17, y:0.82 },
-  { id:'tailor',   label:'Customize Wizard', desc:'Change your wizard\'s look',              x:0.83, y:0.82 },
+  { id:'tailor',   label:'Customize Wizard', desc:'Change your wizard\'s look',              x:0.91, y:0.67 },
   { id:'veil',     label:'The Veil',         desc:'Choose your burdens, layer your Mist',    x:0.355, y:0.748 },
 ];
 
@@ -783,6 +783,13 @@ function showBetweenRuns_map() {
 
   if (_lobbyAnimFrame) cancelAnimationFrame(_lobbyAnimFrame);
   _lobbyLoop();
+
+  if (window._pendingVeilUnlock) {
+    window._pendingVeilUnlock = false;
+    setTimeout(() => {
+      if (typeof playVeilUnlockAnimation === 'function') playVeilUnlockAnimation();
+    }, 800);
+  }
 }
 
 function _lobbyLoop() {
@@ -1846,8 +1853,9 @@ function _drawLobbyBuilding(ctx, loc, W, H) {
   const fs = Math.max(8, Math.round(W * 0.011));
   ctx.font = `${fs}px 'Cinzel', serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillStyle = hovered ? '#c8a060' : '#6a5030';
-  ctx.fillText(loc.label, bx, by + Math.max(4, bs * 0.15));
+  const _veilLocked = loc.id === 'veil' && !(typeof _veilIsUnlocked === 'function' && _veilIsUnlocked());
+  ctx.fillStyle = _veilLocked ? (hovered ? '#9a8a90' : '#4a3a45') : (hovered ? '#c8a060' : '#6a5030');
+  ctx.fillText(_veilLocked ? 'Ruined Portal' : loc.label, bx, by + Math.max(4, bs * 0.15));
   ctx.restore();
 
   // Notification dot — drawn after restore so it's always on top
@@ -2230,8 +2238,83 @@ function _drawBuildingTailor(ctx, bx, by, bs, hov, t) {
   if (hov) { ctx.strokeStyle='#c8a060'; ctx.lineWidth=1.5; ctx.strokeRect(Math.round(bx-bw/2),Math.round(by-bh),Math.round(bw),Math.round(bh)); }
 }
 
+// ── Ruined Portal — locked Veil, crumbled and dark ────────────────────────
+function _drawRuinedPortal(ctx, bx, by, bs, hov) {
+  const aw = bs * 1.4, ah = bs * 1.5;
+  const ax = bx - aw / 2, ay = by - ah;
+
+  // Subtle dark backdrop (no glow)
+  const fade = ctx.createRadialGradient(bx, by - ah * 0.5, 0, bx, by - ah * 0.5, aw * 0.7);
+  fade.addColorStop(0, 'rgba(20,15,25,0.15)');
+  fade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(ax - aw * 0.3, ay - ah * 0.1, aw * 1.6, ah * 1.2);
+
+  // Weathered stone pillars
+  ctx.fillStyle = '#2a2530'; ctx.strokeStyle = '#3a3040'; ctx.lineWidth = 1;
+  const pilW = aw * 0.18, pilH = ah * 0.85;
+  ctx.fillRect(ax,              by - pilH, pilW, pilH);
+  ctx.strokeRect(ax,            by - pilH, pilW, pilH);
+  ctx.fillRect(ax + aw - pilW,  by - pilH, pilW, pilH);
+  ctx.strokeRect(ax + aw - pilW,by - pilH, pilW, pilH);
+
+  // Cracks
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(ax + pilW * 0.35, by - pilH * 0.25);
+  ctx.lineTo(ax + pilW * 0.65, by - pilH * 0.45);
+  ctx.lineTo(ax + pilW * 0.45, by - pilH * 0.60);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ax + aw - pilW * 0.55, by - pilH * 0.35);
+  ctx.lineTo(ax + aw - pilW * 0.75, by - pilH * 0.55);
+  ctx.stroke();
+
+  // Broken arch top
+  ctx.beginPath();
+  ctx.arc(bx, by - pilH + aw * 0.01, aw * 0.5 - pilW * 0.5, Math.PI, 0);
+  ctx.fillStyle = '#2a2530'; ctx.fill();
+  ctx.strokeStyle = '#3a3040'; ctx.lineWidth = 1.2; ctx.stroke();
+
+  // Dark empty void interior
+  const innerR    = aw * 0.36;
+  const innerGrad = ctx.createRadialGradient(bx, by - pilH + 2, 0, bx, by - pilH, innerR);
+  innerGrad.addColorStop(0, 'rgba(10,5,15,0.9)');
+  innerGrad.addColorStop(0.7,'rgba(5,3,8,0.7)');
+  innerGrad.addColorStop(1,  'rgba(0,0,0,0.4)');
+  ctx.beginPath();
+  ctx.arc(bx, by - pilH + aw * 0.01, innerR, Math.PI, 0);
+  ctx.fillStyle = innerGrad; ctx.fill();
+
+  // Dead keystone gem
+  const gemY = by - pilH - aw * 0.12;
+  ctx.beginPath(); ctx.arc(bx, gemY, bs * 0.07, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(45,38,50,0.7)'; ctx.fill();
+  ctx.strokeStyle = '#302838'; ctx.lineWidth = 0.8; ctx.stroke();
+
+  // Rubble at base
+  ctx.fillStyle = '#2a2535';
+  for (let i = 0; i < 3; i++) {
+    ctx.fillRect(ax + pilW * (0.2 + i * 0.35), by - 1, bs * 0.08, bs * 0.04);
+  }
+  ctx.fillStyle = '#252030';
+  for (let i = 0; i < 2; i++) {
+    ctx.fillRect(ax + aw - pilW + pilW * (0.2 + i * 0.5), by - 1, bs * 0.06, bs * 0.03);
+  }
+
+  // Hover outline
+  if (hov) {
+    ctx.strokeStyle = '#666070'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(ax - 2, ay - 2, aw + 4, ah + 4);
+  }
+}
+
 // ── The Veil — misty archway with purple glow ─────────────────────────────
 function _drawBuildingVeil(ctx, bx, by, bs, hov, t) {
+  if (typeof _veilIsUnlocked === 'function' && !_veilIsUnlocked()) {
+    _drawRuinedPortal(ctx, bx, by, bs, hov, t);
+    return;
+  }
   const aw = bs * 1.4, ah = bs * 1.5;
   const ax = bx - aw / 2, ay = by - ah;
   const pulse = 0.5 + 0.5 * Math.sin(t * 0.04);
@@ -2440,15 +2523,15 @@ const _PNODES = {
   guild_mid: [0.213, 0.808],
   right_mid: [0.677, 0.828],
   junc_r:    [0.764, 0.795],
-  vlt_mid:   [0.858, 0.737],
-  tlr_mid:   [0.787, 0.808],
+  vlt_mid:   [0.787, 0.808],
+  tlr_mid:   [0.858, 0.737],
   lib_mid:   [0.274, 0.926],
   tal_mid:   [0.709, 0.926],
   bridge:    [0.500, 0.760],
   archive:   [0.090, 0.670],
   guild:     [0.170, 0.820],
-  vault:     [0.910, 0.670],
-  tailor:    [0.830, 0.820],
+  vault:     [0.830, 0.820],
+  tailor:    [0.910, 0.670],
   library:   [0.230, 0.910],
   talents:   [0.740, 0.910],
   veil_mid:  [0.430, 0.792],

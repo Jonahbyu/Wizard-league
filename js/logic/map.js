@@ -133,6 +133,16 @@ function showRunVictory() {
   _lastRunPhos = saveRunStats();
   sendRunAnalytics('win');
 
+  // Unlock the Veil on non-sandbox wins (Dark One defeated)
+  if (!sandboxMode) {
+    const _vm = getMeta();
+    if (!_vm.darkOneDefeated) {
+      _vm.darkOneDefeated = true;
+      saveMeta();
+      window._pendingVeilUnlock = true;
+    }
+  }
+
   // Populate stats panel
   const statsEl = document.getElementById('victory-stats');
   if (statsEl) {

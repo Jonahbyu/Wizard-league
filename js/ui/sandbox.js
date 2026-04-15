@@ -351,3 +351,13 @@ function sandboxSetCombatZone(element){
     });
   }
 }
+
+function sandboxUnlockVeil() {
+  if (!sandboxMode) return;
+  const meta = getMeta();
+  if (meta.darkOneDefeated) return;
+  meta.darkOneDefeated = true;
+  saveMeta();
+  closeLobbyPanel();
+  if (typeof playVeilUnlockAnimation === 'function') playVeilUnlockAnimation();
+}

@@ -196,6 +196,7 @@ function selectFullUnlockSlot(sandbox) {
     seenThroneRoom:   true,
     seenSpells:       allSpellIds,
     seenPassives:     allPassiveIds,
+    darkOneDefeated:  true,
   };
 
   // Write meta and slot data
@@ -262,12 +263,6 @@ function hubPlay() {
   } else {
     showBetweenRuns();
   }
-}
-
-// ── MODE SELECT ───────────────────────────────────────────────────────────────
-function selectGameMode(isDeck) {
-  player.deckMode = !!isDeck;
-  showElementScreen();
 }
 
 // ── ELEMENT SELECT ────────────────────────────────────────────────────────────
@@ -417,25 +412,19 @@ function showRunBookSelectionScreen(onDone) {
   if (!cont) { onDone(null); return; }
   cont.innerHTML = '';
 
-  // Update screen labels based on mode
-  const isDeck = player.deckMode;
   const bsBadge = document.getElementById('bs-badge');
   const bsTitle = document.getElementById('bs-title');
   const bsSub   = document.getElementById('bs-sub');
-  if (bsBadge) bsBadge.textContent = isDeck ? 'Starting Deck' : 'Starting Spellbook';
-  if (bsTitle) bsTitle.textContent = isDeck ? '✦ Choose Your Deck ✦' : '✦ Choose Your Book ✦';
-  if (bsSub)   bsSub.textContent   = isDeck ? "Pick the deck you'll begin this run with." : "Pick the spellbook you'll begin this run with.";
+  if (bsBadge) bsBadge.textContent = 'Starting Deck';
+  if (bsTitle) bsTitle.textContent = '✦ Choose Your Deck ✦';
+  if (bsSub)   bsSub.textContent   = "Pick the deck you'll begin this run with.";
 
   // Option: use default element tome (no catalogue book)
   const defBtn = document.createElement('button');
   defBtn.className = 'prog-choice-btn';
-  defBtn.innerHTML = isDeck
-    ? `<div class="pc-tag">Default</div>
+  defBtn.innerHTML = `<div class="pc-tag">Default</div>
        <div class="pc-name">🃏 ${playerElement} Starter Deck</div>
-       <div class="pc-desc">Your standard deck — no special effects, but no drawbacks either.</div>`
-    : `<div class="pc-tag">Default</div>
-       <div class="pc-name">📖 ${playerElement}'s Tome</div>
-       <div class="pc-desc">Your standard spellbook — no special effects, but no drawbacks either.</div>`;
+       <div class="pc-desc">Your standard deck — no special effects, but no drawbacks either.</div>`;
   defBtn.onclick = () => onDone(null);
   cont.appendChild(defBtn);
 
