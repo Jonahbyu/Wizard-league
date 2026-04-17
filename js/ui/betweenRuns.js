@@ -20,7 +20,7 @@ function lobbyStartRun() {
   playerCharId = _wizBuild.archetype || slotData.savedCharId || 'arcanist';
   const welcomeEl = document.getElementById('welcome-msg');
   if (welcomeEl) welcomeEl.textContent = `${playerName}, choose your element`;
-  showScreen('mode-select-screen');
+  showElementScreen();
 }
 
 function renderBrunLastRun() {
@@ -183,7 +183,10 @@ function renderBookUpgradesTab(content, meta) {
         : `<button onclick="equipStartingBook('${bookId}')" style="background:#1a1205;border:1px solid #8a6020;color:#c8a060;font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;">Equip</button>`;
       html += `<div style="background:${isActive?'#1a1205':'#0f0d0b'};border:1px solid ${isActive?'#8a6020':'#2a2020'};border-radius:6px;padding:.65rem .85rem;margin-bottom:.5rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.15rem;">
-          <div style="font-family:'Cinzel',serif;font-size:.74rem;color:${rarityColor};">${cat.emoji} ${cat.name}${isActive?'<span style="color:#c8a060;font-size:.55rem;margin-left:.5rem;"> ✦ STARTING DECK</span>':''}</div>
+          <div style="font-family:'Cinzel',serif;font-size:.74rem;color:${rarityColor};display:flex;align-items:center;gap:.35rem;">
+            <span style="display:inline-flex;width:22px;height:22px;flex-shrink:0;">${typeof DECK_ICONS!=='undefined'&&DECK_ICONS[bookId]?DECK_ICONS[bookId]:cat.emoji}</span>
+            ${cat.name}${isActive?'<span style="color:#c8a060;font-size:.55rem;margin-left:.5rem;"> ✦ STARTING DECK</span>':''}
+          </div>
           <div style="display:flex;align-items:center;gap:.4rem;">
             <div style="font-size:.56rem;color:#5a5a5a;">${rarityLabel} · Lv ${lvl}/${maxLvl}</div>
             ${equipBtn}
@@ -217,7 +220,10 @@ function renderBookUpgradesTab(content, meta) {
   const defExtraPassive = defBook.passiveSlots  || 0;
   html += `<div style="background:${isDefaultActive?'#1a1205':'#0f0d0b'};border:1px solid ${isDefaultActive?'#8a6020':'#2a2020'};border-radius:6px;padding:.65rem .85rem;margin-bottom:.5rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.15rem;">
-      <div style="font-family:'Cinzel',serif;font-size:.74rem;color:#a08060;">🃏 Default Deck${isDefaultActive?'<span style="color:#c8a060;font-size:.55rem;margin-left:.5rem;"> ✦ STARTING DECK</span>':''}</div>
+      <div style="font-family:'Cinzel',serif;font-size:.74rem;color:#a08060;display:flex;align-items:center;gap:.35rem;">
+        <span style="display:inline-flex;width:22px;height:22px;flex-shrink:0;">${typeof DECK_ICONS!=='undefined'&&DECK_ICONS.standard?DECK_ICONS.standard:''}</span>
+        Standard${isDefaultActive?'<span style="color:#c8a060;font-size:.55rem;margin-left:.5rem;"> ✦ STARTING DECK</span>':''}
+      </div>
       ${isDefaultActive
         ? ''
         : `<button onclick="unequipStartingBook()" style="background:#1a1205;border:1px solid #8a6020;color:#c8a060;font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;">Set Default</button>`}

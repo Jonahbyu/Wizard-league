@@ -181,10 +181,10 @@ function _checkVerdantPatience() {
   let anyOld = false;
   combat.enemies.forEach(e => {
     if (!e.alive || !e.status.seeds) return;
-    e.status.seeds.forEach(s => { if (s.timer <= 2) anyOld = true; });
+    e.status.seeds.forEach(s => { if (s.timer <= 3) anyOld = true; });
   });
   if (status.player.seeds)
-    status.player.seeds.forEach(s => { if (s.timer <= 2) anyOld = true; });
+    status.player.seeds.forEach(s => { if (s.timer <= 3) anyOld = true; });
 
   if (!anyOld) return;
 

@@ -57,9 +57,8 @@ function drawSprite(ctx, rows, x, y, scale, pal, cols, flipH) {
 
 const _bBGtick = () => Date.now();
 
-// In deck mode the horizon sits higher so the sky dominates and enemies stand near the top
 function _horizonFrac() {
-  return (typeof player !== 'undefined' && player.deckMode) ? 0.25 : 0.55;
+  return 0.25;
 }
 
 function _bSkyGrad(ctx, W, H, c0, c1, horizFrac) {
@@ -571,16 +570,12 @@ function enemySpritePos(idx, allEnemies, W, H) {
   const rows = getEnemySprite(e);
   const sw = 24 * E_SCALE, sh = rows.length * E_SCALE;
 
-  // Spread enemies across canvas — center-right + higher in deck mode
-  const isDeck = typeof player !== 'undefined' && player.deckMode;
-  const areaX = isDeck ? W * 0.42 : W * 0.42;
-  const areaW = isDeck ? W * 0.36 : W * 0.52;
+  const areaX = W * (n <= 1 ? 0.42 : Math.max(0.04, 0.42 - (n - 1) * 0.14));
+  const areaW = W * (n <= 1 ? 0.36 : Math.min(0.92, 0.36 + (n - 1) * 0.22));
   const xFrac = n <= 1 ? 0.5 : idx / Math.max(n - 1, 1);
   // Alternate depth: even-idx slightly further back (higher Y), odd slightly closer
   const depthOffset = n > 1 ? (idx % 2 === 0 ? 0 : Math.round(H * 0.06)) : 0;
-  const groundBottom = isDeck
-    ? Math.round(H * (_horizonFrac() + 0.1)) + depthOffset
-    : Math.round(H * 0.72) + depthOffset;
+  const groundBottom = Math.round(H * (_horizonFrac() + 0.1)) + depthOffset;
 
   return {
     x: Math.round(areaX + xFrac * (areaW - sw)),

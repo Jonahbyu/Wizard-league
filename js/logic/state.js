@@ -32,8 +32,6 @@ const player = {
   activeBookIdx: 0,     // which book is active
   _activeBookAura: null,   // {atk,def,efx,catalogueId} currently applied aura
   _chosenStartBookId: null, // catalogue ID chosen at run start (null = default)
-  // ── UI mode ──
-  deckMode: false,      // true = card hand UI; false = classic spell buttons
 };
 
 // ── SPELLBOOK HELPERS ─────────────────────────────────────────────────────────
@@ -143,10 +141,7 @@ function hasPassive(id) {
 }
 
 function initSpellbooksForRun() {
-  // Plasma players use "General" for the non-plasma book since their elemental identity
-  // is expressed through the dedicated Plasma Abilities book
-  const bookName = playerElement === 'Plasma' ? 'General' : (playerElement + "'s Tome");
-  const book = makeSpellbook(playerElement, bookName);
+  const book = makeSpellbook(playerElement, 'Standard');
   applyBookUpgrades(book);
   // Pre-fill the two built-in utility slots
   book.spells.push(

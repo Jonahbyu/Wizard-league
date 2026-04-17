@@ -441,8 +441,8 @@ function renderQueue(){
   const endBtn=document.getElementById("end-turn-btn");
   if(!slots) return;
 
-  // ── Deck mode: render played cards in #played-card-row ──────────────────
-  if(player.deckMode) {
+  // ── Render played cards in #played-card-row ──────────────────────────────
+  {
     const playedRow = document.getElementById('played-card-row');
     slots.innerHTML = '';
     if(playedRow) {

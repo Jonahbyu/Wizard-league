@@ -13,7 +13,7 @@ const SPELLBOOK_CATALOGUE = {
   // ── ELEMENT BOOKS ──────────────────────────────────────────────────────────
 
   fire_tome: {
-    id:'fire_tome', name:'Emberheart Tome', emoji:'📕',
+    id:'fire_tome', name:'Emberheart Tome', emoji:'🔥',
     rarity:'element', element:'Fire',
     desc:'Each spell cast applies bonus Burn stacks to enemies.',
     negative:'You lose 2 HP per spell cast (cannot kill you).',
@@ -39,7 +39,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   tide_codex: {
-    id:'tide_codex', name:'Tidal Codex', emoji:'📘',
+    id:'tide_codex', name:'Tidal Codex', emoji:'🌊',
     rarity:'element', element:'Water',
     desc:'Each spell restores HP. Switching to this book costs HP.',
     negative:'Lose 5 HP when switching to this book in combat.',
@@ -69,7 +69,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   frost_grimoire: {
-    id:'frost_grimoire', name:'Glacial Grimoire', emoji:'📓',
+    id:'frost_grimoire', name:'Glacial Grimoire', emoji:'❄️',
     rarity:'element', element:'Ice',
     desc:'Each spell applies Frost stacks to the enemy.',
     negative:'−5 Defense while this book is active.',
@@ -94,7 +94,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   storm_codex: {
-    id:'storm_codex', name:'Storm Codex', emoji:'📒',
+    id:'storm_codex', name:'Storm Codex', emoji:'⚡',
     rarity:'element', element:'Lightning',
     desc:'Each spell applies Shock stacks to the enemy.',
     negative:'−5 Attack Power while this book is active.',
@@ -119,7 +119,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   earth_ledger: {
-    id:'earth_ledger', name:'Earthen Ledger', emoji:'📗',
+    id:'earth_ledger', name:'Earthen Ledger', emoji:'🪨',
     rarity:'element', element:'Earth',
     desc:'Defense aura for both sides. Each spell cast grants Block.',
     negative:'Aura buffs enemies too. Spells deal less damage (−8 ATK).',
@@ -144,7 +144,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   verdant_codex: {
-    id:'verdant_codex', name:'Verdant Codex', emoji:'📔',
+    id:'verdant_codex', name:'Verdant Codex', emoji:'🌿',
     rarity:'element', element:'Nature',
     desc:'Regenerate HP at the start of each turn.',
     negative:'−5 Attack Power while this book is active.',
@@ -169,7 +169,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   gale_sketchbook: {
-    id:'gale_sketchbook', name:'Gale Sketchbook', emoji:'📑',
+    id:'gale_sketchbook', name:'Gale Sketchbook', emoji:'💨',
     rarity:'element', element:'Air',
     desc:'Each spell has a chance to grant a bonus action next turn.',
     negative:'−5 Defense while this book is active.',
@@ -197,7 +197,7 @@ const SPELLBOOK_CATALOGUE = {
   },
 
   plasma_atlas: {
-    id:'plasma_atlas', name:'Plasma Atlas', emoji:'🗺',
+    id:'plasma_atlas', name:'Plasma Atlas', emoji:'🔮',
     rarity:'element', element:'Plasma',
     desc:'Each spell generates Plasma Charge.',
     negative:'Max Plasma Charge −3 (17 cap) until level 4.',

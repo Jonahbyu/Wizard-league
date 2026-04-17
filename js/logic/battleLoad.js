@@ -171,6 +171,9 @@ function loadBattle(enc){
   if(typeof switchCombatTab === 'function') switchCombatTab('actions');
 
   showScreen("combat-screen");
+  // Apply deck layout immediately so spellbook UI never flashes
+  const _cs = document.getElementById('combat-screen');
+  if(_cs) _cs.classList.add('deck-mode-active');
   // Show sandbox buttons
   const isSandbox = (typeof sandboxMode !== 'undefined' && sandboxMode);
   const skipBtn = document.getElementById('sandbox-skip-btn');

@@ -292,8 +292,8 @@ function showBattleRewardScreen(isGym, isSpellBattle, isRival) {
     return;
   }
   if (rewardType === 'spell' || rewardType === 'secondary_spell') {
-    if (title) title.textContent = player.deckMode ? '✦ Card Reward ✦' : '✦ Spell Reward ✦';
-    if (sub) sub.textContent = player.deckMode ? 'Choose a card to add to your deck.' : 'Choose a spell to add to your spellbook.';
+    if (title) title.textContent = '✦ Card Reward ✦';
+    if (sub) sub.textContent = 'Choose a card to add to your deck.';
     showSpellChoiceScreen(battleNumber, 'secondary');
     return;
   }
@@ -407,7 +407,7 @@ function buildMajorUpgradePool() {
       apply(){ player.bonusActions=(player.bonusActions||0)+1; log('⚡ Extra action per turn!','win'); } },
     { w:lifeWeight, label:'Extra Life',emoji:'❤️', tag:'Power Up', desc:'Survive one killing blow — revive at 75% HP.',
       apply(){ player.revives=(player.revives||0)+1; log('❤ Extra life gained!','win'); } },
-    { w:bookWeight, label: player.deckMode ? 'New Deck' : 'New Spellbook', emoji: player.deckMode ? '🃏' : '📚', tag:'Power Up', desc: player.deckMode ? 'Add a new deck to your arsenal. Choose from 3 options.' : 'Add a new spellbook to your arsenal. Choose from 3 options.',
+    { w:bookWeight, label:'New Deck', emoji:'🃏', tag:'Power Up', desc:'Add a new deck to your arsenal. Choose from 3 options.',
       _modal:true, apply(){ _showPickupBookChoice(); } },
   ].filter(c => c.w > 0);
 
@@ -433,8 +433,8 @@ function _showPickupBookChoice() {
 
   const title = document.getElementById('br-title');
   const sub   = document.getElementById('br-sub');
-  if (title) title.textContent = player.deckMode ? '🃏 New Deck' : '📖 New Spellbook';
-  if (sub)   sub.textContent   = player.deckMode ? 'Choose a deck to add to your arsenal.' : 'Choose a spellbook to add to your arsenal.';
+  if (title) title.textContent = '🃏 New Deck';
+  if (sub)   sub.textContent   = 'Choose a deck to add to your arsenal.';
 
   cont.innerHTML = '';
   const meta = getMeta();
@@ -735,14 +735,12 @@ function showIncantationChoiceScreen(level) {
 function showSpellChoiceScreen(level, tier='secondary', forElement=null){
   const tierLabel = tier==='primary'?'Primary Spell' : tier==='legendary'?'✦ Legendary Spell' : 'Spell';
   document.getElementById("sc-level-badge").textContent = typeof level === 'number' ? 'Battle '+level : String(level);
-  const _isDeck = player.deckMode;
   document.querySelector('#spellchoice-screen .prog-title').textContent =
-    tier==='legendary' ? (_isDeck ? '✦ Legendary Card ✦' : '✦ Legendary Spell ✦')
-                       : (_isDeck ? '✦ New Card ✦' : '✦ New Spell ✦');
+    tier==='legendary' ? '✦ Legendary Card ✦' : '✦ New Card ✦';
   document.querySelector('#spellchoice-screen .prog-sub').textContent =
-    tier==='primary'   ? (_isDeck ? 'Choose a primary card to start your journey.' : 'Choose a primary spell to start your journey.') :
-    tier==='legendary' ? (_isDeck ? 'Choose a legendary card.' : 'Choose a legendary (tertiary) spell.') :
-                         (_isDeck ? 'Choose a card to add to your deck.' : 'Choose a spell to add to your arsenal.');
+    tier==='primary'   ? 'Choose a primary card to start your journey.' :
+    tier==='legendary' ? 'Choose a legendary card.' :
+                         'Choose a card to add to your deck.';
 
   const cont=document.getElementById("sc-choices"); cont.innerHTML="";
   const pool=buildSpellChoicePool(tier, forElement);

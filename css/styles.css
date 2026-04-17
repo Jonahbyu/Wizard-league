@@ -1914,35 +1914,34 @@
 
 /* ── Arena overlays (deck mode) ──────────────────────────────────────────── */
 
-/* Left side: deck switcher */
+/* Left side: deck switcher — bottom set by JS between stats panel and HUD */
 #arena-deck-switcher {
   position: absolute;
-  left: 6px; top: 50%; transform: translateY(-50%);
-  flex-direction: column; gap: 6px;
+  left: 7px; bottom: 0;
+  flex-direction: row; gap: 8px;
   z-index: 8;
 }
 .arena-deck-icon {
-  width: 48px; min-height: 56px; border-radius: 8px;
-  border: 2px solid #4a3a18; background: rgba(15,10,4,0.88);
+  width: 44px; border-radius: 0;
+  border: none; background: none;
   color: #c8a060; cursor: pointer;
   display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 2px; padding: 4px 2px;
+  justify-content: center; gap: 2px; padding: 2px;
   font-family: 'Cinzel', serif;
-  transition: border-color 0.15s, transform 0.1s, background 0.15s;
+  transition: opacity 0.15s, transform 0.1s;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
 }
 .arena-deck-icon:hover:not(:disabled) {
-  border-color: #c8a060; background: rgba(40,25,8,0.95);
-  transform: translateX(3px);
+  opacity: 0.85; transform: translateY(-2px);
 }
-.arena-deck-icon.active {
-  border-color: #f0c060; background: rgba(50,30,8,0.95);
-  box-shadow: 0 0 8px rgba(200,150,30,0.35);
-}
-.arena-deck-icon:disabled { opacity: 0.45; cursor: default; }
-.arena-deck-icon .adi-emoji { font-size: 1.3rem; line-height: 1; }
+.arena-deck-icon.active { opacity: 1; }
+.arena-deck-icon:disabled { opacity: 0.4; cursor: default; }
+.arena-deck-icon .adi-icon { display:flex; align-items:center; justify-content:center; width:34px; height:34px; }
+.arena-deck-icon .adi-icon svg { width:34px; height:34px; }
 .arena-deck-icon .adi-name {
-  font-size: 0.38rem; color: #9a7a40; letter-spacing: .04em;
+  font-size: 0.36rem; color: #c8a060; letter-spacing: .04em;
   text-align: center; white-space: pre-line; line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 }
 
 /* Bottom right: end turn + actions */
@@ -1972,18 +1971,18 @@
   text-align: right;
 }
 
-/* Below player HUD: passives */
+/* Left of wizard, between stats panel and health bar */
 #arena-passives {
   position: absolute;
-  bottom: 7px; left: 170px;
-  flex-direction: row; gap: 4px; align-items: center;
-  z-index: 8; flex-wrap: wrap; max-width: 120px;
+  bottom: 7px; left: 7px;
+  flex-direction: column; gap: 4px; align-items: center;
+  z-index: 8;
 }
 .arena-passive-pip {
-  width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(10,6,2,0.7); border: 1px solid #3a2a10;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: none; border: none;
   display: flex; align-items: center; justify-content: center;
-  cursor: help;
+  cursor: help; font-size: 1.3rem; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
 }
 
 /* Deck mode: hide the queue-slots text list (replaced by played-card-row) */
@@ -2081,6 +2080,7 @@
   max-height: none !important;
   min-height: 0;
   border: none;
+  overflow: visible;
 }
 /* combat-bottom: fixed at bottom, transparent — cards float over the arena */
 #combat-screen.deck-mode-active .combat-bottom {
@@ -2120,10 +2120,22 @@
   justify-content: flex-end;
   padding-right: 8px;
 }
-/* Tighter card spacing for fan layout */
+/* Tighter card spacing for fan layout — overlap cards */
 #combat-screen.deck-mode-active #card-hand {
-  gap: 2px;
+  gap: 0;
   align-items: flex-end;
+}
+#combat-screen.deck-mode-active .spell-card + .spell-card {
+  margin-left: -32px;
+}
+/* Drag-to-scroll cursor on hand row */
+#combat-screen.deck-mode-active #card-hand-row {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+#combat-screen.deck-mode-active #card-hand-row.hand-dragging {
+  cursor: grabbing;
 }
 /* End-turn button + actions label: fixed mid-right */
 #combat-screen.deck-mode-active #arena-endturn-panel {
@@ -2172,6 +2184,10 @@
   #combat-screen.deck-mode-active .spell-card .card-hint { font-size: 0.38rem; }
   #combat-screen.deck-mode-active .spell-card .card-cd,
   #combat-screen.deck-mode-active .spell-card .card-pp { font-size: 0.38rem; min-width: 16px; }
+  /* Tighter overlap on small cards */
+  #combat-screen.deck-mode-active .spell-card + .spell-card {
+    margin-left: -18px;
+  }
   /* Fixed hand height for smaller cards — prevents queue from dropping */
   #combat-screen.deck-mode-active #card-hand-area {
     height: calc(140px + env(safe-area-inset-bottom, 0px));

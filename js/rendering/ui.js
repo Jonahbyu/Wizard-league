@@ -23,7 +23,7 @@ function updateStatsUI(){
   const mi=document.getElementById("map-items");    if(mi) mi.textContent=player.inventory.length;
   // Deck mode stats panel
   const dsp = document.getElementById('deck-stats-panel');
-  if(dsp && typeof player !== 'undefined' && player.deckMode) {
+  if(dsp && typeof player !== 'undefined') {
     dsp.style.display = 'flex';
     const _e = id => document.getElementById(id);
     const a = _e('dsp-atk'); if(a) a.textContent = dispAtk;
@@ -43,9 +43,24 @@ function updateStatsUI(){
       const hud = document.getElementById('arena-player-hud');
       if(hud) dsp.style.bottom = (hud.offsetHeight + 14) + 'px';
     }
+    // Position passives above HUD
+    const hud2 = document.getElementById('arena-player-hud');
+    const passives = document.getElementById('arena-passives');
+    if(hud2 && passives) passives.style.bottom = ((hud2.offsetHeight || 44) + 11) + 'px';
   } else if(dsp) {
     dsp.style.display = 'none';
   }
+}
+
+function _repositionDeckSwitcher() {
+  const hud = document.getElementById('arena-player-hud');
+  const passives = document.getElementById('arena-passives');
+  const deckSw = document.getElementById('arena-deck-switcher');
+  if(!hud || !deckSw) return;
+  const hudH = hud.offsetHeight || 44;
+  const passBottom = hudH + 11;
+  const passH = passives ? (passives.offsetHeight || 0) : 0;
+  deckSw.style.bottom = (passBottom + (passH > 0 ? passH + 8 : 0)) + 'px';
 }
 
 // ===============================
@@ -67,7 +82,7 @@ function renderEnemyCards(){
   const _canvas = document.getElementById('battle-canvas');
   const _canvasW = _canvas ? _canvas.offsetWidth  : 0;
   const _canvasH = _canvas ? _canvas.offsetHeight : 0;
-  const _isDeck = typeof player !== 'undefined' && player.deckMode;
+  const _isDeck = true;
 
   (combat.enemies||[]).forEach((e, i)=>{
     const pct = Math.max(0, (e.hp / e.enemyMaxHP) * 100);
@@ -404,7 +419,7 @@ function setPlayerTurnUI(isPlayerTurn){
   const invBtn=document.getElementById("inv-toggle-btn");
   if(endBtn) endBtn.disabled=!isPlayerTurn;
   if(invBtn) invBtn.disabled=!isPlayerTurn;
-  if(isPlayerTurn && player.deckMode) _drawAnimPending = true;
+  if(isPlayerTurn) _drawAnimPending = true;
   renderSpellButtons();
   renderQueue();
   updateActionUI();
@@ -662,58 +677,28 @@ function renderSpellButtons(){
     if(invCount) invCount.textContent = count;
   }
 
-  // ── Deck mode: card hand UI ─────────────────────────────────────────────────
+  // ── Card hand UI ─────────────────────────────────────────────────────────────
   const _combatScreen = document.getElementById('combat-screen');
-  if(player.deckMode){
-    grid.style.display = 'none';
-    const _invPanel = document.getElementById('inv-panel');
-    if(_invPanel) _invPanel.style.display = 'none';
-    const _itemBtnEl = document.getElementById('sb-item-btn');
-    if(_itemBtnEl) _itemBtnEl.style.display = 'none';
-    // Hide spellbook widget topbar + passives row — replaced by arena overlays
-    const _sbTopbar = document.querySelector('.sb-topbar');
-    if(_sbTopbar) _sbTopbar.style.display = 'none';
-    const _sbPassives = document.getElementById('sb-passives-row');
-    if(_sbPassives) _sbPassives.style.display = 'none';
-    if(_combatScreen) _combatScreen.classList.add('deck-mode-active');
-    if(!_deckModeLayoutActive) {
-      _deckModeLayoutActive = true;
-      setTimeout(() => { if(typeof initBattleCanvas === 'function') initBattleCanvas(); }, 50);
-    }
-    _renderCardHand(isMyTurn, queueFull, cdPreviewReduce);
-    _renderArenaDecks(isMyTurn, queueFull);
-    _renderArenaEndTurn(isMyTurn);
-    _renderArenaPassives();
-    return;
-  } else {
-    _deckModeLayoutActive = false;
-    grid.style.display = '';
-    const _chArea = document.getElementById('card-hand-area');
-    if(_chArea) _chArea.style.display = 'none';
-    const _pRow = document.getElementById('played-card-row');
-    if(_pRow) _pRow.style.display = 'none';
-    const _invPanelSb = document.getElementById('inv-panel');
-    if(_invPanelSb) _invPanelSb.style.display = '';
-    const _itemBtnSb = document.getElementById('sb-item-btn');
-    if(_itemBtnSb) _itemBtnSb.style.display = '';
-    const _sbTopbarSb = document.querySelector('.sb-topbar');
-    if(_sbTopbarSb) _sbTopbarSb.style.display = '';
-    const _sbPassivesSb = document.getElementById('sb-passives-row');
-    if(_sbPassivesSb) _sbPassivesSb.style.display = '';
-    // Hide arena deck overlays
-    const _ads = document.getElementById('arena-deck-switcher');
-    if(_ads) _ads.style.display = 'none';
-    const _aep = document.getElementById('arena-endturn-panel');
-    if(_aep) _aep.style.display = 'none';
-    const _ap = document.getElementById('arena-passives');
-    if(_ap) _ap.style.display = 'none';
-    if(_combatScreen) _combatScreen.classList.remove('deck-mode-active');
-    const _arena = document.querySelector('.battle-arena');
-    if (_arena && _arena._battleResizeObserver) {
-      _arena._battleResizeObserver.disconnect();
-      _arena._battleResizeObserver = null;
-    }
+  grid.style.display = 'none';
+  const _invPanel = document.getElementById('inv-panel');
+  if(_invPanel) _invPanel.style.display = 'none';
+  const _itemBtnEl = document.getElementById('sb-item-btn');
+  if(_itemBtnEl) _itemBtnEl.style.display = 'none';
+  const _sbTopbar = document.querySelector('.sb-topbar');
+  if(_sbTopbar) _sbTopbar.style.display = 'none';
+  const _sbPassives = document.getElementById('sb-passives-row');
+  if(_sbPassives) _sbPassives.style.display = 'none';
+  if(_combatScreen) _combatScreen.classList.add('deck-mode-active');
+  if(!_deckModeLayoutActive) {
+    _deckModeLayoutActive = true;
+    setTimeout(() => { if(typeof initBattleCanvas === 'function') initBattleCanvas(); }, 50);
   }
+  _renderCardHand(isMyTurn, queueFull, cdPreviewReduce);
+  _renderArenaDecks(isMyTurn, queueFull);
+  _renderArenaEndTurn(isMyTurn);
+  _renderArenaPassives();
+  _repositionDeckSwitcher();
+  return;
 
   // ── PLASMA: full custom grid (shown whenever the plasma abilities book is active) ─────────────────────────────────────────────
   if(activeBook() && activeBook().isPlasmaBook){
@@ -1313,27 +1298,87 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
       ? `📚 ${deckCount} on cooldown`
       : '';
   }
+
+  // ── Drag-to-scroll hand ───────────────────────────────────────────────────
+  const _handRow = document.getElementById('card-hand-row');
+  if (_handRow) {
+    if (_handRow._dragCleanup) _handRow._dragCleanup();
+
+    const _getMax = () => Math.max(0, handEl.offsetWidth - _handRow.clientWidth);
+    const _applyTx = (x) => {
+      const clamped = Math.max(0, Math.min(_getMax(), x));
+      handEl.style.transform = clamped ? `translateX(${clamped}px)` : '';
+      _handRow._txOffset = clamped;
+    };
+
+    // Re-clamp saved offset after re-render (hand may have shrunk)
+    if (_handRow._txOffset) _applyTx(_handRow._txOffset);
+
+    let _isDragging = false, _didDrag = false, _capturedId = null;
+    let _dragStartX = 0, _dragStartTx = 0;
+
+    const _onPDown = (e) => {
+      _isDragging = true;
+      _didDrag = false;
+      _capturedId = e.pointerId;
+      _dragStartX = e.clientX;
+      _dragStartTx = _handRow._txOffset || 0;
+    };
+    const _onPMove = (e) => {
+      if (!_isDragging || e.pointerId !== _capturedId) return;
+      const dx = e.clientX - _dragStartX;
+      if (!_didDrag && Math.abs(dx) > 7) {
+        _didDrag = true;
+        try { _handRow.setPointerCapture(e.pointerId); } catch(_) {}
+        _handRow.classList.add('hand-dragging');
+      }
+      // drag RIGHT reveals left cards (hand overflows left; translateX moves hand right)
+      if (_didDrag) { e.preventDefault(); _applyTx(_dragStartTx + dx); }
+    };
+    const _onPUp = () => {
+      _isDragging = false;
+      _handRow.classList.remove('hand-dragging');
+      setTimeout(() => { _didDrag = false; }, 0);
+    };
+    const _onClickCapture = (e) => {
+      if (_didDrag) { e.stopPropagation(); e.preventDefault(); }
+    };
+
+    _handRow.addEventListener('pointerdown', _onPDown);
+    _handRow.addEventListener('pointermove', _onPMove);
+    _handRow.addEventListener('pointerup', _onPUp);
+    _handRow.addEventListener('click', _onClickCapture, true);
+    _handRow._dragCleanup = () => {
+      _handRow.removeEventListener('pointerdown', _onPDown);
+      _handRow.removeEventListener('pointermove', _onPMove);
+      _handRow.removeEventListener('pointerup', _onPUp);
+      _handRow.removeEventListener('click', _onClickCapture, true);
+    };
+  }
 }
 
 // ── DECK MODE: ARENA OVERLAY RENDERERS ────────────────────────────────────────
 
-// Left panel: one icon per spellbook, click to switch deck
+// Left panel: one icon per spellbook, click to switch deck (always shown, even with 1 deck)
 function _renderArenaDecks(isMyTurn, queueFull) {
   const el = document.getElementById('arena-deck-switcher');
-  if(!el) return;
+  if(!el || !player.spellbooks) return;
   el.style.display = 'flex';
   el.innerHTML = '';
-  if(!player.spellbooks || player.spellbooks.length <= 1) return;
   player.spellbooks.forEach((book, i) => {
+    const isActive = i === player.activeBookIdx;
+    const _desc = book.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'
+      ? (SPELLBOOK_CATALOGUE[book.catalogueId]||{}).desc || '' : '';
     const btn = document.createElement('button');
-    btn.className = 'arena-deck-icon' + (i === player.activeBookIdx ? ' active' : '');
-    btn.disabled = (i === player.activeBookIdx) || !isMyTurn || queueFull;
-    btn.title = book.name + (book.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'
-      ? '\n' + (SPELLBOOK_CATALOGUE[book.catalogueId]||{}).desc || '' : '');
-    // Show book emoji + short name
-    const emoji = book.emoji || '🃏';
-    const shortName = book.name.replace(/['s]/g,'').split(' ').slice(0,2).join('\n');
-    btn.innerHTML = `<span class="adi-emoji">${emoji}</span><span class="adi-name">${shortName}</span>`;
+    btn.className = 'arena-deck-icon' + (isActive ? ' active' : '');
+    btn.disabled = isActive || !isMyTurn || queueFull;
+    btn.title = book.name + (_desc ? '\n' + _desc : '');
+    const iconId = book.catalogueId || 'standard';
+    const svgIcon = typeof DECK_ICONS !== 'undefined' && DECK_ICONS[iconId]
+      ? DECK_ICONS[iconId]
+      : `<span style="font-size:1.4rem;line-height:1">${book.emoji||'🃏'}</span>`;
+    const shortName = book.name.replace(/['''s]/g,'').split(' ').slice(0,2).join('\n');
+    btn.innerHTML = `<span class="adi-icon">${svgIcon}</span><span class="adi-name">${shortName}</span>`;
     btn.onclick = () => { if(typeof queueSwitchBook === 'function') queueSwitchBook(i); };
     el.appendChild(btn);
   });
