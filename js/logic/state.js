@@ -37,7 +37,7 @@ const player = {
 // ── SPELLBOOK HELPERS ─────────────────────────────────────────────────────────
 
 const BOOK_SPELL_SLOTS_BASE  = 6;
-const BOOK_PASSIVE_SLOTS_BASE = 2;
+const BOOK_PASSIVE_SLOTS_BASE = 2; // kept for meta upgrade compat; not enforced in-run
 
 function makeSpellbook(element, name) {
   return {
@@ -45,9 +45,7 @@ function makeSpellbook(element, name) {
     name:         name || (element + "'s Tome"),
     element:      element,
     spells:       [],
-    passives:     [],
     spellSlots:   BOOK_SPELL_SLOTS_BASE,
-    passiveSlots: BOOK_PASSIVE_SLOTS_BASE,
     effect:       null,  // on-switch combat effect (null = none for basic book)
     isPlasmaBook: false, // true only for the dedicated Plasma abilities book
   };
@@ -69,7 +67,6 @@ function makeBookInstance(catalogueId) {
   base.emoji = cat.emoji || '📖';
   // Apply slot modifiers from catalogue
   if ((cat.spellSlots || 0) !== 0) base.spellSlots = Math.max(3, base.spellSlots + cat.spellSlots);
-  if ((cat.passiveSlots || 0) !== 0) base.passiveSlots = Math.max(1, base.passiveSlots + cat.passiveSlots);
   // Wire on-switch-to effect
   const _lvl = upgradeLevel;
   base.effect = () => { if (cat.onSwitchTo) cat.onSwitchTo(_lvl); };
@@ -123,21 +120,18 @@ function activeBook() {
   return player.spellbooks[player.activeBookIdx] || player.spellbooks[0];
 }
 
-// Keep player.spellbook and player.passives in sync with active book
+// Keep player.spellbook in sync with active book
 // Call this whenever activeBookIdx changes or books change
 function syncActiveBook() {
   const book = activeBook();
   if (!book) return;
   player.spellbook = book.spells;
-  player.passives  = book.passives;
   _applyBookAuraToPlayer(book);
 }
 
-// Override hasPassive to always read from active book
+// Passives are global — always read from player.passives
 function hasPassive(id) {
-  const book = activeBook();
-  if (!book) return (player.passives||[]).includes(id);
-  return (book.passives||[]).includes(id);
+  return (player.passives||[]).includes(id);
 }
 
 function initSpellbooksForRun() {
@@ -150,6 +144,7 @@ function initSpellbooksForRun() {
   );
   player.spellbooks  = [book];
   player.activeBookIdx = 0;
+  player.passiveSlots = 6; // global cap, expandable via rewards
   // Plasma players always start with a dedicated Plasma Abilities book
   if (playerElement === 'Plasma') {
     ensurePlasmaBook();
@@ -213,40 +208,68 @@ function addSpellToBook(spell, bookIdx) {
   if (targetIdx === player.activeBookIdx) syncActiveBook();
 }
 
-// Add a passive to the active book (with overflow check)
-function addPassiveToBook(passiveId, bookIdx) {
-  // Plasma passives always go to the plasma book
-  if (bookIdx === undefined) {
-    const isPlasmaPassive = (PASSIVE_CHOICES['Plasma']||[]).some(p => p.id === passiveId);
-    if (isPlasmaPassive) {
-      ensurePlasmaBook();
-      bookIdx = plasmaBookIdx();
-    }
-  }
-
-  const idx  = (bookIdx !== undefined) ? bookIdx : player.activeBookIdx;
-  // Never route a non-plasma passive into the plasma book
-  const targetIdx = (player.spellbooks[idx] && player.spellbooks[idx].isPlasmaBook) ? 0 : idx;
-  const book = player.spellbooks[targetIdx];
-  if (!book) return;
-  if (book.passives.includes(passiveId)) return;
-  if (book.passives.length >= book.passiveSlots) {
-    _pendingOverflowPassive     = passiveId;
-    _pendingOverflowPassiveBook = targetIdx;
-    showPassiveOverflowScreen(passiveId, book);
+// Add a passive to the global passive pool (book-independent)
+function addPassiveToBook(passiveId) {
+  if ((player.passives||[]).includes(passiveId)) return;
+  const cap = player.passiveSlots || 6;
+  if (player.passives.length >= cap) {
+    _pendingOverflowPassive = passiveId;
+    showPassiveOverflowScreen(passiveId);
     return;
   }
-  book.passives.push(passiveId);
+  player.passives.push(passiveId);
   if (typeof markPassiveSeen === 'function') markPassiveSeen(passiveId);
   if (passiveId === 'air_tailwind') player.attackPower += 15;
-  if (targetIdx === player.activeBookIdx) syncActiveBook();
 }
 
-// Overflow state
+let _pendingOverflowPassive = null;
+
+function showPassiveOverflowScreen(passiveId) {
+  const overlay = document.getElementById('passive-overflow-overlay');
+  if (!overlay) return;
+  const def = _lookupPassiveDef(passiveId);
+  document.getElementById('poo-new-passive').textContent = def ? (def.emoji + ' ' + def.title) : passiveId;
+  document.getElementById('poo-new-desc').textContent    = def ? (def.desc || '') : '';
+  const list = document.getElementById('poo-passive-list');
+  list.innerHTML = '';
+  (player.passives || []).forEach((pid, i) => {
+    const pdef = _lookupPassiveDef(pid);
+    const btn = document.createElement('button');
+    btn.className = 'boo-spell-btn';
+    btn.innerHTML = '<span>' + (pdef ? pdef.emoji + ' ' + pdef.title : pid) + '</span><span class="boo-remove-hint">Replace</span>';
+    btn.onclick = () => resolvePassiveOverflow(i);
+    list.appendChild(btn);
+  });
+  const declineBtn = document.createElement('button');
+  declineBtn.className = 'boo-spell-btn';
+  declineBtn.style.cssText = 'margin-top:.5rem;border-color:#1a1a25;color:#666;';
+  declineBtn.innerHTML = '<span>↩ Decline new passive</span>';
+  declineBtn.onclick = () => declinePassiveOverflow();
+  list.appendChild(declineBtn);
+  overlay.classList.add('open');
+}
+
+function resolvePassiveOverflow(removeIdx) {
+  if (!_pendingOverflowPassive) return;
+  const removed = player.passives.splice(removeIdx, 1)[0];
+  player.passives.push(_pendingOverflowPassive);
+  if (typeof markPassiveSeen === 'function') markPassiveSeen(_pendingOverflowPassive);
+  _pendingOverflowPassive = null;
+  const overlay = document.getElementById('passive-overflow-overlay');
+  if (overlay) overlay.classList.remove('open');
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+
+function declinePassiveOverflow() {
+  _pendingOverflowPassive = null;
+  const overlay = document.getElementById('passive-overflow-overlay');
+  if (overlay) overlay.classList.remove('open');
+  if (typeof processNextLevelUp === 'function') processNextLevelUp();
+}
+
+// Overflow state (spell only — passives are now global)
 let _pendingOverflowSpell        = null;
 let _pendingOverflowBookIdx      = 0;
-let _pendingOverflowPassive      = null;
-let _pendingOverflowPassiveBook  = 0;
 
 function showBookOverflowScreen(newSpell, book) {
   const overlay = document.getElementById('book-overflow-overlay');
@@ -325,7 +348,7 @@ function discardOverflowSpell() {
   if (typeof processNextLevelUp === 'function') processNextLevelUp();
 }
 
-// ── Passive overflow ──────────────────────────────────────────────────────────
+// ── Passive lookup util ───────────────────────────────────────────────────────
 function _lookupPassiveDef(passiveId) {
   let def = null;
   Object.values(PASSIVE_CHOICES || {}).forEach(arr => {
@@ -333,55 +356,6 @@ function _lookupPassiveDef(passiveId) {
     if (found) def = found;
   });
   return def;
-}
-
-function showPassiveOverflowScreen(passiveId, book) {
-  const overlay = document.getElementById('passive-overflow-overlay');
-  if (!overlay) return;
-  const def = _lookupPassiveDef(passiveId);
-  document.getElementById('poo-book-name').textContent    = book.name;
-  document.getElementById('poo-new-passive').textContent  = def ? (def.emoji + ' ' + def.title) : passiveId;
-  document.getElementById('poo-new-desc').textContent     = def ? (def.desc || '') : '';
-  const list = document.getElementById('poo-passive-list');
-  list.innerHTML = '';
-  // Replace options — one per existing passive
-  book.passives.forEach((pid, i) => {
-    const pdef = _lookupPassiveDef(pid);
-    const btn = document.createElement('button');
-    btn.className = 'boo-spell-btn';
-    btn.innerHTML = '<span>' + (pdef ? pdef.emoji + ' ' + pdef.title : pid) + '</span><span class="boo-remove-hint">Replace</span>';
-    btn.onclick = () => resolvePassiveOverflow(i);
-    list.appendChild(btn);
-  });
-  // Decline option
-  const declineBtn = document.createElement('button');
-  declineBtn.className = 'boo-spell-btn';
-  declineBtn.style.cssText = 'margin-top:.5rem;border-color:#1a1a25;color:#666;';
-  declineBtn.innerHTML = '<span>↩ Decline new passive</span>';
-  declineBtn.onclick = () => declinePassiveOverflow();
-  list.appendChild(declineBtn);
-  overlay.classList.add('open');
-}
-
-function resolvePassiveOverflow(removeIdx) {
-  const book = player.spellbooks[_pendingOverflowPassiveBook];
-  if (!book || !_pendingOverflowPassive) return;
-  book.passives.splice(removeIdx, 1);
-  book.passives.push(_pendingOverflowPassive);
-  if (_pendingOverflowPassiveBook === player.activeBookIdx) syncActiveBook();
-  _pendingOverflowPassive     = null;
-  _pendingOverflowPassiveBook = 0;
-  const overlay = document.getElementById('passive-overflow-overlay');
-  if (overlay) overlay.classList.remove('open');
-  if (typeof processNextLevelUp === 'function') processNextLevelUp();
-}
-
-function declinePassiveOverflow() {
-  _pendingOverflowPassive     = null;
-  _pendingOverflowPassiveBook = 0;
-  const overlay = document.getElementById('passive-overflow-overlay');
-  if (overlay) overlay.classList.remove('open');
-  if (typeof processNextLevelUp === 'function') processNextLevelUp();
 }
 
 // Full set of status fields — single source of truth

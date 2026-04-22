@@ -1810,11 +1810,9 @@ function _lobbyBuildingHasNotif(id) {
         if (lvl < 4 && phos >= ((cat.upgradeCosts || [])[lvl] || 0)) return true;
         const ps = bsl[bid] || {};
         if ((ps.spellSlots   || 0) < 3 && phos >= ((ps.spellSlots   || 0) + 1) * 10) return true;
-        if ((ps.passiveSlots || 0) < 2 && phos >= ((ps.passiveSlots || 0) + 1) * 12) return true;
       }
       const def = bsl['default'] || {};
       if ((def.spellSlots   || 0) < 3 && phos >= ((def.spellSlots   || 0) + 1) * 10) return true;
-      if ((def.passiveSlots || 0) < 2 && phos >= ((def.passiveSlots || 0) + 1) * 12) return true;
       return false;
     }
     if (id === 'talents') {
@@ -2689,32 +2687,8 @@ function _openLobbyLocation(id) {
     panel.style.display = 'block';
   } else if (id === 'vault') {
     markArtifactsSeen();
-    let html = `<div class="lobby-panel-title">${title}</div>`;
-    if (!meta.artifacts || !meta.artifacts.length) {
-      html += '<div class="brun-empty">No artifacts yet — defeat a Gym Leader to have a chance at one!</div>';
-    } else {
-      const activeId = meta.activeArtifactId || null;
-      html += '<div style="font-size:.6rem;color:#4a3820;text-align:center;margin-bottom:.6rem;">Equip one artifact per run. It earns stars after 25 battles of use.</div>';
-      html += meta.artifacts.map(a => {
-        const def = ARTIFACT_CATALOGUE[a.id];
-        if (!def) return '';
-        const isActive = a.id === activeId;
-        const stars = a.star > 0 ? '★'.repeat(a.star) : '—';
-        const sColor = ['#888','#c8a030','#e8d060','#00ccff'][Math.min(a.star||0,3)];
-        const prog = a.star < 3 ? `${a.roomsUsed||0}/25 rooms` : 'MAX';
-        const btn = isActive
-          ? `<button onclick="unequipArtifact();_openLobbyLocation('vault')" style="background:#1a1205;border:1px solid #5a4020;color:#7a5020;font-family:'Cinzel',serif;font-size:.55rem;padding:.2rem .5rem;border-radius:3px;cursor:pointer;white-space:nowrap;">Unequip</button>`
-          : `<button onclick="equipArtifact('${a.id}');_openLobbyLocation('vault')" style="background:#1a1205;border:1px solid #8a6020;color:#c8a060;font-family:'Cinzel',serif;font-size:.55rem;padding:.2rem .5rem;border-radius:3px;cursor:pointer;white-space:nowrap;">Equip</button>`;
-        return `<div class="brun-art-row" style="border-color:${isActive?'#8a6020':'#1a1a14'};background:${isActive?'#1a1205':'#0f0d0b'};display:flex;align-items:center;gap:.5rem;">
-          <div style="flex:1;">
-            <div class="brun-art-name">${def.emoji} ${def.name} <span class="brun-art-star" style="color:${sColor}">${stars}</span>${isActive?'<span style="color:#c8a060;font-size:.55rem;margin-left:.4rem;"> ✦ ACTIVE</span>':''}</div>
-            <div class="brun-art-desc">${def.desc[a.star||0]} · <span style="color:#4a4a4a">${prog}</span></div>
-          </div>
-          ${btn}
-        </div>`;
-      }).join('');
-    }
-    content.innerHTML = html;
+    renderArtifactVaultTab(content, meta, `_openLobbyLocation('vault')`);
+    content.insertAdjacentHTML('afterbegin', `<div class="lobby-panel-title">${title}</div>`);
     panel.style.display = 'block';
   } else if (id === 'library') {
     markBooksSeen();
@@ -2722,8 +2696,8 @@ function _openLobbyLocation(id) {
     renderBookUpgradesTab(content, meta);
     panel.style.display = 'block';
   } else if (id === 'talents') {
-    content.innerHTML = `<div class="lobby-panel-title">${title}</div>${phosLabel}`;
-    renderTalentTab(content, meta);
+    content.innerHTML = `<div class="lobby-panel-title">${title}</div>`;
+    renderKnowledgeTreeTab(content, meta);
     panel.style.display = 'block';
   } else if (id === 'guild') {
     closeLobbyPanel();

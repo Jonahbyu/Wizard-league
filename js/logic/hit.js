@@ -72,14 +72,6 @@ function applyOutgoingDamageMods(attackerSide, defenderSide, baseDamage, meta){
     }
   }
 
-  // Incantation upgrade bonus: enemies that failed action rolls get buffed ability damage
-  if(attackerSide === 'enemy' && dmg > 0){
-    const _e = combat.enemies[combat.activeEnemyIdx];
-    if(_e && (_e._abilityDmgMult||1) > 1){
-      dmg = Math.round(dmg * _e._abilityDmgMult);
-    }
-  }
-
   // Lightning Overload multiplier
   if(elementOfSide(attackerSide)==='Lightning'){
     const hasOverload = (attackerSide==='player' && hasPassive('lightning_overload')) ||
@@ -103,6 +95,37 @@ function applyOutgoingDamageMods(attackerSide, defenderSide, baseDamage, meta){
     const pctPerStack = (3 + casterEFX / 10) / 100 + (hasConduction ? 0.02 : 0);
     const reduction = clamp(sStacks * pctPerStack, 0, 0.75);
     dmg = Math.max(0, Math.round(dmg * (1 - reduction)));
+  }
+
+  // Air Backdraft: bonus multiplier when enemy actions resolved before this spell
+  if(attackerSide==='player' && elementOfSide('player')==='Air' && hasPassive('air_backdraft') && dmg > 0){
+    const eab = Math.min(2, (typeof combat !== 'undefined' ? combat.currentQueuePosition : 0) || 0);
+    if(eab > 0) dmg = Math.round(dmg * (1 + eab * 0.15));
+    // log is in resolveFlat context; skip inline log to avoid per-hit spam
+  }
+
+  // Air Vortex Strike: +50% when acting consecutively after your own action
+  if(attackerSide==='player' && elementOfSide('player')==='Air' && combat._vortexStrikeActive && dmg > 0){
+    dmg = Math.round(dmg * 1.5);
+  }
+
+  // Origination (KT): flat bonus when enemy has 2+ elemental curse types active
+  if(attackerSide==='player' && player._ktOriginationLevel && dmg > 0){
+    const es = status[defenderSide];
+    const elemCurses = [
+      (es.burnStacks||0) > 0,
+      (es.shockStacks||0) > 0,
+      ((es.rootStacks||0)+(es.overgrowthStacks||0)) > 0,
+      (es.frostStacks||0) > 0,
+      (es.foamStacks||0) > 0,
+    ].filter(Boolean).length;
+    if(elemCurses >= 2) dmg += [5,10,15,20,25][player._ktOriginationLevel-1] || 5;
+  }
+
+  // Strength (KT): last-stand outgoing bonus scaled by level
+  if(attackerSide==='player' && player._ktStrengthPassive && player.revives <= 0 && dmg > 0){
+    const _sLvl = player._ktStrengthLevel || 1;
+    dmg = Math.round(dmg * [1.10, 1.15, 1.20][_sLvl - 1]);
   }
 
   return dmg;
@@ -339,12 +362,16 @@ function performHit(attackerSide, defenderSide, pkg){
                         (attackerSide==='enemy'  && enemyHasPassive('lightning_double'));
       if(hasDouble){
         const pow = effectPowerFor(attackerSide);
-        const chance = clamp((30 + Math.floor(pow/2))/100, 0, 10);
+        // Velocity Arc (Air+Lightning duo): +1% double strike chance per Momentum stack
+        const momBonus = (attackerSide==='player' && hasPassive('duo_velocity_arc'))
+          ? (status.player.momentumStacks || 0) * 0.01 : 0;
+        const chance = clamp((30 + Math.floor(pow/2))/100 + momBonus, 0, 10);
         const roll = Math.random();
         const extraHits = (chance > 1.0 && roll < chance - 1.0) ? 2 :
                           (roll < Math.min(chance, 1.0)) ? 1 : 0;
         for(let h = 0; h < extraHits; h++){
           log(`💥 ${h===0?'Double':'Triple'} Strike!`, 'status');
+          if(attackerSide==='player' && hasPassive('duo_velocity_arc')) addMomentumStacks(2);
           performHit(attackerSide, defenderSide, {...pkg, baseDamage:Math.round((pkg.baseDamage||0)*0.7), _isDblStrike:true, noRecord:true});
           if(combat.over) return;
         }
@@ -498,6 +525,11 @@ function applyDirectDamage(attackerSide, defenderSide, dmg, label, opts){
       if(reduced < dmg) log(`🛡️ Plasma Shield absorbs ${dmg - reduced} (${status.player.plasmaShieldReduction}% reduction)`, 'status');
       dmg = reduced;
       if(dmg <= 0){ updateHPBars(); return; }
+    }
+    // Strength (KT): last-stand incoming reduction scaled by level
+    if(player._ktStrengthPassive && player.revives <= 0 && dmg > 0){
+      const _sLvl = player._ktStrengthLevel || 1;
+      dmg = Math.round(dmg * [0.75, 0.65, 0.60][_sLvl - 1]);
     }
     // For Plasma: allow HP to go negative so heals must actually cover the full deficit
     if(playerElement === 'Plasma'){
@@ -670,6 +702,16 @@ function applyMelt(attackerSide, targetSide, meltPoints, label){
       log(`⚔️ Armor Eater: +${aeBonus} from ${armorDestroyed} armor consumed!`, 'status');
     }
 
+    // Bellows (Air+Fire duo): Melt HP multiplied by queue position
+    if(attackerSide === 'player' && hasPassive('duo_bellows')){
+      const eab = combat.currentQueuePosition || 0;
+      const _bChoice = player._bellowsChoice || 'fast';
+      const _bMult = _bChoice === 'fast' ? (eab === 0 ? 1.5 : 1) : (1 + eab * 0.25);
+      if(_bMult > 1){
+        remaining = Math.round(remaining * _bMult);
+        log(`💨🔩 Bellows: ×${_bMult.toFixed(2)} Melt HP (${_bChoice}, EAB=${eab})`, 'status');
+      }
+    }
     applyDirectDamage(attackerSide, targetSide, Math.round(remaining * 1.5), label);
     if(combat.over) return;
 

@@ -8,7 +8,7 @@
 const BASE_MAX_HP      = 200;
 const BASE_DMG         = 25;      // basic spell base damage (pre-mods)
 const BASE_POWER       = 0;
-const BATTLE_HEAL      = 10;
+const BATTLE_HEAL      = 0;  // removed — now a KT card (kt_recovery)
 const CAMPFIRE_HEAL    = 0.5;
 const CAMPFIRE_CHANCE  = 0.25;
 const SHOP_CHANCE      = 0.15;
@@ -31,6 +31,6 @@ var sandboxMode    = false;
 
 // ── Released elements — only these are available in non-sandbox mode ──
 // Add new elements here when they are fully fleshed out.
-const RELEASED_ELEMENTS = ['Fire', 'Lightning', 'Nature'];
+const RELEASED_ELEMENTS = ['Fire', 'Lightning', 'Nature', 'Air'];
 
 

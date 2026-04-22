@@ -101,9 +101,30 @@ const PASSIVE_CHOICES = {
     { id:'air_gale_force',  title:'Gale Force',  emoji:'💨',  desc:'Each hit has a 50% chance to gain 1 extra Momentum stack.' },
     { id:'air_slipstream',  title:'Slipstream',  emoji:'🌀',  desc:'You lose much less Momentum when you dodge.' ,
       detail:'Momentum lost on dodge reduced to 10% instead of 25%.' },
+    // ── Priority / Queue passives ──────────────────────────────────────────────
+    { id:'air_headwind',       title:'Headwind',       emoji:'💨',
+      desc:'When your spell resolves with 0 enemy actions before it, deal a bonus hit equal to 10 + 0.5× ATK.' },
+    { id:'air_backdraft',      title:'Backdraft',       emoji:'🔄',
+      desc:'Your spells deal bonus damage based on how many enemy actions resolved before them. +15% at 1, +30% at 2.' },
+    { id:'air_turbulence',     title:'Turbulence',      emoji:'🌪️',
+      desc:'Each enemy action that resolves before yours generates +2 Momentum when your spell resolves (max 2 counted).' },
+    { id:'air_tailwind_carry', title:'Tailwind Carry',  emoji:'🌬️',
+      desc:'If all your spells this turn resolved with 0 enemy actions before them, gain +1 bonus action next turn. On pickup, choose whether that action comes pre-loaded with +1 or −1 priority.',
+      pickupChoice: [{ label: 'Fast (+1 priority)', value: 'fast' }, { label: 'Slow (−1 priority)', value: 'slow' }] },
+    // ── Legendaries ───────────────────────────────────────────────────────────
     { id:'air_eye_of_the_storm', legendary:true, title:'Eye of the Storm', emoji:'👁️',
       desc:'LEGENDARY: Each Momentum stack gives a small chance per strike to repeat that strike once.',
       detail:'Repeat chance per strike: Momentum stacks x 3%, max 95%. Can trigger once per strike.' },
+    { id:'air_vortex_strike',  legendary:true, title:'Vortex Strike',    emoji:'🌀',
+      desc:'LEGENDARY: When your action resolves immediately after one of your own with no enemy action between, deal +50% damage.',
+      detail:'Rewards stacking high-priority spells to create back-to-back player windows. One trigger per consecutive sequence.' },
+    { id:'air_pressure_launch', legendary:true, title:'Pressure Launch', emoji:'⚡',
+      desc:'LEGENDARY: When you have 10+ Momentum stacks and queue a spell, a choice appears: give it +1 or −1 priority.',
+      detail:'Activates once per spell queued while at 10+ Momentum. +1 pairs with Headwind and Vortex Strike. −1 pairs with Backdraft and Turbulence.' },
+    { id:'air_prevailing_wind', legendary:true, title:'Prevailing Wind',  emoji:'🌊',
+      desc:'LEGENDARY: On pickup, choose a direction — all your actions permanently gain +1 priority (Fast) or −1 priority (Slow).',
+      detail:'Locked in for the run. Fast: pairs with Headwind, Tailwind Carry, Vortex Strike. Slow: pairs with Backdraft, Turbulence.',
+      pickupChoice: [{ label: 'Fast (+1 priority)', value: 'fast' }, { label: 'Slow (−1 priority)', value: 'slow' }] },
   ],
   // ── Duo passives (shared across two elements) ─────────────────────────────
   Duo: [
@@ -122,6 +143,23 @@ const PASSIVE_CHOICES = {
       desc:'When a Damage Seed blooms, apply Burn equal to the damage dealt.' },
     { id:'duo_scorched_earth', title:'Scorched Earth',  emoji:'🔥🌍', elements:['Fire','Nature'],
       desc:'Each round, every 5 Burn stacks on the target reduce all their Seed timers by 1.' },
+    // Air + Nature
+    { id:'duo_gale_root',      title:'Gale Root',      emoji:'💨🌿', elements:['Air','Nature'],
+      desc:'Each Momentum stack gained has a 20% chance to apply 1 Root to the active enemy.' },
+    { id:'duo_rushing_growth', title:'Rushing Growth',  emoji:'💨🌱', elements:['Air','Nature'],
+      desc:'Every 10 Momentum stacks gained reduces a random active Seed timer by 1.' },
+    // Air + Lightning
+    { id:'duo_velocity_arc',  title:'Velocity Arc',  emoji:'💨⚡', elements:['Air','Lightning'],
+      desc:'Double Strike chance gains +1% per Momentum stack. Each Double Strike hit generates +2 Momentum.' },
+    { id:'duo_galestrike',    title:'Galestrike',    emoji:'⚡💨', elements:['Air','Lightning'],
+      desc:'Surge trigger threshold is reduced by floor(Momentum ÷ 2). When Surge triggers, lose 5 Momentum.' },
+    // Air + Fire
+    { id:'duo_thermal_draft',  title:'Thermal Draft',  emoji:'🔥💨', elements:['Air','Fire'],
+      desc:'At the start of each turn, gain Momentum equal to 15% of total Burn stacks across all enemies (rounded).' },
+    { id:'duo_bellows',        title:'Bellows',        emoji:'💨🔩', elements:['Air','Fire'],
+      desc:'Melt HP damage is multiplied based on queue position. On pickup, choose Fast or Slow.',
+      detail:'Fast: ×1.5 when EAB=0. Slow: ×(1 + 0.25×EAB), keeps scaling with each enemy action before yours.',
+      pickupChoice:[{label:'Fast (EAB=0 bonus)', value:'fast'},{label:'Slow (scales with delay)', value:'slow'}] },
   ],
 };
 

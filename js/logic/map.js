@@ -523,9 +523,52 @@ function _updateLogBadge(hasNew){
 
 // (log badge is wired directly into log())
 
+// ── BATTLE INFO POPUP ────────────────────────────────────────────────────────
+function showBattleInfo(tab) {
+  const ov = document.getElementById('battle-info-overlay');
+  if (!ov) return;
+  ov.style.display = 'flex';
+  switchBipTab(tab || 'log', document.getElementById('bip-btn-' + (tab || 'log')));
+}
+
+function closeBattleInfo() {
+  const ov = document.getElementById('battle-info-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function switchBipTab(tab, btnEl) {
+  document.querySelectorAll('.bip-tab').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  document.querySelectorAll('.bip-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('bip-' + tab);
+  if (panel) panel.classList.add('active');
+
+  if (tab === 'log') {
+    const src = document.getElementById('battle-log');
+    const dest = document.getElementById('bip-log');
+    if (src && dest) {
+      dest.innerHTML = src.innerHTML;
+      dest.scrollTop = dest.scrollHeight;
+    }
+  } else if (tab === 'stats') {
+    renderRunInfo(document.getElementById('bip-stats'));
+  } else if (tab === 'library') {
+    if (typeof _libRoot !== 'undefined') {
+      _libRoot = document.getElementById('bip-library');
+    }
+    const visibleEls = (!sandboxMode)
+      ? LIBRARY_ELEMENTS.filter(el => RELEASED_ELEMENTS.includes(el) || el === 'Duo')
+      : LIBRARY_ELEMENTS;
+    if (typeof _libActiveEl !== 'undefined' && (!_libActiveEl || !visibleEls.includes(_libActiveEl))) {
+      _libActiveEl = visibleEls[0];
+    }
+    if (typeof _libRender === 'function') _libRender();
+  }
+}
+
 // ── RUN INFO renderer ────────────────────────────────────────────────────────
-function renderRunInfo(){
-  const panel = document.getElementById('run-info-panel');
+function renderRunInfo(target){
+  const panel = target || document.getElementById('run-info-panel');
   if(!panel) return;
   panel.innerHTML = '';
 
@@ -610,33 +653,6 @@ function renderRunInfo(){
     row('Gym defeated', gymDefeated ? 'Yes ✦' : 'Not yet')
   );
 
-  // ── Status Effects Reference
-  const STATUS_DEFS = [
-    { emoji:'🔥', name:'Burn',       color:'#c06030', desc:'Deals 1 damage per stack at the start of each turn. Stacks accumulate; decays over time.' },
-    { emoji:'❄️', name:'Frost',      color:'#60a0cc', desc:'-1 ATK, -1 EFX, -1 Armor per stack. Every 10 stacks triggers a Freeze. Decays 1/turn.' },
-    { emoji:'🧊', name:'Frozen',     color:'#a0e0ff', desc:'−1 action next turn. Next Ice hit deals 1.5× damage and consumes 10 Frost stacks. Triggered at 10 Frost stacks.' },
-    { emoji:'🌿', name:'Root',       color:'#3a8a3a', desc:`+${ROOT_POWER_PER_STACK} bonus damage taken from attacks per stack. Enemy cannot dodge. Stacks accumulate.` },
-    { emoji:'🌿G', name:'Overgrowth',color:'#50a050', desc:`Enhanced root. +${ROOT_POWER_PER_STACK} bonus damage per stack. Applied by Nature zone/abilities.` },
-    { emoji:'🫧', name:'Foam',       color:'#4080a0', desc:'-10% ATK & EFX per stack. -5 Armor per stack. Applied by Water enemies.' },
-    { emoji:'⚡', name:'Shock',      color:'#c0c020', desc:'Reduces outgoing damage by 5% per stack. Applied by Lightning enemies and abilities.' },
-    { emoji:'🛡', name:'Armor/Block',color:'#a08060', desc:'Absorbs incoming damage before HP. Gained from spells, Earth abilities, Defense stat, and campfire.' },
-    { emoji:'🪨', name:'Stone',      color:'#8a7a5a', desc:'+3 ATK and +2 Armor per stack. Decays 25% each turn. Gained from Earth abilities.' },
-    { emoji:'🔮', name:'Phase',      color:'#9060cc', desc:'Complete damage immunity for the duration. Expires each turn.' },
-    { emoji:'💨', name:'Momentum',   color:'#60a0cc', desc:'(Air only) +1 ATK and +2% dodge per stack. Decays each turn unless refreshed.' },
-    { emoji:'⏳', name:'Borrowed Charge', color:'#cc8040', desc:'(Plasma) Charge debt — must repay before next cast. Causes self-damage if unpaid.' },
-    { emoji:'✦',  name:'Overcharged',color:'#c080ff', desc:'(Plasma) Next plasma cast gains bonus power. Consumed on cast.' },
-  ];
-  let statusHtml = '';
-  STATUS_DEFS.forEach(d => {
-    statusHtml += `<div style="padding:.22rem 0;border-bottom:1px solid #111;">
-      <div style="display:flex;gap:5px;align-items:center;">
-        <span style="color:${d.color};font-size:.75rem;">${d.emoji}</span>
-        <span style="color:${d.color};font-family:'Cinzel',serif;font-size:.68rem;">${d.name}</span>
-      </div>
-      <div style="color:#555;font-size:.6rem;margin-top:.1rem;line-height:1.4;">${d.desc}</div>
-    </div>`;
-  });
-  section('Status Effects', statusHtml);
 }
 
 // ── Global Background Canvas ─────────────────────────────────────────────────

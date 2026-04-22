@@ -279,10 +279,10 @@ const ALL_ELEMENTS = [
 
 function showElementScreen(){
   const pool   = [...ALL_ELEMENTS];
-  // Sandbox: all elements. Non-sandbox: only fully released elements (no random picking).
+  // Sandbox: all elements. Non-sandbox: 2 random from released elements.
   const picked = sandboxMode
     ? pool
-    : pool.filter(e => RELEASED_ELEMENTS.includes(e.el));
+    : pickRandom(pool.filter(e => RELEASED_ELEMENTS.includes(e.el)), 2);
 
   const grid = document.getElementById('element-grid');
   grid.innerHTML = '';
@@ -490,9 +490,11 @@ function beginRun(){
   applyCharacterBuff();
   applyArtifactBonuses();
   applyMistModifiers();  // mist before talents so _mistTalentReduction is set
-  applyTalentBonuses(); // permanent talent tree upgrades
+  applyTalentBonuses(); // legacy talent tree (honours existing saves)
+  applyKnowledgeTreeCards(); // equipped KT cards for this run
   initSpellbooksForRun();  // create starting spellbook before spells/passives are added
   giveStarterSpell();
+  ktApplyStarterSpells();
   document.getElementById('welcome-msg').textContent = `${playerName}, choose your element`;
 
   if (PASSIVE_CHOICES[playerElement] && PASSIVE_CHOICES[playerElement].filter(p => !p.legendary).length) {

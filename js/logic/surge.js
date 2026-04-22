@@ -8,6 +8,8 @@
 function _getSurgeThreshold() {
   let threshold = 60 - (combat._surgeFulguriteMinus || 0) + (combat._stormCoreBonus || 0);
   if (hasPassive('lightning_hair_trigger')) threshold -= 10;
+  // Galestrike (Air+Lightning duo): Momentum reduces threshold by floor(momentum/2)
+  if (hasPassive('duo_galestrike')) threshold -= Math.floor((status.player.momentumStacks || 0) / 2);
   return Math.max(10, threshold); // floor at 10 so it can't go negative
 }
 
@@ -102,6 +104,15 @@ function _triggerSurge(targetSide) {
     applyDirectDamage('player', targetSide, surgeValue, '⚡ Surge');
   }
   if (combat.over) return;
+
+  // Galestrike (Air+Lightning duo): triggering Surge costs 5 Momentum
+  if (hasPassive('duo_galestrike') && playerElement === 'Air'){
+    const lost = Math.min(5, Math.floor(status.player.momentumStacks || 0));
+    if(lost > 0){
+      status.player.momentumStacks = Math.max(0, (status.player.momentumStacks||0) - lost);
+      log(`⚡💨 Galestrike: Surge triggered — −${lost} Momentum (×${status.player.momentumStacks.toFixed(1)})`, 'status');
+    }
+  }
 
   // Mark that Surge triggered this turn (for Residual Current)
   combat._surgeTriggeredThisTurn = true;

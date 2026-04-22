@@ -52,9 +52,22 @@ function buildStatRewardPool() {
       apply(){ player.revives = (player.revives||0) + 1; log('❤ Extra life gained!','win'); } });
   }
   if (roll >= 0.25 && roll < 0.40) {
-    pool.push({ label:'Extra Spell Slot', emoji:'📖', tag:'Run Reward',
-      desc:'Your active spellbook gains +1 spell slot this run.',
-      apply(){ const b=activeBook(); if(b){ b.spellSlots++; log('📖 Spell slot added to '+b.name+'!','win'); } } });
+    const b = activeBook();
+    const usedSpells = b ? b.spells.filter(s => !s.isBuiltin).length : 0;
+    const spellCap   = b ? b.spellSlots : 6;
+    if (usedSpells >= Math.floor(spellCap * 0.75)) {
+      pool.push({ label:'Extra Spell Slot', emoji:'📖', tag:'Run Reward',
+        desc:'Your active spellbook gains +1 spell slot this run.',
+        apply(){ const bk=activeBook(); if(bk){ bk.spellSlots++; log('📖 Spell slot added to '+bk.name+'!','win'); } } });
+    }
+  }
+  if (roll >= 0.30 && roll < 0.45) {
+    const passiveCap = player.passiveSlots || 6;
+    if ((player.passives||[]).length >= Math.floor(passiveCap * 0.75)) {
+      pool.push({ label:'Extra Passive Slot', emoji:'📿', tag:'Run Reward',
+        desc:'Expand your passive roster by +1 slot this run.',
+        apply(){ player.passiveSlots = (player.passiveSlots||6) + 1; log('📿 Passive roster expanded!','win'); } });
+    }
   }
   if (roll >= 0.35 && roll < 0.50) {
     pool.push({ label:'Reroll Token',   emoji:'🎲', tag:'Run Reward',
@@ -86,10 +99,9 @@ function grantRandomLegendary() {
     });
   });
 
-  // Build legendary passive pool — deduplicate across ALL books
+  // Build legendary passive pool — deduplicate against global passive list
   const passivePool = [];
-  const allOwnedPassives = new Set();
-  (player.spellbooks||[]).forEach(b => b.passives.forEach(id => allOwnedPassives.add(id)));
+  const allOwnedPassives = new Set(player.passives || []);
   elements.forEach(el => {
     (PASSIVE_CHOICES[el]||[]).forEach(p => {
       if (!p.legendary) return;
@@ -174,6 +186,7 @@ function _claimPblCard(card, onClaim) {
 }
 
 function showPostBattleLoot(isGym, isSpellBattle, isRival, gold, itemId) {
+  window._lastBattleWasGym = !!isGym;
   _pendingLootInProgress = true;
   _lootGoldClaimed   = false;
   _lootItemClaimed   = !itemId; // no item = auto-claimed
@@ -398,11 +411,18 @@ function buildMajorUpgradePool() {
 
   const bookWeight = (player.spellbooks||[]).length < 3 ? 75 : 0;
 
+  const _spellSlotBook = activeBook();
+  const _usedSpells    = _spellSlotBook ? _spellSlotBook.spells.filter(s => !s.isBuiltin).length : 0;
+  const _spellCap      = _spellSlotBook ? _spellSlotBook.spellSlots : 6;
+  const _passiveCap    = player.passiveSlots || 6;
+  const _showSpellSlot   = _usedSpells >= Math.floor(_spellCap * 0.75);
+  const _showPassiveSlot = (player.passives||[]).length >= Math.floor(_passiveCap * 0.75);
+
   const candidates = [
-    { w:90, label:'Extra Spell Slot',  emoji:'📖', tag:'Power Up', desc:'+1 spell slot in your active spellbook.',
+    { w: _showSpellSlot ? 90 : 0,   label:'Extra Spell Slot',  emoji:'📖', tag:'Power Up', desc:'+1 spell slot in your active spellbook.',
       apply(){ const b=activeBook(); if(b){ b.spellSlots++; log('📖 Spell slot added!','win'); } } },
-    { w:90, label:'Extra Passive Slot',emoji:'📿', tag:'Power Up', desc:'+1 passive slot in your active spellbook.',
-      apply(){ const b=activeBook(); if(b){ b.passiveSlots=(b.passiveSlots||2)+1; log('📿 Passive slot added!','win'); } } },
+    { w: _showPassiveSlot ? 80 : 0, label:'Extra Passive Slot', emoji:'📿', tag:'Power Up', desc:'+1 passive slot in your global roster.',
+      apply(){ player.passiveSlots = (player.passiveSlots||6) + 1; log('📿 Passive roster expanded!','win'); } },
     { w:Math.max(22, 66 - (player.bonusActions||0)*20), label:'Extra Action', emoji:'⚡', tag:'Power Up', desc:'Permanently gain +1 action per turn in combat.',
       apply(){ player.bonusActions=(player.bonusActions||0)+1; log('⚡ Extra action per turn!','win'); } },
     { w:lifeWeight, label:'Extra Life',emoji:'❤️', tag:'Power Up', desc:'Survive one killing blow — revive at 75% HP.',
@@ -949,6 +969,12 @@ function showElementUnlockScreen(level){
 }
 
 // ── PASSIVE CHOICE ──
+function _applyPickupChoice(passiveId, value){
+  if(passiveId === 'air_prevailing_wind')  player._prevailingWindPriority = value === 'fast' ? 1 : -1;
+  else if(passiveId === 'air_tailwind_carry') player._tailwindCarryChoice = value;
+  else if(passiveId === 'duo_bellows')     player._bellowsChoice = value;
+}
+
 function showPassiveChoiceScreen(level, forElement=null){
   const badgeText = level === 'rival' ? 'Rival Defeated'
                   : level === 'gym'   ? 'Gym Clear — New Passive'
@@ -968,8 +994,20 @@ function showPassiveChoiceScreen(level, forElement=null){
     const infoIcon = p.detail ? `<span class="pc-info-icon" title="${p.detail}" onclick="event.stopPropagation()">ℹ</span>` : '';
     btn.innerHTML=`<div class="pc-tag">${p.element||''} Passive</div><div class="pc-name" style="display:flex;align-items:center;gap:.35rem;">${passiveIconSVG(p, 20)} ${p.title}${infoIcon}</div><div class="pc-desc">${p.desc}</div>`;
     btn.onclick=()=>{
-      const doAdd = bIdx => { addPassiveToBook(p.id, bIdx); processNextLevelUp(); };
-      if(typeof _pickBookDest === 'function') _pickBookDest('passive', p.id, doAdd); else doAdd(undefined);
+      const doAdd = () => { addPassiveToBook(p.id); processNextLevelUp(); };
+      const doContinue = doAdd;
+      if(p.pickupChoice){
+        c.innerHTML = `<div class="pc-tag" style="margin-bottom:1rem;">Choose for: ${p.emoji||''} ${p.title}</div>`;
+        p.pickupChoice.forEach(opt => {
+          const cb = document.createElement('button');
+          cb.className = 'prog-choice-btn';
+          cb.innerHTML = `<div class="pc-name">${opt.label}</div>`;
+          cb.onclick = () => { _applyPickupChoice(p.id, opt.value); doContinue(); };
+          c.appendChild(cb);
+        });
+      } else {
+        doContinue();
+      }
     };
     c.appendChild(btn);
   });
@@ -979,9 +1017,7 @@ function showPassiveChoiceScreen(level, forElement=null){
 
 function buildPassiveChoicePool(forElement=null){
   const elements = forElement ? [forElement] : [playerElement, ...player.unlockedElements];
-  // Collect all owned passives across every book
-  const allOwnedPassives = new Set();
-  (player.spellbooks||[]).forEach(b => b.passives.forEach(id => allOwnedPassives.add(id)));
+  const allOwnedPassives = new Set(player.passives || []);
   const pool=[];
   elements.forEach(el=>{
     (PASSIVE_CHOICES[el]||[]).forEach(p=>{

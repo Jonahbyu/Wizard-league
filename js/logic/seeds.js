@@ -55,7 +55,7 @@ function _plantSeed(targetSide, type, stacks, timer, opts) {
 }
 
 function _seedLabel(type) {
-  return { damage: 'Damage', root: 'Root', silence: 'Silence', armor: 'Armor' }[type] || type;
+  return { damage: 'Damage', root: 'Root', silence: 'Silence', armor: 'Armor', momentum: 'Momentum' }[type] || type;
 }
 
 // ─── BLOOM ───────────────────────────────────────────────────────────────────
@@ -131,6 +131,12 @@ function _bloomSeed(targetSide, seed, enemyIdx, opts) {
       const totalArmor = Math.floor(perStack * seed.stacks * powerMult);
       gainBlock('player', totalArmor);
       log(`${label} — +${totalArmor} Armor!`, 'player');
+      break;
+    }
+    case 'momentum': {
+      const momGain = Math.round(10 * seed.stacks * powerMult);
+      addMomentumStacks(momGain);
+      log(`${label} — +${momGain} Momentum!`, 'player');
       break;
     }
   }

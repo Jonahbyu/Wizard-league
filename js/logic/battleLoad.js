@@ -31,27 +31,26 @@ function makeEnemyObj(enc){
   const _bnBase = (!enc.isTargetDummy && !enc.isGauntletBoss && battleNumber > 3) ? 1.20 : 1.0;
   const _bnMult = _bnBase + (_bnRaw > 0 ? _bnRaw * 0.09 + Math.pow(_bnRaw / 12, 2) : 0);
   const _lateBoost  = (!enc.isTargetDummy && !enc.isGauntletBoss && battleNumber >= 39) ? 1.3 : 1.0;
-  const finalMaxHP  = Math.round(((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * _bnMult + _bnFlat) * mistHPMult * 0.77 * _lateBoost * (battleNumber === 1 ? 0.5 : 1));
+  const finalMaxHP  = Math.round(((zoneScaled.enemyMaxHP || enc.enemyMaxHP) * _bnMult + _bnFlat) * mistHPMult * 0.77 * _lateBoost * (battleNumber === 1 ? 0.5 : 1) * 1.1);
   const finalDmg    = Math.max(1, Math.round((zoneScaled.enemyDmg || enc.enemyDmg) * mistDmgMult * 0.80) - 5);
 
-  // Variable action scaling: after battle 8, each 7-battle threshold grants a 50% roll.
-  // Success → +1 bonus action this battle. Failure → +15% ability damage (incantation upgrade).
+  // Variable action scaling: after battle 8, each 7-battle threshold grants a 75% roll.
+  // Success → +1 bonus action this battle. Failure → +1 incantation level (boosts priority ability's damage scale).
   let bonusActions = 0;
-  let _abilityDmgMult = 1.0;
+  let incantLvl = 0;
   if (!enc.isTargetDummy && !enc.isGym) {
     for (let threshold = 9; threshold <= battleNumber; threshold += 7) {
-      if (Math.random() < 0.5) {
+      if (Math.random() < 0.75) {
         bonusActions++;
       } else {
-        _abilityDmgMult += 0.15;
+        incantLvl++;
       }
     }
   }
 
-  // Build ability list based on element + zone depth + bonus actions
-  // Derive difficulty from base HP if not specified: tankier enemies get more abilities
+  // Build ability list based on element + zone depth + bonus actions + incantation level
   const _difficulty = enc.difficulty || (enc.enemyMaxHP > 120 ? 'hard' : enc.enemyMaxHP > 100 ? 'medium' : 'easy');
-  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, _difficulty, bonusActions);
+  const abilities = (enc.isGym || enc.isTargetDummy) ? [] : buildEnemyAbilities(el, currentGymIdx, _difficulty, bonusActions, incantLvl);
 
   // Mist: extra passives for non-dummy enemies
   let extraPassives = [];
@@ -76,7 +75,7 @@ function makeEnemyObj(enc){
     hp: finalMaxHP, alive:true, basicCD:0,
     passive, extraPassives, statPow, statEfx, statDef, status:freshEnemyStatus(),
     abilities, items,
-    bonusActions, _abilityDmgMult,
+    bonusActions, incantLvl,
     gymHitCounter:enc.gymHitCounter||0, gymPhase2:enc.gymPhase2||false,
   };
 }
@@ -106,6 +105,14 @@ function loadBattle(enc){
   combat._stormCoreBonus        = 0;   // cumulative threshold increase from Storm Core triggers
   combat._surgeTriggeredThisTurn = false;
   combat._residualCurrentPending = false;
+  // Air system resets
+  combat._momentumSeedProgress   = 0;
+  combat._aoPriorityShift        = 0;
+  combat._afterburnActive        = false;
+  combat._tailwindAllFirst       = false;
+  combat._tailwindBonusNextTurn  = false;
+  combat._tailwindBonusPriority  = null;
+  combat._vortexStrikeActive     = false;
 
   // Zone background = the map zone you are fighting in, never the enemy element
   const _gymDef = currentGymDef();
@@ -115,6 +122,7 @@ function loadBattle(enc){
   (player.spellbooks||[]).forEach(book => {
     book.spells.forEach(s=>{
       s.currentCD = 0;
+      if('_battlePriority' in s){ s._battlePriority = 0; s.priority = 0; }
       const rawPP = Math.ceil(32 / Math.max(1, s.baseCooldown || 0));
       const maxPP = Math.max(1, Math.floor(rawPP * (player._mistPPMult || 1.0)));
       s.maxPP = maxPP;

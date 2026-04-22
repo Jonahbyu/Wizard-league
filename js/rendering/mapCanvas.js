@@ -657,10 +657,11 @@ function generateZoneGraph(){
 }
 
 function _pickZoneGraphEnc(zoneEl){
-  const zoneSingles  = ENCOUNTER_POOL.filter(e=>e.campType===zoneEl);
-  const crossSingles = ENCOUNTER_POOL.filter(e=>e.campType!==zoneEl);
-  const zonePacks    = PACK_POOL.filter(p=>p.element===zoneEl);
-  const pool = zoneSingles.length ? zoneSingles : ENCOUNTER_POOL;
+  const _rel = e => RELEASED_ELEMENTS.includes(e.campType || e.element);
+  const zoneSingles  = ENCOUNTER_POOL.filter(e=>e.campType===zoneEl && _rel(e));
+  const crossSingles = ENCOUNTER_POOL.filter(e=>e.campType!==zoneEl && _rel(e));
+  const zonePacks    = PACK_POOL.filter(p=>p.element===zoneEl && _rel(p));
+  const pool = zoneSingles.length ? zoneSingles : ENCOUNTER_POOL.filter(_rel);
   if(zonePacks.length && Math.random()<0.2)
     return {...zonePacks[Math.floor(Math.random()*zonePacks.length)]};
   if(crossSingles.length && Math.random()<0.35)

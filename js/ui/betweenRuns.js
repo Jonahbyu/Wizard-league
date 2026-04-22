@@ -82,36 +82,134 @@ function switchBrunTab(tab, btnEl) {
 
   } else if (tab === 'artifacts') {
     markArtifactsSeen();
-    if (!meta.artifacts || !meta.artifacts.length) {
-      content.innerHTML = '<div class="brun-empty">No artifacts yet — defeat a Gym Leader to have a chance at one!</div>';
-      return;
-    }
-    const activeId = meta.activeArtifactId || null;
-    const header = `<div style="font-size:.62rem;color:#4a3820;text-align:center;margin-bottom:.8rem;line-height:1.5;">Equip one artifact per run. It scales with use — earning stars after 25 battles.</div>`;
-    const rows = meta.artifacts.map(a => {
-      const def = (typeof ARTIFACT_CATALOGUE !== 'undefined') ? ARTIFACT_CATALOGUE[a.id] : null;
-      if (!def) return '';
-      const isActive = a.id === activeId;
-      const stars  = a.star > 0 ? '★'.repeat(a.star) : '—';
-      const sColor = ['#888','#c8a030','#e8d060','#00ccff'][Math.min(a.star||0, 3)];
-      const prog   = a.star < 3 ? `${a.roomsUsed||0}/25 rooms` : 'MAX';
-      const equipBtn = isActive
-        ? `<button onclick="unequipArtifact();switchBrunTab('artifacts')" style="background:#1a1205;border:1px solid #5a4020;color:#8a6030;font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;">Unequip</button>`
-        : `<button onclick="equipArtifact('${a.id}');switchBrunTab('artifacts')" style="background:#1a1205;border:1px solid #8a6020;color:#c8a060;font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;">Equip</button>`;
-      return `<div class="brun-art-row" style="border-color:${isActive?'#8a6020':'#1a1a14'};background:${isActive?'#1a1205':'#0f0d0b'};">
-        <div style="flex:1;">
-          <div class="brun-art-name">${def.emoji} ${def.name} <span class="brun-art-star" style="color:${sColor}">${stars}</span>${isActive?'<span style="color:#c8a060;font-size:.55rem;margin-left:.4rem;font-family:Cinzel,serif;"> ✦ ACTIVE</span>':''}</div>
-          <div class="brun-art-desc">${def.desc[a.star||0]} · <span style="color:#4a4a4a">${prog}</span></div>
-        </div>
-        <div>${equipBtn}</div>
-      </div>`;
-    }).join('');
-    content.innerHTML = header + (rows || '<div class="brun-empty">No artifacts.</div>');
+    renderArtifactVaultTab(content, meta);
 
   } else if (tab === 'talents') {
-    renderTalentTab(content, meta);
+    renderKnowledgeTreeTab(content, meta);
   } else if (tab === 'books') {
     renderBookUpgradesTab(content, meta);
+  }
+}
+
+// ── Artifact Vault Tab ────────────────────────────────────────────────────────
+
+function _artifactCardHTML(a, meta, onEquip, onUnequip) {
+  const def = (typeof ARTIFACT_CATALOGUE !== 'undefined') ? ARTIFACT_CATALOGUE[a.id] : null;
+  if (!def) return '';
+  const activeId = meta.activeArtifactId;
+  const isActive = a.id === activeId;
+  const star = a.star || 0;
+  const sColor = ['#888','#c8a030','#e8d060','#00ccff'][Math.min(star, 3)];
+  const prog = star < 3 ? `${a.roomsUsed||0}/25 rooms` : 'MAX ★★★';
+  const pips = Array.from({length:3}, (_,i) =>
+    `<span class="kt-level-pip${i < star ? ' filled' : ''}"></span>`
+  ).join('');
+  const stateClass = isActive ? 'kt-card-equipped' : 'kt-card-unlocked';
+  const equipBtn = isActive
+    ? `<button class="kt-action-btn kt-btn-equipped" onclick="${onUnequip}">✓ Active</button>`
+    : `<button class="kt-action-btn kt-btn-equip can-afford" onclick="${onEquip}">Bring Along</button>`;
+  return `<div class="kt-card ${stateClass}">
+    <div class="kt-card-top-row">
+      <span class="kt-card-tag${isActive?' kt-tag-equipped':''}">Artifact</span>
+      <span class="kt-card-phoros-tag${isActive?' kt-phoros-equipped':''}" style="color:${sColor};font-size:.58rem;">${star>0?'★'.repeat(star):'—'}</span>
+    </div>
+    <div class="kt-card-art">${def.emoji}</div>
+    <div class="kt-card-name">${def.name}${isActive?'<div style="font-size:.4rem;color:#70a030;letter-spacing:.06em;font-family:Cinzel,serif;margin-top:2px;">✦ ACTIVE</div>':''}</div>
+    <div class="kt-card-hint">${def.desc[star]}</div>
+    <div class="kt-card-footer">
+      <div class="kt-level-section">
+        <div class="kt-level-pips">${pips}</div>
+        <div style="font-size:.42rem;color:#5a4a28;margin-top:2px;">${prog}</div>
+      </div>
+      ${equipBtn}
+    </div>
+  </div>`;
+}
+
+function renderArtifactVaultTab(content, meta, refreshFn) {
+  const refresh = refreshFn || `switchBrunTab('artifacts')`;
+  if (!meta.artifacts || !meta.artifacts.length) {
+    content.innerHTML = '<div class="brun-empty">No artifacts yet — defeat a Gym Leader to have a chance at one!</div>';
+    return;
+  }
+  const header = `<div style="font-size:.6rem;color:#4a3820;text-align:center;margin-bottom:.9rem;line-height:1.5;">
+    Bring one artifact per run — it earns stars after every 25 rooms.
+  </div>`;
+  const cards = meta.artifacts.map(a =>
+    _artifactCardHTML(a, meta,
+      `equipArtifact('${a.id}');${refresh}`,
+      `unequipArtifact();${refresh}`)
+  ).join('');
+  content.innerHTML = header + `<div class="kt-card-grid">${cards}</div>`;
+}
+
+// ── Between-zone artifact swap (Hades-style) ──────────────────────────────────
+
+function showArtifactSwapOverlay(onContinue) {
+  const meta = getMeta();
+  const artifacts = meta.artifacts || [];
+
+  const overlay = document.createElement('div');
+  overlay.id = 'artifact-swap-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:8500;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;';
+
+  const panel = document.createElement('div');
+  panel.style.cssText = 'background:#0d0b07;border:2px solid #3a2810;border-radius:10px;padding:1.2rem 1.4rem;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;';
+
+  function rebuild() {
+    const m = getMeta();
+    const arts = m.artifacts || [];
+    const cards = arts.map(a =>
+      _artifactCardHTML(a, m,
+        `_artSwapEquip('${a.id}')`,
+        `_artSwapEquip('${a.id}')`)
+    ).join('');
+
+    const activeId = m.activeArtifactId;
+    const activeDef = activeId && ARTIFACT_CATALOGUE[activeId];
+    const activeLine = activeDef
+      ? `<div style="font-size:.58rem;color:#70a030;margin-top:.3rem;">Currently carrying: ${activeDef.emoji} ${activeDef.name}</div>`
+      : `<div style="font-size:.58rem;color:#5a4a30;margin-top:.3rem;">No artifact equipped.</div>`;
+
+    panel.innerHTML = `
+      <div style="font-family:'Cinzel',serif;font-size:.95rem;color:#c8a060;text-align:center;letter-spacing:.1em;margin-bottom:.3rem;">Zone Complete</div>
+      <div style="font-size:.6rem;color:#6a5040;text-align:center;margin-bottom:.2rem;">Swap your artifact before the next zone.</div>
+      ${activeLine}
+      <div style="margin:.9rem 0;border-top:1px solid #2a1a0a;"></div>
+      <div class="kt-card-grid" id="art-swap-grid">${cards}</div>
+      <div style="margin-top:1.1rem;text-align:center;">
+        <button onclick="_artSwapContinue()" style="background:#0f0d1a;border:2px solid #5a40aa;color:#9a70ee;padding:.55rem 2.5rem;font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;border-radius:7px;cursor:pointer;">Continue →</button>
+      </div>`;
+  }
+
+  window._artSwapEquip = function(id) {
+    equipArtifact(id);
+    rebuild();
+  };
+
+  window._artSwapContinue = function() {
+    overlay.remove();
+    delete window._artSwapEquip;
+    delete window._artSwapContinue;
+    if (onContinue) onContinue();
+    else if (typeof showMap === 'function') showMap();
+  };
+
+  rebuild();
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
+// Called by the post-battle-loot continue button
+function pblContinue() {
+  const meta = getMeta();
+  const artifacts = meta.artifacts || [];
+  if (window._lastBattleWasGym && artifacts.length >= 2) {
+    window._lastBattleWasGym = false;
+    showArtifactSwapOverlay();
+  } else {
+    window._lastBattleWasGym = false;
+    if (typeof showMap === 'function') showMap();
   }
 }
 
@@ -174,9 +272,7 @@ function renderBookUpgradesTab(content, meta) {
       const rarityLabel = cat.rarity === 'legendary' ? '✦ Legendary' : cat.rarity === 'generic' ? '⚡ Generic' : `${cat.element || ''} Deck`;
       const perBook      = bookSlotUpgrades[bookId] || {};
       const extraSpell   = perBook.spellSlots   || 0;
-      const extraPassive = perBook.passiveSlots  || 0;
       const baseSpell    = BOOK_SPELL_SLOTS_BASE   + (cat.spellSlots   || 0);
-      const basePasv     = BOOK_PASSIVE_SLOTS_BASE + (cat.passiveSlots || 0);
       const isActive = bookId === startingBookId;
       const equipBtn = isActive
         ? `<button onclick="unequipStartingBook()" style="background:#1a1205;border:1px solid #5a4020;color:#8a6030;font-family:'Cinzel',serif;font-size:.55rem;padding:.25rem .6rem;border-radius:3px;cursor:pointer;">Unequip</button>`
@@ -206,7 +302,6 @@ function renderBookUpgradesTab(content, meta) {
                Upgrade Effect Lv${lvl}→${lvl+1} — ${upgCost} ✦</button>`}
         <div style="border-top:1px solid #1a1818;padding-top:.3rem;">
           ${_bookSlotRow('Spell Slots', baseSpell+extraSpell, baseSpell+BOOK_SLOT_MAX_SPELL, extraSpell, BOOK_SLOT_MAX_SPELL, _spellSlotCost, bookId, 'spellSlots', phos)}
-          ${_bookSlotRow('Passive Slots', basePasv+extraPassive, basePasv+BOOK_SLOT_MAX_PASSIVE, extraPassive, BOOK_SLOT_MAX_PASSIVE, _passiveSlotCost, bookId, 'passiveSlots', phos)}
         </div>
       </div>`;
     });
@@ -217,7 +312,6 @@ function renderBookUpgradesTab(content, meta) {
   html += `<div style="font-size:.62rem;color:#4a4a60;margin:.5rem 0 .4rem;letter-spacing:.08em;text-transform:uppercase;">Default Deck</div>`;
   const defBook      = bookSlotUpgrades['default'] || {};
   const defExtraSpell   = defBook.spellSlots   || 0;
-  const defExtraPassive = defBook.passiveSlots  || 0;
   html += `<div style="background:${isDefaultActive?'#1a1205':'#0f0d0b'};border:1px solid ${isDefaultActive?'#8a6020':'#2a2020'};border-radius:6px;padding:.65rem .85rem;margin-bottom:.5rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.15rem;">
       <div style="font-family:'Cinzel',serif;font-size:.74rem;color:#a08060;display:flex;align-items:center;gap:.35rem;">
@@ -230,7 +324,6 @@ function renderBookUpgradesTab(content, meta) {
     </div>
     <div style="font-size:.6rem;color:#555;margin-bottom:.35rem;">Your base deck when no catalogue deck is equipped.</div>
     ${_bookSlotRow('Spell Slots', BOOK_SPELL_SLOTS_BASE+defExtraSpell, BOOK_SPELL_SLOTS_BASE+BOOK_SLOT_MAX_SPELL, defExtraSpell, BOOK_SLOT_MAX_SPELL, _spellSlotCost, 'default', 'spellSlots', phos)}
-    ${_bookSlotRow('Passive Slots', BOOK_PASSIVE_SLOTS_BASE+defExtraPassive, BOOK_PASSIVE_SLOTS_BASE+BOOK_SLOT_MAX_PASSIVE, defExtraPassive, BOOK_SLOT_MAX_PASSIVE, _passiveSlotCost, 'default', 'passiveSlots', phos)}
   </div>`;
 
   content.innerHTML = html;
@@ -386,6 +479,252 @@ function buyTalent(nodeId) {
       break;
     }
   }
+}
+
+// ── Knowledge Tree ────────────────────────────────────────────────────────────
+
+function _ktBudgetRowHTML(type, meta) {
+  const isEl      = type === 'elemental';
+  const label     = isEl ? 'Elemental' : 'General';
+  const pool      = isEl ? Object.values(KT_ELEMENTAL_CARDS).flat() : KT_GENERAL_CARDS;
+  const budget    = ktGetBudget(meta, type);
+  const used      = ktPhoresUsed(meta, type);
+  const lvlKey    = isEl ? 'ktBudgetElementalLevel' : 'ktBudgetGeneralLevel';
+  const lvl       = meta[lvlKey] || 0;
+  const maxLvl    = KT_BUDGET_UPGRADE_COSTS.length;
+  const cost      = lvl < maxLvl ? KT_BUDGET_UPGRADE_COSTS[lvl] : 0;
+  const phos      = meta.phos || 0;
+  const unlockedIds = meta.ktUnlocked || [];
+  const unlockedInPool = pool.filter(c => unlockedIds.includes(c.id)).length;
+  const reqMet    = unlockedInPool >= 4;
+  const canUp     = lvl < maxLvl && reqMet && phos >= cost;
+  const budgetFull = used >= budget;
+  const btnHTML   = lvl >= maxLvl
+    ? `<span class="kt-budget-max">Maxed</span>`
+    : `<button class="kt-budget-btn ${canUp ? 'can-afford' : ''}"
+         onclick="ktUpgradeAndRefresh('${type}')" ${canUp ? '' : 'disabled'}
+         title="${!reqMet ? `Unlock 4 ${label} cards first` : ''}">
+         ${!reqMet ? '🔒 ' : ''}+${KT_BUDGET_PER_UPGRADE} — ${cost}✦
+       </button>`;
+  return `
+    <span class="kt-phoros-icon">◈</span>
+    <span class="kt-phoros-label">${label}</span>
+    <span class="kt-budget-used ${budgetFull ? 'kt-budget-full' : ''}" id="kt-budget-${type}">${used} / ${budget}</span>
+    ${btnHTML}`;
+}
+
+function renderKnowledgeTreeTab(content, meta) {
+  const phos = meta.phos || 0;
+
+  content.innerHTML = `
+    <div class="kt-header">
+      <div class="kt-phos-row">
+        <span class="kt-phos-icon">✦</span>
+        <span class="kt-phos-label">Phos</span>
+        <span class="kt-phos-val" id="kt-phos-display">${phos}</span>
+      </div>
+      <div class="kt-budget-row" id="kt-budget-row-general">${_ktBudgetRowHTML('general', meta)}</div>
+      <div class="kt-budget-row" id="kt-budget-row-elemental">${_ktBudgetRowHTML('elemental', meta)}</div>
+    </div>
+    <div class="kt-subtabs">
+      <button class="kt-subtab active" id="kt-btn-general" onclick="switchKtSubTab('general',this)">General</button>
+      <button class="kt-subtab" id="kt-btn-elemental" onclick="switchKtSubTab('elemental',this)">Elemental</button>
+    </div>
+    <div id="kt-area"></div>`;
+
+  renderKtGeneral(document.getElementById('kt-area'), getMeta());
+}
+
+function switchKtSubTab(tab, btnEl) {
+  document.querySelectorAll('.kt-subtab').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  const area = document.getElementById('kt-area');
+  if (!area) return;
+  const meta = getMeta();
+  if (tab === 'general') renderKtGeneral(area, meta);
+  else renderKtElemental(area, meta);
+}
+
+function _ktCardHTML(card, meta, tagLabel, rowLocked, rowComplete) {
+  const unlockedIds = meta.ktUnlocked || [];
+  const equippedIds = meta.ktEquipped || [];
+  const unlocked    = unlockedIds.includes(card.id);
+  const equipped    = equippedIds.includes(card.id);
+  const phos        = meta.phos || 0;
+  const isGeneral   = KT_GENERAL_CARDS.some(c => c.id === card.id);
+  const poolType    = isGeneral ? 'general' : 'elemental';
+  const budget      = ktGetBudget(meta, poolType);
+  const used        = ktPhoresUsed(meta, poolType);
+  const level       = unlocked ? ktGetCardLevel(meta, card.id) : 1;
+  const maxLevel    = card.maxLevel || 1;
+  const desc        = (card.levelDescs || [])[level - 1] || '';
+  const lockedDesc  = (card.levelDescs || [])[0] || '';
+  const canAffordUnlock = phos >= card.phosCost;
+  const wouldFit        = used + card.phorosCost <= budget;
+
+  function _levelSection() {
+    if (!unlocked || maxLevel <= 1 || !rowComplete) return '';
+    const pips = Array.from({length: maxLevel}, (_, i) =>
+      `<span class="kt-level-pip${i < level ? ' filled' : ''}"></span>`
+    ).join('');
+    if (level >= maxLevel) {
+      return `<div class="kt-level-section"><div class="kt-level-pips">${pips}</div><div class="kt-level-maxed">Mastered</div></div>`;
+    }
+    const nextCost = card.levelCosts[level];
+    const canLvl   = nextCost && phos >= nextCost;
+    return `<div class="kt-level-section">
+      <div class="kt-level-pips">${pips}</div>
+      <button class="kt-levelup-btn${canLvl ? ' can-afford' : ''}"
+        onclick="ktLevelAndRefresh('${card.id}')" ${canLvl ? '' : 'disabled'}>
+        Level Up — ${nextCost}✦
+      </button>
+    </div>`;
+  }
+
+  if (!unlocked) {
+    if (rowLocked) {
+      return `<div class="kt-card kt-card-row-locked">
+        <div class="kt-card-top-row">
+          <span class="kt-card-tag">${tagLabel || ''}</span>
+          <span class="kt-card-phoros-tag">🔒</span>
+        </div>
+        <div class="kt-card-art">${card.emoji}</div>
+        <div class="kt-card-name">${card.name}</div>
+        <div class="kt-card-hint">${lockedDesc}</div>
+        <div class="kt-card-footer">
+          <div class="kt-cost-line kt-cost-row-locked">Complete the row above first</div>
+        </div>
+      </div>`;
+    }
+    return `<div class="kt-card kt-card-locked">
+      <div class="kt-card-top-row">
+        <span class="kt-card-tag">${tagLabel || ''}</span>
+      </div>
+      <div class="kt-card-art">${card.emoji}</div>
+      <div class="kt-card-name">${card.name}</div>
+      <div class="kt-card-hint">${lockedDesc}</div>
+      <div class="kt-card-footer">
+        <div class="kt-cost-line kt-cost-phos">✦ ${card.phosCost} to unlock</div>
+        <button class="kt-action-btn kt-btn-unlock ${canAffordUnlock ? 'can-afford' : ''}"
+          onclick="ktBuyAndRefresh('${card.id}')" ${canAffordUnlock ? '' : 'disabled'}>
+          Unlock
+        </button>
+      </div>
+    </div>`;
+  }
+
+  if (equipped) {
+    return `<div class="kt-card kt-card-equipped">
+      <div class="kt-card-top-row">
+        <span class="kt-card-tag kt-tag-equipped">${tagLabel || ''}</span>
+        <span class="kt-card-phoros-tag kt-phoros-equipped">◈ ${card.phorosCost}</span>
+      </div>
+      <div class="kt-card-art">${card.emoji}</div>
+      <div class="kt-card-name">${card.name}</div>
+      <div class="kt-card-hint">${desc}</div>
+      <div class="kt-card-footer">
+        ${_levelSection()}
+        <button class="kt-action-btn kt-btn-equipped" onclick="ktToggleAndRefresh('${card.id}')">✓ Packed</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="kt-card kt-card-unlocked">
+    <div class="kt-card-top-row">
+      <span class="kt-card-tag">${tagLabel || ''}</span>
+      <span class="kt-card-phoros-tag">◈ ${card.phorosCost}</span>
+    </div>
+    <div class="kt-card-art">${card.emoji}</div>
+    <div class="kt-card-name">${card.name}</div>
+    <div class="kt-card-hint">${desc}</div>
+    <div class="kt-card-footer">
+      ${_levelSection()}
+      <button class="kt-action-btn ${wouldFit ? 'kt-btn-equip can-afford' : 'kt-btn-equip'}"
+        onclick="ktToggleAndRefresh('${card.id}')" ${wouldFit ? '' : 'disabled'}>
+        ${wouldFit ? 'Bring Along' : 'No Room'}
+      </button>
+    </div>
+  </div>`;
+}
+
+function _ktRowLocked(cards, idx, unlockedIds) {
+  const row = Math.floor(idx / 4);
+  if (row === 0) return false;
+  const prevStart = (row - 1) * 4;
+  const prevEnd   = row * 4;
+  for (let i = prevStart; i < prevEnd && i < cards.length; i++) {
+    if (!unlockedIds.includes(cards[i].id)) return true;
+  }
+  return false;
+}
+
+function renderKtGeneral(area, meta) {
+  const unlockedIds = meta.ktUnlocked || [];
+  const html = `<div class="kt-card-grid">${KT_GENERAL_CARDS.map((c, i) => {
+    const rowStart = Math.floor(i / 4) * 4;
+    const rowComplete = KT_GENERAL_CARDS.slice(rowStart, rowStart + 4).every(rc => unlockedIds.includes(rc.id));
+    return _ktCardHTML(c, meta, 'General', _ktRowLocked(KT_GENERAL_CARDS, i, unlockedIds), rowComplete);
+  }).join('')}</div>`;
+  area.innerHTML = html;
+}
+
+function renderKtElemental(area, meta) {
+  const elements = typeof sandboxMode !== 'undefined' && sandboxMode
+    ? Object.keys(KT_ELEMENTAL_CARDS)
+    : Object.keys(KT_ELEMENTAL_CARDS).filter(el => (typeof RELEASED_ELEMENTS !== 'undefined' ? RELEASED_ELEMENTS.includes(el) : true));
+
+  const elementLabels = { Fire:'🔥 Fire', Lightning:'⚡ Lightning', Nature:'🌿 Nature', Air:'🌀 Air' };
+  const elementTags   = { Fire:'Fire', Lightning:'Lightning', Nature:'Nature', Air:'Air' };
+
+  let html = '';
+  for (const el of elements) {
+    const cards = KT_ELEMENTAL_CARDS[el] || [];
+    html += `<div class="kt-element-section">
+      <div class="kt-element-label">${elementLabels[el] || el}</div>
+      <div class="kt-card-grid">${cards.map(c => _ktCardHTML(c, meta, elementTags[el] || el, false, cards.every(rc => (meta.ktUnlocked||[]).includes(rc.id)))).join('')}</div>
+    </div>`;
+  }
+  area.innerHTML = html;
+}
+
+function _ktRefresh() {
+  const meta = getMeta();
+  const phosEl = document.getElementById('kt-phos-display');
+  if (phosEl) phosEl.textContent = meta.phos || 0;
+  // rebuild both budget rows (updates button lock state, values, affordability)
+  const rowG = document.getElementById('kt-budget-row-general');
+  if (rowG) rowG.innerHTML = _ktBudgetRowHTML('general', meta);
+  const rowE = document.getElementById('kt-budget-row-elemental');
+  if (rowE) rowE.innerHTML = _ktBudgetRowHTML('elemental', meta);
+  // re-render active sub-tab
+  const area = document.getElementById('kt-area');
+  if (!area) return;
+  const activeBtn = document.querySelector('.kt-subtab.active');
+  const tab = activeBtn && activeBtn.id === 'kt-btn-elemental' ? 'elemental' : 'general';
+  if (tab === 'general') renderKtGeneral(area, meta);
+  else renderKtElemental(area, meta);
+  renderBrunLastRun();
+}
+
+function ktBuyAndRefresh(cardId) {
+  ktUnlockCard(cardId);
+  _ktRefresh();
+}
+
+function ktToggleAndRefresh(cardId) {
+  ktEquipCard(cardId);
+  _ktRefresh();
+}
+
+function ktLevelAndRefresh(cardId) {
+  ktUpgradeCard(cardId);
+  _ktRefresh();
+}
+
+function ktUpgradeAndRefresh(type) {
+  ktUpgradeBudget(type);
+  const content = document.getElementById('lobby-panel-content') || document.getElementById('brun-tab-content');
+  if (content) renderKnowledgeTreeTab(content, getMeta());
 }
 
 // ── Incantation Rarity Preview Overlay ────────────────────────────────────────

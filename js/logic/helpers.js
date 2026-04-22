@@ -383,6 +383,33 @@ function addMomentumStacks(stacks){
   const scaled = stacks * (1 + efx / 50);
   status.player.momentumStacks = (status.player.momentumStacks||0) + scaled;
   log(`💨 Momentum +${scaled.toFixed(1)} (×${status.player.momentumStacks.toFixed(1)})`, 'status');
+
+  // Gale Root (Air+Nature duo): each raw stack has 20% chance to apply 1 Root to active enemy
+  if(hasPassive('duo_gale_root') && playerElement==='Air' && !combat.over){
+    const e = combat.enemies[combat.activeEnemyIdx];
+    if(e && e.alive){
+      let rootApplied = 0;
+      for(let i = 0; i < stacks; i++){ if(Math.random() < 0.20) rootApplied++; }
+      if(rootApplied > 0){ applyRoot('player','enemy', rootApplied); }
+    }
+  }
+
+  // Rushing Growth (Air+Nature duo): every 10 raw stacks gained reduces a random Seed timer by 1
+  if(hasPassive('duo_rushing_growth') && playerElement==='Air'){
+    combat._momentumSeedProgress = (combat._momentumSeedProgress || 0) + stacks;
+    while(combat._momentumSeedProgress >= 10){
+      combat._momentumSeedProgress -= 10;
+      // Collect all active seeds across all alive enemies and the player
+      const allSeeds = [];
+      combat.enemies.forEach(e => { if(e.alive) (e.status.seeds||[]).forEach(s => allSeeds.push(s)); });
+      (status.player.seeds||[]).forEach(s => allSeeds.push(s));
+      if(allSeeds.length > 0){
+        const pick = allSeeds[Math.floor(Math.random() * allSeeds.length)];
+        pick.timer = Math.max(1, pick.timer - 1);
+        log(`🌱💨 Rushing Growth: Seed timer −1 (${pick.timer} remaining).`, 'status');
+      }
+    }
+  }
 }
 
 function gainBlock(side, amount){

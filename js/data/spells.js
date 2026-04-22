@@ -1339,7 +1339,7 @@ const SPELL_CATALOGUE = {
   // ════════════════════════════════ AIR ════════════════════════════════════════
   // Helper: applies s.hit with optional Tornado AoE expansion
   // ── Primary ──────────────────────────────────────────────────────────────────
-  quintuple_hit:{ id:'quintuple_hit', tier:'primary', name:'Quintuple Hit', emoji:'💨', element:'Air',
+  quintuple_hit:{ id:'quintuple_hit', tier:'primary', name:'Quintuple Hit', emoji:'💨', element:'Air', priority:0,
     desc:'Strike multiple times for 3 damage each. Each hit generates Momentum.', baseCooldown:0, isStarter:true,
     execute(s){
       const hits = Math.round(5 + _incantationBonus(this.incantationLevel||1, 1, 1.00));
@@ -1349,7 +1349,7 @@ const SPELL_CATALOGUE = {
       } else { s.hit({baseDamage:3, effects:[], hits, abilityElement:'Air', apMult:0.3}); }
       s.log('💨 Quintuple Hit!','player');
     }},
-  become_wind:{ id:'become_wind', tier:'primary', name:'Become Wind', emoji:'🌬️', element:'Air',
+  become_wind:{ id:'become_wind', tier:'primary', name:'Become Wind', emoji:'🌬️', element:'Air', priority:1,
     desc:'Gain Momentum. Your next successful dodge does not cause Momentum decay.', baseCooldown:2,
     execute(s){
       const gain = Math.round(10 + _incantationBonus(this.incantationLevel||1, 2, 0.95));
@@ -1358,7 +1358,7 @@ const SPELL_CATALOGUE = {
       s.log(`🌬️ Become Wind! +${gain} Momentum (×${status.player.momentumStacks.toFixed(1)}). Next dodge: no decay.`,'player');
       if(typeof renderStatusTags==='function') renderStatusTags();
     }},
-  wind_wall:{ id:'wind_wall', tier:'primary', name:'Wind Wall', emoji:'🛡️', element:'Air',
+  wind_wall:{ id:'wind_wall', tier:'primary', name:'Wind Wall', emoji:'🛡️', element:'Air', priority:2,
     desc:'Delay one instance of incoming damage until the next turn.', baseCooldown:2,
     execute(s){
       const armor = Math.round(_incantationBonus(this.incantationLevel||1, 8, 0.95));
@@ -1367,7 +1367,7 @@ const SPELL_CATALOGUE = {
       s.log(`🛡️ Wind Wall! Next incoming hit delayed to next turn.${armor > 0 ? ` +${armor} Armor` : ''}`, 'player');
       if(typeof renderStatusTags==='function') renderStatusTags();
     }},
-  tornado:{ id:'tornado', tier:'primary', name:'Tornado', emoji:'🌪️', element:'Air',
+  tornado:{ id:'tornado', tier:'primary', name:'Tornado', emoji:'🌪️', element:'Air', priority:-1,
     desc:'Deal damage to all enemies. Your next offensive Air ability becomes AoE.', baseCooldown:3,
     execute(s){
       const dmg = Math.round(10 + _incantationBonus(this.incantationLevel||1, 3, 0.95));
@@ -1378,8 +1378,35 @@ const SPELL_CATALOGUE = {
       s.log('🌪️ Tornado! All enemies hit. Next Air attack is AoE.','player');
       if(typeof renderStatusTags==='function') renderStatusTags();
     }},
+  dynamic_drift:{ id:'dynamic_drift', tier:'primary', name:'Dynamic Drift', emoji:'🔀', element:'Air', priority:0,
+    desc:'Deal damage scaled by how far your priority has drifted from 0. Each cast shifts its own priority +1 or −1 based on when in your turn you use it.', baseCooldown:1,
+    execute(s){
+      const cur = this._battlePriority ?? 0;
+      const dmg = Math.round(10 + Math.abs(cur) * 15 + _incantationBonus(this.incantationLevel||1, 2, 0.95));
+      s.hit({ baseDamage: dmg, effects: [], abilityElement: 'Air' });
+
+      if(!combat.over){
+        const idx   = combat._playerActionIdx || 1;
+        const total = Math.max(1, combat._playerActionsTotal || 1);
+        const isFirstHalf = idx <= Math.ceil(total / 2);
+        const shift = isFirstHalf ? 1 : -1;
+        const next  = cur + shift;
+        this._battlePriority = next;
+        this.priority = next;
+        const sign = next >= 0 ? '+' : '';
+        s.log(`🔀 Dynamic Drift! ${dmg} dmg. Priority → ${sign}${next} (${isFirstHalf ? 'early cast ↑' : 'late cast ↓'})`, 'player');
+        if(typeof renderStatusTags === 'function') renderStatusTags();
+      }
+    }},
+
+  gust_forward:{ id:'gust_forward', tier:'primary', name:'Gust Forward', emoji:'💨', element:'Air', priority:0,
+    desc:'Instant — does not enter the queue. Choose +2 or −2: all spells you queue this turn gain that priority shift. One use per battle.',
+    baseCooldown:32, isFreeAction:true, instantUse:true,
+    pickPriority:[{ label:'+2 (fast)', value:2 }, { label:'−2 (slow)', value:-2 }],
+    execute(s){ s.log('💨 Gust Forward!', 'player'); }},
+
   // ── Secondary ─────────────────────────────────────────────────────────────────
-  twin_strike:{ id:'twin_strike', tier:'secondary', name:'Twin Strike', emoji:'⚔️', element:'Air',
+  twin_strike:{ id:'twin_strike', tier:'secondary', name:'Twin Strike', emoji:'⚔️', element:'Air', priority:1,
     desc:'Strike multiple times for 1 damage each. Scales with Power. Does not consume an action.', baseCooldown:1,
     isFreeAction:true,
     execute(s){
@@ -1390,7 +1417,7 @@ const SPELL_CATALOGUE = {
       } else { s.hit({baseDamage:1, effects:[], hits, abilityElement:'Air'}); }
       s.log('⚔️ Twin Strike!','player');
     }},
-  windy_takedown:{ id:'windy_takedown', tier:'secondary', name:'Windy Takedown', emoji:'💥', element:'Air',
+  windy_takedown:{ id:'windy_takedown', tier:'secondary', name:'Windy Takedown', emoji:'💥', element:'Air', priority:0,
     desc:'Powerful strike. No cooldown — use multiple times per turn.', baseCooldown:0, multiUse:true,
     execute(s){
       const dmg = Math.round(25 + _incantationBonus(this.incantationLevel||1, 5, 0.95));
@@ -1400,7 +1427,7 @@ const SPELL_CATALOGUE = {
       } else { s.hit({baseDamage:dmg, effects:[], abilityElement:'Air', apMult:0.75}); }
       s.log('💥 Windy Takedown!','player');
     }},
-  sleeper_gust:{ id:'sleeper_gust', tier:'secondary', name:'Sleeper Gust', emoji:'😴', element:'Air',
+  sleeper_gust:{ id:'sleeper_gust', tier:'secondary', name:'Sleeper Gust', emoji:'😴', element:'Air', priority:-1,
     desc:'Hit twice for 1 damage each. Gain +1 action next turn per hit.', baseCooldown:2,
     execute(s){
       if(status.player.tornadoAoENext){ status.player.tornadoAoENext=false; log('🌪️ Tornado boost — AoE!','status');
@@ -1413,7 +1440,48 @@ const SPELL_CATALOGUE = {
         s.log(`😴 Sleeper Gust! +${actionsBonus} actions next turn (${status.player.nextTurnBonusActions} pending).`,'player');
       }
     }},
-  break_momentum:{ id:'break_momentum', tier:'secondary', name:'Break Momentum', emoji:'💫', element:'Air',
+  queue_slash:{ id:'queue_slash', tier:'secondary', name:'Queue Slash', emoji:'⚡', element:'Air', priority:0,
+    desc:'Deal damage plus a bonus for each point of total absolute priority in your other queued spells this turn.', baseCooldown:1,
+    execute(s){
+      const otherPrioritySum = combat._queueAbsPrioritySum || 0;
+      const bonus = otherPrioritySum * 10;
+      const dmg = Math.round(12 + bonus + _incantationBonus(this.incantationLevel||1, 2, 0.95));
+      s.hit({baseDamage:dmg, effects:[], abilityElement:'Air'});
+      s.log(`⚡ Queue Slash! ${dmg} dmg (${bonus} from queue priority).`, 'player');
+    }},
+
+  slipcut:{ id:'slipcut', tier:'secondary', name:'Slipcut', emoji:'🌬️', element:'Air', priority:0,
+    desc:'Deal damage. If you acted before all enemies (0 enemy actions before), consume 1 Momentum stack for +15 bonus damage.', baseCooldown:1,
+    execute(s){
+      const eab = combat.currentQueuePosition || 0;
+      const hasMomentum = (status.player.momentumStacks||0) >= 1;
+      let dmg = Math.round(20 + _incantationBonus(this.incantationLevel||1, 3, 0.95));
+      let bonusNote = '';
+      if(eab === 0 && hasMomentum){
+        status.player.momentumStacks = Math.max(0, (status.player.momentumStacks||0) - 1);
+        dmg += 15;
+        bonusNote = ' (−1 Momentum → +15 dmg)';
+      }
+      s.hit({baseDamage:dmg, effects:[], abilityElement:'Air'});
+      s.log(`🌬️ Slipcut! ${dmg} dmg${bonusNote}`, 'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+
+  wind_surge:{ id:'wind_surge', tier:'secondary', name:'Wind Surge', emoji:'🌊', element:'Air', priority:0,
+    desc:'Deal damage to all enemies. Choose +1 or −1 — all spells queued after this one this turn gain that priority shift.', baseCooldown:2,
+    pickPriority:[{ label:'+1 (faster)', value:1 }, { label:'−1 (slower)', value:-1 }],
+    undoOnQueue(){ combat._aoPriorityShift = 0; },
+    execute(s){
+      const dmg = Math.round(12 + _incantationBonus(this.incantationLevel||1, 3, 0.95));
+      const alive = aliveEnemies();
+      alive.forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:dmg, effects:[], abilityElement:'Air'}); });
+      if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      const shift = combat._aoPriorityShift || 0;
+      s.log(`🌊 Wind Surge! All enemies hit. Subsequent spells: ${shift>0?'+':''}${shift} priority.`, 'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+
+  break_momentum:{ id:'break_momentum', tier:'secondary', name:'Break Momentum', emoji:'💫', element:'Air', priority:0,
     desc:'Consume all Momentum. Deal 5 damage per Momentum stack.', baseCooldown:3,
     execute(s){
       const stacks = Math.floor(status.player.momentumStacks||0);
@@ -1426,7 +1494,42 @@ const SPELL_CATALOGUE = {
       if(typeof renderStatusTags==='function') renderStatusTags();
     }},
   // ── Legendary ─────────────────────────────────────────────────────────────────
-  storm_rush:{ id:'storm_rush', tier:'legendary', name:'Storm Rush', emoji:'⚡', element:'Air',
+  winds_end:{ id:'winds_end', tier:'legendary', element:'Air', legendary:true,
+    name:"Wind's End", emoji:'🌀',
+    desc:"This spell's priority mirrors your Dynamic Drift value. Deal AoE damage scaled by |drift| × Momentum stacks.",
+    baseCooldown:4,
+    get priority(){
+      const dd = typeof player !== 'undefined' ? (player.spellbook||[]).find(s=>s.id==='dynamic_drift') : null;
+      return dd ? (dd._battlePriority||0) : 0;
+    },
+    set priority(_){},
+    execute(s){
+      const dd = (player.spellbook||[]).find(sp=>sp.id==='dynamic_drift');
+      const drift = dd ? Math.abs(dd._battlePriority||0) : 0;
+      const momentum = Math.floor(status.player.momentumStacks||0);
+      const dmg = Math.round(15 + drift * 12 + momentum * 1.5 + _incantationBonus(this.incantationLevel||1, 3, 0.95));
+      const alive = aliveEnemies();
+      alive.forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:dmg, effects:[], abilityElement:'Air'}); });
+      if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      s.log(`🌪️ Wind's End! ${dmg} dmg to all (drift ×${drift}, ${momentum} Momentum).`, 'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+
+  absolute_zero:{ id:'absolute_zero', tier:'legendary', element:'Air', legendary:true,
+    name:'Absolute Zero', emoji:'❄️', priority:0,
+    desc:'Deal AoE damage based on the total absolute priority of every spell in your queue this turn. Zero the wind.',
+    baseCooldown:5,
+    execute(s){
+      const total = combat._turnTotalAbsPrioritySum || 0;
+      const dmg = Math.round(total * 20 + _incantationBonus(this.incantationLevel||1, 4, 0.95));
+      const alive = aliveEnemies();
+      alive.forEach((_,i)=>{ setActiveEnemy(combat.enemies.indexOf(aliveEnemies()[i])); s.hit({baseDamage:dmg, effects:[], abilityElement:'Air', _noAtk:true}); });
+      if(combat.enemies[combat.targetIdx]) setActiveEnemy(combat.targetIdx);
+      s.log(`❄️ Absolute Zero! ${dmg} dmg to all (${total} total |priority| this turn).`, 'player');
+      if(typeof renderStatusTags==='function') renderStatusTags();
+    }},
+
+  storm_rush:{ id:'storm_rush', tier:'legendary', name:'Storm Rush', emoji:'⚡', element:'Air', priority:0,
     desc:'Gain 3 extra actions this turn. Gain 5 Momentum. Reduce all cooldowns by 1.', baseCooldown:4, legendary:true,
     onQueue(){
       combat.actionsLeft = (combat.actionsLeft||0) + 3;
@@ -1585,6 +1688,94 @@ const SPELL_CATALOGUE = {
       log(`🔥 Char Bloom: ${burnConsumed} Burn consumed → ${finalStacks} Seed stacks`, 'player');
       if(typeof _plantSeed === 'function') _plantSeed('enemy', 'damage', finalStacks, 5, { incantLevel: this.incantationLevel||1 });
       s.log(`🔥🌸 Char Bloom! ${burnConsumed} Burn → Damage Seed ×${finalStacks}.`,'player');
+    }},
+
+  // ── Air + Lightning ──────────────────────────────────────────────────────────
+  storm_window:{ id:'storm_window', tier:'merged', name:'Storm Window', emoji:'⚡💨', element:'Air/Lightning',
+    desc:'Free action. If this is your 2nd+ action before any enemy acts, instantly trigger Surge. Otherwise load a Surge that scales with how many enemy actions preceded it.', baseCooldown:2, isFreeAction:true, priority:0,
+    execute(s){
+      const eab   = combat.currentQueuePosition || 0;
+      const pidx  = combat._playerActionIdx || 1;
+      const e = combat.enemies[combat.activeEnemyIdx];
+      if(!e || !e.alive) return;
+      if(eab === 0 && pidx >= 2){
+        // Ideal position: detonate Surge
+        if(e.status.surgeActive){
+          s.log(`⚡💨 Storm Window! Surge detonated early!`, 'player');
+          _triggerSurge('enemy');
+        } else {
+          s.log(`⚡💨 Storm Window! No Surge loaded — nothing to detonate.`, 'player');
+        }
+      } else {
+        // Fallback: load a Surge scaled by EAB
+        const surgeVal = Math.round(20 + eab * 25 + _incantationBonus(this.incantationLevel||1, 3, 0.90));
+        _applySurge('enemy', surgeVal, '⚡💨 Storm Window');
+        s.log(`⚡💨 Storm Window! Surge ${surgeVal} loaded (EAB=${eab}).`, 'player');
+      }
+    }},
+
+  arc_load:{ id:'arc_load', tier:'merged', name:'Arc Load', emoji:'💨⚡', element:'Air/Lightning',
+    desc:'Deal lightning damage and apply Shock equal to your current Momentum stacks. Momentum is not consumed.', baseCooldown:3, priority:0,
+    execute(s){
+      const momentum = Math.floor(status.player.momentumStacks || 0);
+      const dmg = Math.round(18 + _incantationBonus(this.incantationLevel||1, 3, 0.90));
+      s.hit({ baseDamage: dmg, effects:[], abilityElement:'Lightning' });
+      if(!combat.over && momentum > 0){
+        const e = combat.enemies[combat.activeEnemyIdx];
+        if(e && e.alive){
+          e.status.shockStacks = (e.status.shockStacks||0) + momentum;
+          s.log(`💨⚡ Arc Load! ${dmg} dmg + ${momentum} Shock from Momentum (×${e.status.shockStacks} total).`, 'player');
+        }
+      }
+    }},
+
+  // ── Air + Nature ─────────────────────────────────────────────────────────────
+  windfall_seed:{ id:'windfall_seed', tier:'merged', name:'Windfall Seed', emoji:'🌱💨', element:'Air/Nature',
+    desc:'Plant a Momentum Seed on yourself (timer 3). While germinating, all your actions gain +1 priority. On bloom: +10 Momentum per stack.', baseCooldown:2,
+    execute(s){
+      _plantSeed('player', 'momentum', 1, 3, { incantLevel: this.incantationLevel||1 });
+      s.log('🌱💨 Windfall Seed planted! +1 priority to all actions while germinating.', 'player');
+    }},
+
+  gale_bind:{ id:'gale_bind', tier:'merged', name:'Gale Bind', emoji:'🌿💨', element:'Air/Nature',
+    desc:'Free action. Convert 50% of your Momentum into Root stacks on the active enemy. Those Root stacks expire at the start of next round. Momentum is halved.', baseCooldown:2, isFreeAction:true,
+    execute(s){
+      const cur = Math.floor(status.player.momentumStacks||0);
+      const convert = Math.floor(cur * 0.5);
+      if(convert <= 0){ s.log('🌿💨 Gale Bind — not enough Momentum.','player'); return; }
+      status.player.momentumStacks = Math.max(0, (status.player.momentumStacks||0) - convert);
+      const e = combat.enemies[combat.activeEnemyIdx];
+      if(e && e.alive){
+        applyRoot('player','enemy', convert);
+        e.status._galeBind = (e.status._galeBind||0) + convert;
+      }
+      s.log(`🌿💨 Gale Bind! −${convert} Momentum → ${convert} Root (expires next round).`,'player');
+    }},
+
+  // ── Air + Fire ────────────────────────────────────────────────────────────────
+  afterburn:{ id:'afterburn', tier:'merged', name:'Afterburn', emoji:'🔥💨', element:'Air/Fire',
+    desc:'Free instant action. Burn ticks once before and once after all actions resolve this turn.', baseCooldown:2, isFreeAction:true, instantUse:true,
+    execute(s){
+      combat._afterburnActive = true;
+      s.log('🔥💨 Afterburn! Burn ticks before and after actions this turn.', 'player');
+    }},
+
+  ember_flurry:{ id:'ember_flurry', tier:'merged', name:'Ember Flurry', emoji:'🔥💨', element:'Air/Fire',
+    desc:'Three rapid fire hits — each scales with Momentum, applies Burn, and generates Momentum.', baseCooldown:2,
+    execute(s){
+      const momentum = Math.floor(status.player.momentumStacks||0);
+      const base = Math.round(8 + _incantationBonus(this.incantationLevel||1, 2, 0.90));
+      const momBonus = momentum * 2;
+      let hitsLanded = 0;
+      for(let i = 0; i < 3; i++){
+        if(combat.over) break;
+        s.hit({ baseDamage: base + momBonus, effects:[{type:'burn', stacks:2}], abilityElement:'Fire', momentumChance:0 });
+        hitsLanded++;
+      }
+      if(hitsLanded > 0 && !combat.over){
+        addMomentumStacks(hitsLanded);
+        s.log(`🔥💨 Ember Flurry! ${hitsLanded}×${base+momBonus} dmg (+${momBonus} from ${momentum} Momentum). +${hitsLanded} Momentum.`,'player');
+      }
     }},
 };
 

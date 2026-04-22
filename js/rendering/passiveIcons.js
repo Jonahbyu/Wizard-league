@@ -443,6 +443,47 @@ const PASSIVE_ICON_DATA = {
      <path d="M12 12 Q8 15 4 12" fill="none" stroke="currentColor" stroke-width="1" opacity=".4"/>
      <path d="M4 12 Q1 8 4 4" fill="none" stroke="currentColor" stroke-width="1" opacity=".4"/>`,
 
+  air_headwind:
+    `<polygon points="8,2 15,8 8,14 8,11 1,11 1,5 8,5" fill="currentColor" opacity=".75"/>
+     <line x1="1" y1="3" x2="4" y2="6" stroke="currentColor" stroke-width="1.5" opacity=".5"/>
+     <line x1="1" y1="13" x2="4" y2="10" stroke="currentColor" stroke-width="1.5" opacity=".5"/>`,
+
+  air_backdraft:
+    `<path d="M2 8 Q5 5 8 8 Q11 11 14 8" fill="none" stroke="currentColor" stroke-width="2.5"/>
+     <polygon points="12,4 15,8 12,12" fill="currentColor" opacity=".85"/>
+     <circle cx="3" cy="8" r="1.5" fill="currentColor" opacity=".5"/>`,
+
+  air_turbulence:
+    `<path d="M2 4 Q5 2 8 4 Q11 6 14 4" fill="none" stroke="currentColor" stroke-width="2"/>
+     <path d="M2 8 Q5 7 8 9 Q11 11 14 9" fill="none" stroke="currentColor" stroke-width="2"/>
+     <path d="M2 12 Q5 11 8 13 Q11 15 14 13" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+     <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity=".7"/>`,
+
+  air_tailwind_carry:
+    `<line x1="1" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="2"/>
+     <polygon points="10,6 15,8 10,10" fill="currentColor"/>
+     <path d="M1 5 Q3 3 5 5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <path d="M1 11 Q3 13 5 11" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <circle cx="13" cy="3" r="1.5" fill="currentColor" opacity=".6"/>
+     <line x1="13" y1="5" x2="13" y2="7" stroke="currentColor" stroke-width="1.2" opacity=".6"/>`,
+
+  air_vortex_strike:
+    `<path d="M8 2 Q14 5 13 10 Q11 14 8 14 Q5 14 3 11 Q1 8 4 5 Q6 2 8 2" fill="none" stroke="currentColor" stroke-width="2"/>
+     <path d="M8 5 Q11 7 10 10 Q9 12 8 12" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".5"/>
+     <polygon points="6,7 9,7 9,5 13,8 9,11 9,9 6,9" fill="currentColor" opacity=".85"/>`,
+
+  air_pressure_launch:
+    `<circle cx="8" cy="9" r="5" fill="currentColor" opacity=".2"/>
+     <circle cx="8" cy="9" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="8" y1="9" x2="8" y2="1" stroke="currentColor" stroke-width="2.5"/>
+     <polygon points="5,4 8,1 11,4" fill="currentColor"/>
+     <line x1="5" y1="9" x2="11" y2="9" stroke="currentColor" stroke-width="1.2" opacity=".6"/>`,
+
+  air_prevailing_wind:
+    `<polygon points="1,6 9,6 9,4 14,8 9,12 9,10 1,10" fill="currentColor" opacity=".6"/>
+     <line x1="3" y1="4" x2="3" y2="12" stroke="currentColor" stroke-width="1.2" opacity=".5"/>
+     <line x1="6" y1="3" x2="6" y2="13" stroke="currentColor" stroke-width="1.2" opacity=".5"/>`,
+
   // ── DUO PASSIVES ───────────────────────────────────────────────────────────
   duo_flashfire:
     `<polygon points="9,1 6,7 8,7 6,13 12,5 9,5" fill="currentColor" opacity=".85"/>
@@ -476,6 +517,46 @@ const PASSIVE_ICON_DATA = {
      <line x1="8" y1="10" x2="7" y2="14" stroke="currentColor" stroke-width="1.5"/>
      <line x1="12" y1="10" x2="13" y2="13" stroke="currentColor" stroke-width="1.5"/>
      <polygon points="8,2 10,6 12,4 10,8 13,8 9,12 7,10 3,8 6,8 4,4 6,6" fill="currentColor" opacity=".75"/>`,
+
+  duo_gale_root:
+    `<line x1="1" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="2"/>
+     <polygon points="8,5 13,7 8,9" fill="currentColor" opacity=".8"/>
+     <line x1="11" y1="9" x2="11" y2="13" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="11" y1="13" x2="8" y2="15" stroke="currentColor" stroke-width="1.2"/>
+     <line x1="11" y1="13" x2="14" y2="15" stroke="currentColor" stroke-width="1.2"/>
+     <line x1="11" y1="11" x2="9" y2="13" stroke="currentColor" stroke-width="1"/>`,
+
+  duo_rushing_growth:
+    `<path d="M1 10 Q4 8 7 10 Q10 12 13 10" fill="none" stroke="currentColor" stroke-width="2"/>
+     <polygon points="12,8 15,10 12,12" fill="currentColor" opacity=".8"/>
+     <path d="M6 10 Q6 6 9 4 Q11 2 10 5 Q9 7 6 10" fill="currentColor" opacity=".6"/>
+     <circle cx="6" cy="10" r="1.5" fill="currentColor" opacity=".5"/>`,
+
+  duo_velocity_arc:
+    `<path d="M1 12 Q4 6 8 4 Q12 2 14 6" fill="none" stroke="currentColor" stroke-width="2"/>
+     <polygon points="12,3 15,6 12,8" fill="currentColor" opacity=".6"/>
+     <polygon points="8,6 11,6 10,8 12,8 7,13 8,10 6,10" fill="currentColor" opacity=".85"/>`,
+
+  duo_galestrike:
+    `<polygon points="9,1 7,6 9,6 6,11" fill="currentColor" opacity=".85"/>
+     <line x1="1" y1="7" x2="7" y2="7" stroke="currentColor" stroke-width="2"/>
+     <path d="M1 4 Q3 3 5 4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <path d="M1 10 Q3 11 5 10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <circle cx="8.5" cy="13" r="2" fill="currentColor" opacity=".4"/>`,
+
+  duo_thermal_draft:
+    `<path d="M1 10 Q4 8 7 10 Q10 12 13 10" fill="none" stroke="currentColor" stroke-width="2"/>
+     <polygon points="12,8 15,10 12,12" fill="currentColor" opacity=".8"/>
+     <polygon points="7,8 9,4 11,6 9,1 11,3 10,7 12,5 10,9 8,9" fill="currentColor" opacity=".7"/>`,
+
+  duo_bellows:
+    `<rect x="3" y="6" width="9" height="5" fill="currentColor" opacity=".3" rx="1"/>
+     <rect x="3" y="6" width="9" height="5" fill="none" stroke="currentColor" stroke-width="1.5" rx="1"/>
+     <line x1="12" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="2"/>
+     <polygon points="14,6 15,8 14,10" fill="currentColor"/>
+     <line x1="5" y1="4" x2="5" y2="6" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="8" y1="3" x2="8" y2="6" stroke="currentColor" stroke-width="1.5"/>
+     <polygon points="8,1 10,4 12,2 11,7 8,5 5,7 4,2 6,4" fill="currentColor" opacity=".8"/>`,
 
   // ── CHARACTER BUFFS ────────────────────────────────────────────────────────
   buff_hp_bonus:

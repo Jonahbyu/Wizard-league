@@ -4,12 +4,145 @@
 // Each ability: { id, name, cd, baseCd, tier, fn(enemyIdx) }
 // tier: 0=basic, 1=secondary, 2=legendary
 // Enemies get abilities based on element + currentGymIdx (zone depth)
+// Spell-based abilities use ENEMY_SPELL_PARAMS at 60% baseDmg scaling.
 // ============================================================
+
+// ── Spell numeric params — name/emoji/element/tier come from SPELL_CATALOGUE ──
+// Only baseDmg is scaled to 60%; hits, effect stacks, heal, armor are unchanged.
+const ENEMY_SPELL_VALUES = {
+  // ─── Fire ─────────────────────────────────────────────────────────────────
+  ignite:        { baseDmg:5,  hits:1, effects:[{type:'burn',stacks:15}], baseCd:2 },
+  ember_storm:   { baseDmg:5,  hits:3, effects:[{type:'burn',stacks:3}],  baseCd:3 },
+  flame_wave:    { baseDmg:12, hits:1, effects:[{type:'burn',stacks:7}],  baseCd:3 },
+  forge_blast:   { baseDmg:8,  hits:1, effects:[{type:'burn',stacks:8}],  baseCd:3 },
+  // ─── Water ────────────────────────────────────────────────────────────────
+  tidal_surge:   { baseDmg:20, hits:1, effects:[], heal:10, baseCd:2 },
+  riptide:       { baseDmg:8,  hits:3, effects:[], baseCd:3 },
+  whirlpool:     { baseDmg:18, hits:1, effects:[], foam:3, baseCd:3 },
+  healing_tide:  { baseDmg:0,  hits:0, effects:[], heal:40, baseCd:4 },
+  tsunami:       { baseDmg:28, hits:1, effects:[], foam:5, baseCd:5 },
+  // ─── Ice ──────────────────────────────────────────────────────────────────
+  frost_bolt:    { baseDmg:12, hits:1, effects:[], frost:2, baseCd:2 },
+  glacial_spike: { baseDmg:25, hits:1, effects:[], frost:1, baseCd:3 },
+  snowstorm:     { baseDmg:8,  hits:1, effects:[], frost:2, baseCd:2 },
+  flash_freeze:  { baseDmg:0,  hits:0, effects:[], frost:5, baseCd:3 },
+  ice_age:       { baseDmg:10, hits:1, effects:[{type:'stun',turns:1}], frost:5, baseCd:5 },
+  // ─── Lightning ────────────────────────────────────────────────────────────
+  zap:              { baseDmg:25, hits:1, effects:[], shock:2, baseCd:1 },
+  chain_lightning:  { baseDmg:11, hits:4, effects:[], shock:1, baseCd:3 },
+  thunder_strike:   { baseDmg:35, hits:1, effects:[], shock:2, baseCd:3 },
+  megavolt:         { baseDmg:50, hits:1, effects:[], baseCd:4 },
+  thunderclap:      { baseDmg:35, hits:1, effects:[{type:'stun',turns:1}], shock:3, baseCd:5 },
+  // ─── Earth ────────────────────────────────────────────────────────────────
+  seismic_wave:  { baseDmg:20, hits:1, effects:[], crackArmor:8, baseCd:2 },
+  echo_slam:     { baseDmg:15, hits:1, effects:[], baseCd:3 },
+  earthshaker:   { baseDmg:40, hits:1, effects:[], baseCd:3 },
+  cataclysm:     { baseDmg:60, hits:1, effects:[{type:'stun',turns:1}], baseCd:6 },
+  // ─── Nature ───────────────────────────────────────────────────────────────
+  vine_strike:   { baseDmg:5,  hits:3, effects:[], root:1, baseCd:2 },
+  bramble_burst: { baseDmg:12, hits:1, effects:[], root:3, baseCd:3 },
+  wild_growth:   { baseDmg:0,  hits:0, effects:[], heal:25, armor:20, baseCd:4 },
+  natures_wrath: { baseDmg:45, hits:1, effects:[], root:3, baseCd:5 },
+  // ─── Air ──────────────────────────────────────────────────────────────────
+  quintuple_hit: { baseDmg:3,  hits:5, effects:[], baseCd:1 },
+  tornado:       { baseDmg:10, hits:1, effects:[], baseCd:3 },
+  windy_takedown:{ baseDmg:25, hits:1, effects:[{type:'stun',turns:1}], baseCd:3 },
+  slipcut:       { baseDmg:20, hits:1, effects:[], baseCd:2 },
+  storm_rush:    { baseDmg:15, hits:4, effects:[], baseCd:5 },
+};
+
+// Build a live ability object from player SPELL_CATALOGUE + ENEMY_SPELL_VALUES.
+// _scaleMult starts at 0.6; incantation boosts it on the priority ability.
+function _buildEnemyAbilityFromSpell(id) {
+  const spell  = SPELL_CATALOGUE[id] || {};
+  const vals   = ENEMY_SPELL_VALUES[id] || {};
+  const _tierMap = { primary:0, secondary:1, legendary:2 };
+  const params = {
+    name:    spell.name    || id,
+    emoji:   spell.emoji   || '⚔',
+    element: spell.element || 'Fire',
+    tier:    _tierMap[spell.tier] ?? 0,
+    baseCd:  vals.baseCd   || 2,
+    baseDmg: vals.baseDmg  || 0,
+    hits:    vals.hits,
+    effects: vals.effects,
+    foam:    vals.foam,
+    frost:   vals.frost,
+    root:    vals.root,
+    shock:   vals.shock,
+    heal:    vals.heal,
+    armor:   vals.armor,
+    crackArmor: vals.crackArmor,
+  };
+  const ab = {
+    id,
+    name:       params.name,
+    emoji:      params.emoji,
+    tier:       params.tier,
+    baseCd:     params.baseCd,
+    cd:         0,
+    _scaleMult: 0.6,
+    hintFn() {
+      const scaled = Math.round((params.baseDmg || 0) * ab._scaleMult);
+      const parts  = [];
+      if (scaled > 0) parts.push(`~${scaled} dmg${(params.hits||1) > 1 ? ' ×' + params.hits : ''}`);
+      if (params.foam)       parts.push(`+${params.foam} 🫧 Foam`);
+      if (params.frost)      parts.push(`+${params.frost} ❄️ Frost`);
+      if (params.root)       parts.push(`+${params.root} 🌿 Root`);
+      if (params.shock)      parts.push(`+${params.shock} ⚡ Shock`);
+      if (params.crackArmor) parts.push(`cracks ${params.crackArmor} Armor`);
+      if (params.heal)       parts.push(`Heals ${params.heal}`);
+      if (params.armor)      parts.push(`+${params.armor} Block`);
+      (params.effects || []).forEach(ef => {
+        if (ef.type === 'burn')  parts.push(`+${ef.stacks} 🔥 Burn`);
+        if (ef.type === 'stun')  parts.push(`Stun ${ef.turns}t`);
+      });
+      return parts.join(' · ');
+    },
+    fn(enemyIdx) {
+      const e = combat.enemies[enemyIdx];
+      setActiveEnemy(enemyIdx);
+      log(`${params.emoji} ${e.name} casts ${params.name}!`, 'enemy');
+      const baseDmg = Math.round((params.baseDmg || 0) * ab._scaleMult);
+      if (!combat.over && (baseDmg > 0 || (params.effects && params.effects.length > 0))) {
+        performHit('enemy', 'player', {
+          baseDamage:     baseDmg,
+          hits:           params.hits || 1,
+          effects:        params.effects ? [...params.effects] : [],
+          abilityElement: params.element,
+          isEnemyAttack:  true,
+        });
+      }
+      if (!combat.over && params.foam)       applyFoam('enemy', 'player', params.foam);
+      if (!combat.over && params.frost)      applyFrost('enemy', 'player', params.frost);
+      if (!combat.over && params.root)       applyRoot('enemy', 'player', params.root);
+      if (!combat.over && params.shock) {
+        status.player.shockStacks = (status.player.shockStacks||0) + params.shock;
+        log(`⚡ Shock +${params.shock} (×${status.player.shockStacks})`, 'status');
+      }
+      if (!combat.over && params.crackArmor) {
+        const crack = Math.min(status.player.block || 0, params.crackArmor);
+        if (crack > 0) { status.player.block -= crack; log(`🪨 Armor cracked by ${crack}!`, 'status'); }
+      }
+      if (!combat.over && params.heal) {
+        const h = Math.round(params.heal);
+        e.hp = Math.min(e.enemyMaxHP, e.hp + h);
+        log(`💚 ${e.name} heals ${h} HP!`, 'enemy');
+        updateHPBars();
+      }
+      if (!combat.over && params.armor) {
+        e.status.block = (e.status.block || 0) + Math.round(params.armor);
+        log(`🛡️ ${e.name} gains ${Math.round(params.armor)} Block!`, 'enemy');
+      }
+      if (params.foam || params.frost || params.root || params.crackArmor || params.armor) renderStatusTags();
+    },
+  };
+  return ab;
+}
 
 // How many abilities an enemy gets, by zone depth (0-indexed gym)
 function abilityCountForZone(gymIdx, difficulty, bonusActions){
-  const base = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
-  return Math.min(base + Math.floor(gymIdx / 2) + (bonusActions||0), 5 + (bonusActions||0));
+  return Math.min(Math.max(2, 1 + (bonusActions||0) + Math.floor(gymIdx/2)), 8);
 }
 
 // Max tier unlocked per zone depth
@@ -401,7 +534,7 @@ const ENEMY_ABILITY_CATALOGUE = {
     }},
 };
 
-// ── ELEMENT → ABILITY POOL MAPPING ────────────────────────────────────────────
+// ── ELEMENT → SPELL POOL MAPPING (uses ENEMY_SPELL_PARAMS ids) ───────────────
 const ENEMY_ABILITY_POOL = {
   Fire:      { 0:['fire_ignite','fire_flame_burst'], 1:['fire_combustion_strike','fire_wildfire','fire_magma_armor'], 2:['fire_inferno'] },
   Water:     { 0:['water_foam_burst','water_tidal_shield'], 1:['water_riptide','water_healing_surge','water_drown'], 2:['water_tsunami'] },
@@ -413,40 +546,55 @@ const ENEMY_ABILITY_POOL = {
   Air:       { 0:['air_twin_gust','air_gale_force'], 1:['air_cyclone','air_wind_shield','air_sky_slam'], 2:['air_tempest'] },
 };
 
+const ENEMY_SPELL_POOL_BY_ELEMENT = {
+  Fire:      { 0:['ignite','ember_storm'],                  1:['flame_wave','forge_blast'],              2:[] },
+  Water:     { 0:['tidal_surge','riptide'],                 1:['whirlpool','healing_tide'],              2:['tsunami'] },
+  Ice:       { 0:['frost_bolt','glacial_spike','snowstorm'],1:['flash_freeze'],                          2:['ice_age'] },
+  Lightning: { 0:['zap','chain_lightning'],                 1:['thunder_strike','megavolt'],             2:['thunderclap'] },
+  Earth:     { 0:['seismic_wave','echo_slam'],              1:['earthshaker'],                           2:['cataclysm'] },
+  Nature:    { 0:['vine_strike','bramble_burst'],            1:['wild_growth'],                          2:['natures_wrath'] },
+  Plasma:    { 0:[], 1:[], 2:[] },
+  Air:       { 0:['quintuple_hit','tornado'],               1:['windy_takedown','slipcut'],              2:['storm_rush'] },
+};
+
 // Build ability list for an enemy based on element + zone depth
-function buildEnemyAbilities(element, gymIdx, difficulty, bonusActions){
-  const pool = ENEMY_ABILITY_POOL[element];
+// incantLvl: number of failed bonus-action rolls — boosts the priority ability's _scaleMult
+function buildEnemyAbilities(element, gymIdx, difficulty, bonusActions, incantLvl){
+  const pool = ENEMY_SPELL_POOL_BY_ELEMENT[element];
   if(!pool) return [];
 
   const maxTier = maxAbilityTierForZone(gymIdx);
   const count   = abilityCountForZone(gymIdx, difficulty||'easy', bonusActions||0);
 
-  // Collect eligible ability ids by tier
+  // Collect eligible spell ids by tier
   const candidates = [];
   for(let t=0; t<=maxTier; t++){
     (pool[t]||[]).forEach(id=>candidates.push({id, tier:t}));
   }
 
-  // Pick `count` abilities, biased toward higher tiers in later zones
+  // Pick `count` spells, biased toward higher tiers in later zones
   const chosen = [];
   const shuffled = [...candidates].sort(()=>Math.random()-0.5);
 
-  // Always include at least one tier-0 (basic) to anchor
+  // Always include at least one tier-0 to anchor
   const tier0 = shuffled.filter(c=>c.tier===0);
   if(tier0.length) chosen.push(tier0[Math.floor(Math.random()*tier0.length)]);
 
   // Fill remainder preferring higher tiers
   const remaining = shuffled.filter(c=>!chosen.find(x=>x.id===c.id));
-  remaining.sort((a,b)=>b.tier-a.tier); // higher tier first
+  remaining.sort((a,b)=>b.tier-a.tier);
   while(chosen.length < count && remaining.length){
     chosen.push(remaining.shift());
   }
 
-  // Build live ability objects with individual cooldowns
-  const built = chosen.map(c=>{
-    const def = ENEMY_ABILITY_CATALOGUE[c.id];
-    return { ...def, cd:0 };
-  });
+  // Build live ability objects from SPELL_CATALOGUE + ENEMY_SPELL_VALUES
+  const built = chosen.map(c => _buildEnemyAbilityFromSpell(c.id));
+
+  // Apply incantation boost to the highest-tier ability
+  if((incantLvl||0) > 0 && built.length > 0){
+    const priority = built.reduce((best, ab) => ab.tier > best.tier ? ab : best, built[0]);
+    priority._scaleMult = Math.min(1.0, 0.6 + (incantLvl||0) * 0.12);
+  }
 
   // Every enemy always gets Brace — universal armor ability
   built.unshift({ ...ENEMY_ABILITY_CATALOGUE['brace'], cd:0 });
@@ -487,11 +635,11 @@ function pickEnemyAbility(e, gymIdx){
     if(Math.random() < braceChance) return brace;
   }
 
-  // Below 40% HP: strongly prefer any defensive ability
+  // Below 40% HP: strongly prefer any defensive / healing ability
   if(hpPct < 0.4){
     const defensive = ready.find(a=>
-      a.id.includes('shield') || a.id.includes('armor') || a.id.includes('fortify') ||
-      a.id.includes('heal') || a.id.includes('growth') || a.id.includes('cryostasis') || a.id==='brace'
+      a.id === 'brace' ||
+      (ENEMY_SPELL_VALUES[a.id] && ((ENEMY_SPELL_VALUES[a.id].heal||0) > 0 || (ENEMY_SPELL_VALUES[a.id].armor||0) > 0))
     );
     if(defensive && Math.random()<0.65) return defensive;
   }

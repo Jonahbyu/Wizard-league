@@ -31,18 +31,12 @@ function updateStatsUI(){
     const d = _e('dsp-def'); if(d) d.textContent = dispDef;
     const g = _e('dsp-gold'); if(g) g.textContent = player.gold + 'g';
     const l = _e('dsp-lives'); if(l) l.textContent = heartsStr;
-    // Position above the player sprite on the canvas
-    const _bc = document.getElementById('battle-canvas');
-    const _arena = _bc && _bc.parentElement;
-    if (_bc && _arena && typeof playerSpritePos === 'function' && _bc.width && _bc.height) {
-      const pp = playerSpritePos(_bc.width, _bc.height);
-      const scaleY = (_bc.offsetHeight || _bc.height) / _bc.height;
-      const spriteTopCSS = pp.y * scaleY;
-      dsp.style.bottom = (_arena.offsetHeight - spriteTopCSS + 8) + 'px';
-    } else {
-      const hud = document.getElementById('arena-player-hud');
-      if(hud) dsp.style.bottom = (hud.offsetHeight + 14) + 'px';
-    }
+    // Position above the deck slots — bottom edge at ~50% of arena height
+    const _arena2 = document.getElementById('battle-canvas');
+    const _arenaEl = _arena2 && _arena2.parentElement;
+    const arenaH = _arenaEl ? _arenaEl.offsetHeight : 0;
+    dsp.style.bottom = Math.round(arenaH * 0.5) + 30 + 'px';
+    dsp.style.top = '';
     // Position passives above HUD
     const hud2 = document.getElementById('arena-player-hud');
     const passives = document.getElementById('arena-passives');
@@ -191,61 +185,6 @@ function renderEnemyIntentOverlay() {
   const overlay = document.getElementById('enemy-intent-overlay');
   if (!overlay) return;
   overlay.innerHTML = '';
-
-  const canvas = document.getElementById('battle-canvas');
-  if (!canvas || !canvas.offsetWidth) return;
-
-  const W = canvas.offsetWidth, H = canvas.offsetHeight;
-  const allE = combat.enemies || [];
-  const CARD_H = 58;
-
-  allE.forEach((e, i) => {
-    if (!e.alive || !e.intentQueue || e.intentQueue.length === 0) return;
-
-    const ep = enemySpritePos(i, allE, W, H);
-    const cx = ep.x + ep.w / 2;
-    const nameLabelY = ep.y - E_SCALE * 4 - 2;
-
-    const maxShow = Math.min(3, e.intentQueue.length);
-    const row = document.createElement('div');
-    row.className = 'enemy-intent-row';
-    row.style.left = cx + 'px';
-    row.style.top = (nameLabelY - CARD_H + 8) + 'px';
-
-    for (let j = 0; j < maxShow; j++) {
-      const intent = e.intentQueue[j];
-      const raw = (intent && intent.label) || '?';
-      const isHidden = !!(intent && intent.hidden);
-
-      const emojiMatch = raw.match(/^([\p{Emoji}]+)\s*/u);
-      const icon = (emojiMatch ? emojiMatch[1] : '') || '⚔';
-      const textPart = raw.replace(/^[\p{Emoji}\s]+/u, '').trim() || raw;
-      const nameStr = isHidden ? '???' : (textPart.length > 8 ? textPart.slice(0, 7) + '…' : textPart);
-
-      const card = document.createElement('div');
-      card.className = 'enemy-intent-card' + (j === 0 ? ' next' : '') + (isHidden ? ' eic-hidden' : '');
-      const elemColor = _ELEM_CARD_COLORS[e.element] || _ELEM_CARD_COLORS.Neutral;
-      card.style.borderColor = isHidden ? '#503030' : (j === 0 ? elemColor + 'cc' : elemColor + '55');
-
-      // Use SVG icon if the ability/spell has a custom icon in SPELL_ICON_DATA
-      // Enemy ability IDs may have an element prefix (e.g. fire_ignite → ignite)
-      const _rawId = intent.id || '';
-      const _strippedId = _rawId.replace(/^(fire|water|ice|lightning|earth|nature|plasma|air)_/, '');
-      const _iconId = (SPELL_ICON_DATA && SPELL_ICON_DATA[_rawId]) ? _rawId
-                    : (SPELL_ICON_DATA && SPELL_ICON_DATA[_strippedId]) ? _strippedId : null;
-      const hasCustomIcon = !isHidden && _iconId;
-      const iconHTML = hasCustomIcon
-        ? spellIconSVG({id: _iconId, element: e.element || 'Neutral'}, 18)
-        : (isHidden ? '?' : icon);
-
-      card.innerHTML =
-        `<div class="eic-art">${iconHTML}</div>` +
-        `<div class="eic-name">${nameStr}</div>`;
-
-      row.appendChild(card);
-    }
-    overlay.appendChild(row);
-  });
 }
 
 function renderSummonsRow(){
@@ -556,20 +495,77 @@ function _spellDmgPreview(spell) {
     const hits   = hitMatch ? parseInt(hitMatch[1]) : 1;
     const perHit = noAtk ? Math.round(base * mult) : Math.round((base + atk) * mult);
     const total  = perHit * hits;
-    parts.push(hits > 1 ? `${hits} hits × ${perHit} = ${total} dmg` : `~${total} dmg`);
-    if (isAOE) parts.push('(all enemies)');
+    parts.push(hits > 1 ? `${hits}× ${perHit} dmg` : `~${total} dmg`);
+    if (isAOE) parts.push('all');
   }
+
+  // Effect parsing — literal stacks first, then presence-only
+  const _burnLit  = src.match(/type\s*:\s*['"]burn['"]\s*[,}][^}]*?stacks\s*:\s*(\d+)/s)
+                 || src.match(/stacks\s*:\s*(\d+)[^}]*type\s*:\s*['"]burn['"]/s);
+  const _burnVar  = !_burnLit && (/type\s*:\s*['"]burn['"]/.test(src) || /applyBurn\s*\(/.test(src));
+  if (_burnLit) parts.push(`+${_burnLit[1]} Burn🔥`);
+  else if (_burnVar) parts.push('Burn🔥');
+
+  const _frostLit = src.match(/applyFrost\s*\([^,]+,[^,]+,\s*(\d+)/);
+  if (_frostLit) parts.push(`+${_frostLit[1]} Frost❄`);
+  else if (/applyFrost\s*\(/.test(src)) parts.push('Frost❄');
+
+  const _rootLit  = src.match(/applyRoot\s*\([^,]+,[^,]+,\s*(\d+)/);
+  if (_rootLit) parts.push(`+${_rootLit[1]} Root🌿`);
+  else if (/applyRoot\s*\(/.test(src)) parts.push('Root🌿');
+
+  const _shockLit = src.match(/applyShock\s*\([^,]+,[^,]+,\s*(\d+)/);
+  if (_shockLit) parts.push(`+${_shockLit[1]} Shock⚡`);
+  else if (/applyShock\s*\(/.test(src)) parts.push('Shock⚡');
+
+  const _foamLit  = src.match(/applyFoam\s*\([^,]+,[^,]+,\s*(\d+)/);
+  if (_foamLit) parts.push(`+${_foamLit[1]} Foam🫧`);
+  else if (/applyFoam\s*\(/.test(src)) parts.push('Foam🫧');
+
   const healMatch  = src.match(/healSelf\s*\(\s*(\d+)/);
-  if (healMatch) parts.push(`heals ~${healMatch[1]} HP`);
-  const blockMatch = src.match(/gainBlock\s*\([^,]+,\s*(\d+)/);
-  if (blockMatch) parts.push(`+${parseInt(blockMatch[1])} armor`);
+  if (healMatch) parts.push(`heals ${healMatch[1]} HP`);
+
+  // Block — require literal integer with closing paren to avoid matching expressions
+  const blockMatch = src.match(/gainBlock\s*\(\s*['"]player['"]\s*,\s*(\d+)\s*\)/);
+  if (blockMatch) parts.push(`+${parseInt(blockMatch[1])} Block`);
 
   return parts.join(' · ');
 }
 
 let _deckModeLayoutActive = false;
+let _showingItemHand = false;
 // Reset on new battle so first draw animates all cards
-function resetDeckHandTracking() { _prevHandSpellIds = new Set(); }
+function resetDeckHandTracking() { _prevHandSpellIds = new Set(); _showingItemHand = false; }
+
+function _showAirPriorityPopup(choices, onChoose){
+  let overlay = document.getElementById('air-priority-popup');
+  if(overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = 'air-priority-popup';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#1a1a2e;border:1px solid #4a4a6a;border-radius:8px;padding:18px 22px;display:flex;flex-direction:column;gap:10px;min-width:180px;';
+  const title = document.createElement('div');
+  title.textContent = 'Choose priority shift';
+  title.style.cssText = 'color:#aaa;font-size:.85rem;text-align:center;margin-bottom:2px;';
+  box.appendChild(title);
+  choices.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.textContent = ch.label;
+    btn.style.cssText = 'padding:9px;background:#2a2a3e;border:1px solid #5a5a8a;color:#fff;border-radius:5px;cursor:pointer;font-size:1rem;';
+    btn.onmouseenter = ()=>{ btn.style.borderColor='#9a9acf'; };
+    btn.onmouseleave = ()=>{ btn.style.borderColor='#5a5a8a'; };
+    btn.onclick = ()=>{ overlay.remove(); onChoose(ch.value); };
+    box.appendChild(btn);
+  });
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.style.cssText = 'padding:5px;background:transparent;border:1px solid #444;color:#666;border-radius:4px;cursor:pointer;font-size:.8rem;';
+  cancel.onclick = ()=>overlay.remove();
+  box.appendChild(cancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
 
 function renderSpellButtons(){
   const grid = document.getElementById("spell-grid");
@@ -630,8 +626,7 @@ function renderSpellButtons(){
   const passivesRow = document.getElementById('sb-passives-row');
   if(passivesRow){
     passivesRow.innerHTML = '';
-    const book = activeBook();
-    const passiveIds = book ? book.passives : (player.passives||[]);
+    const passiveIds = player.passives || [];
     if(passiveIds.length === 0){
       const empty = document.createElement('span');
       empty.className = 'sb-passive-empty';
@@ -966,47 +961,84 @@ function renderSpellButtons(){
     }
     cell.onclick = ()=>{
       if(!isMyTurn || !canQueue) return;
-      const snapTgt=combat.targetIdx;
-      const spellRef=spell;
-      const spellIdx=player.spellbook.indexOf(spell);
-      const snapCD=(!spell.multiUse) ? (adjustedCooldownFor('player',spell.baseCooldown)||1) : 0;
-      // Tag as stormRushDependent if it's only queueable due to the CD preview
-      const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
-      const _sSnapTgt = snapTgt; const _sSpellRef = spellRef;
-      const opts = {isFree, stormRushDependent: isStormRushDependent,
-        isSpellAction: true,
-        bookCatalogueId: (activeBook() && activeBook().catalogueId) ? activeBook().catalogueId : null,
-        spellObj: spell,
-        hintFn: ()=>{
-          if(player._mistBlindDamage) return '';
-          const preview = _spellDmgPreview(_sSpellRef);
-          if(!preview) return '';
-          const tgt = combat.enemies[_sSnapTgt];
-          const block = tgt ? (tgt.status.block||0) : 0;
-          return block > 0 ? `${preview} (−${block} blk)` : preview;
-        },
-      };
-      if(spell.onQueue) opts.onQueue = ()=>spell.onQueue();
-      if(spell.undoOnQueue) opts.undoOnQueue = ()=>spell.undoOnQueue();
-      if(spell.id === 'storm_rush') opts.stormRushAction = true;
-      queueAction(spell.emoji+' '+spell.name,()=>{
-        // Set CD and consume PP when the action executes
-        if(!spellRef.multiUse) spellRef.currentCD = snapCD;
-        if((spellRef.currentPP||0) > 0) spellRef.currentPP--;
-        setActiveEnemy(snapTgt);
-        const ctx=makeSpellCtx('player','enemy',spellIdx);
-        spellRef.execute(ctx);
-        // Deep Current: fire Water spell a second time
-        if(!combat.over && spellRef.element==='Water' && status.player.deepCurrentActive){
-          status.player.deepCurrentActive = false;
-          log('💠 Deep Current: '+spellRef.name+' fires again!','player');
-          setActiveEnemy(snapTgt);
-          const ctx2=makeSpellCtx('player','enemy',spellIdx);
-          spellRef.execute(ctx2);
+
+      // General instant-use spells: execute immediately, apply CD, don't queue
+      if(spell.instantUse && !spell.pickPriority){
+        const _iuIdx = player.spellbook.indexOf(spell);
+        spell.currentCD = adjustedCooldownFor('player', spell.baseCooldown) || spell.baseCooldown;
+        spell.execute(makeSpellCtx('player','enemy',_iuIdx));
+        renderSpellButtons(); updateActionUI();
+        return;
+      }
+      // Air: spells with pickPriority show a choice popup before queuing/using
+      if(spell.pickPriority){
+        _showAirPriorityPopup(spell.pickPriority, (chosen)=>{
+          if(spell.instantUse){
+            // Instant-use: don't queue, just set the shift and consume PP
+            combat._aoPriorityShift = chosen;
+            if((spell.currentPP||0) > 0) spell.currentPP--;
+            log(`${spell.emoji} ${spell.name}! Subsequent spells: ${chosen>0?'+':''}${chosen} priority.`, 'player');
+            renderSpellButtons(); updateActionUI();
+            return;
+          }
+          // Normal queued spell — set shift then queue
+          combat._aoPriorityShift = chosen;
+          _doQueueSpell();
+        });
+        return;
+      }
+      _doQueueSpell();
+
+      function _doQueueSpell(extraPriority){
+        // Pressure Launch: show +1/-1 choice when 10+ Momentum (runs popup then re-calls with chosen value)
+        if(extraPriority == null && hasPassive('air_pressure_launch') && playerElement==='Air' &&
+           (status.player.momentumStacks||0) >= 10){
+          _showAirPriorityPopup([{label:'+1 (fast)', value:1},{label:'−1 (slow)', value:-1}], (chosen)=>{
+            _doQueueSpell(chosen);
+          });
+          return;
         }
-        updateHPBars();renderStatusTags();updateStatsUI();
-      }, opts);
-      renderSpellButtons();
+        const snapTgt=combat.targetIdx;
+        const spellRef=spell;
+        const spellIdx=player.spellbook.indexOf(spell);
+        const snapCD=(!spell.multiUse) ? (adjustedCooldownFor('player',spell.baseCooldown)||1) : 0;
+        const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
+        const _sSnapTgt = snapTgt; const _sSpellRef = spellRef;
+        const opts = {isFree, stormRushDependent: isStormRushDependent,
+          isSpellAction: true,
+          bookCatalogueId: (activeBook() && activeBook().catalogueId) ? activeBook().catalogueId : null,
+          spellObj: spell,
+          priority: (spell.priority || 0) + (extraPriority || 0),
+          hintFn: ()=>{
+            if(player._mistBlindDamage) return '';
+            const preview = _spellDmgPreview(_sSpellRef);
+            if(!preview) return '';
+            const tgt = combat.enemies[_sSnapTgt];
+            const block = tgt ? (tgt.status.block||0) : 0;
+            return block > 0 ? `${preview} (−${block} blk)` : preview;
+          },
+        };
+        if(spell.onQueue) opts.onQueue = ()=>spell.onQueue();
+        if(spell.undoOnQueue) opts.undoOnQueue = ()=>spell.undoOnQueue();
+        if(spell.id === 'storm_rush') opts.stormRushAction = true;
+        queueAction(spell.emoji+' '+spell.name,()=>{
+          if(!spellRef.multiUse) spellRef.currentCD = snapCD;
+          if((spellRef.currentPP||0) > 0) spellRef.currentPP--;
+          setActiveEnemy(snapTgt);
+          const ctx=makeSpellCtx('player','enemy',spellIdx);
+          spellRef.execute(ctx);
+          // Deep Current: fire Water spell a second time
+          if(!combat.over && spellRef.element==='Water' && status.player.deepCurrentActive){
+            status.player.deepCurrentActive = false;
+            log('💠 Deep Current: '+spellRef.name+' fires again!','player');
+            setActiveEnemy(snapTgt);
+            const ctx2=makeSpellCtx('player','enemy',spellIdx);
+            spellRef.execute(ctx2);
+          }
+          updateHPBars();renderStatusTags();updateStatsUI();
+        }, opts);
+        renderSpellButtons();
+      }
     };
     grid.appendChild(cell);
   });
@@ -1027,6 +1059,7 @@ function _makeSpellCard(spell, clickFn, isQueued, isOnCD, hintText) {
   const rarityColor = rarityInfo && rarityInfo.color ? rarityInfo.color : null;
   if(rarityColor) card.style.borderColor = rarityColor;
   if(spell.id) card.dataset.spellId = spell.id;
+  card.title = spell.name + (spell.desc ? ' — ' + spell.desc : '');
   const _iconHTML = (typeof spellIconSVG === 'function') ? spellIconSVG(spell, 50) : (spell.emoji||'✦');
   const _cdStr = spell.baseCooldown > 1 ? `CD:${spell.baseCooldown}` : (spell.baseCooldown === 0 ? '✦' : '');
   const _ppStr = spell.maxPP !== undefined ? `${spell.currentPP||0}/${spell.maxPP}` : '';
@@ -1038,7 +1071,7 @@ function _makeSpellCard(spell, clickFn, isQueued, isOnCD, hintText) {
     `</div>` +
     `<div class="card-art">${_iconHTML}</div>` +
     `<div class="card-name">${spell.name}</div>` +
-    `<div class="card-hint">${hintText||''}</div>`;
+    `<div class="card-hint">${(hintText||'').replace(/ · /g,'<br>')}</div>`;
   if(!isQueued && clickFn) {
     card.onclick = clickFn;
     // Hold-to-info tooltip
@@ -1105,11 +1138,43 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
   if(cardArea) cardArea.style.display = '';
   if(playedRow) playedRow.style.display = '';
   handEl.innerHTML = '';
-  if(itemHandEl) itemHandEl.innerHTML = '';
+  if(itemHandEl) { itemHandEl.innerHTML = ''; itemHandEl.style.display = 'none'; }
   let deckCount = 0;
 
   const stormRushQueued = (combat.actionQueue||[]).some(a => a.stormRushAction);
   const nonFreeQueued = (combat.actionQueue||[]).filter(a=>!a.isFree && !a.isPlasma).length;
+
+  // ── Item hand mode: show items as cards instead of spells ────────────────
+  if(_showingItemHand) {
+    const items = player.inventory || [];
+    if(items.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'font-size:.72rem;color:#444;padding:1.5rem;font-family:\'Cinzel\',serif;';
+      empty.textContent = 'No items.';
+      handEl.appendChild(empty);
+    } else {
+      items.forEach((item, idx) => {
+        const fakeSpell = { id: '_item_'+idx, emoji: item.emoji, name: item.name, element: 'Neutral',
+          baseCooldown: 1, desc: item.desc || '' };
+        const card = _makeSpellCard(fakeSpell, () => {
+          if(!isMyTurn) return;
+          if(typeof useItemInCombat === 'function') useItemInCombat(idx);
+        }, false, false, item.desc ? item.desc.slice(0,22) : 'Use');
+        handEl.appendChild(card);
+      });
+    }
+    // Apply fan layout to item cards
+    const _itemFanCards = Array.from(handEl.querySelectorAll('.spell-card'));
+    _itemFanCards.forEach((card, i) => {
+      const relI = _itemFanCards.length > 1 ? (i - (_itemFanCards.length - 1) / 2) / Math.max(_itemFanCards.length - 1, 1) : 0;
+      card.style.transformOrigin = '50% 120%';
+      card.style.position = 'relative';
+      card.style.zIndex = String(_itemFanCards.length - Math.round(Math.abs(relI) * (_itemFanCards.length - 1)));
+      card.style.transform = `rotate(${(relI * (_itemFanCards.length > 1 ? 14 : 0)).toFixed(1)}deg) translateY(${(Math.abs(relI) * 20).toFixed(0)}px)`;
+    });
+    if(deckCounter) deckCounter.textContent = '';
+    return;
+  }
 
   player.spellbook.forEach((spell) => {
     // ── Built-in: Basic Attack ────────────────────────────────────────────
@@ -1207,10 +1272,41 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
         // CD:0 spells never go on cooldown — they redraw immediately
         const snapCD = (spell.multiUse || isZeroCD) ? 0 : (adjustedCooldownFor('player', spell.baseCooldown)||1);
         const isStormRushDependent = stormRushQueued && rawCD > 0 && effectiveCD === 0;
+        // Air: pickPriority spells or Pressure Launch show choice popup
+        if(spell.instantUse && !spell.pickPriority){
+          const _iuIdx = player.spellbook.indexOf(spell);
+          spell.currentCD = adjustedCooldownFor('player', spell.baseCooldown) || spell.baseCooldown;
+          spell.execute(makeSpellCtx('player','enemy',_iuIdx));
+          renderSpellButtons(); updateActionUI();
+          return;
+        }
+        if(spell.pickPriority){
+          _showAirPriorityPopup(spell.pickPriority, (chosen)=>{
+            if(spell.instantUse){
+              combat._aoPriorityShift = chosen;
+              if((spell.currentPP||0) > 0) spell.currentPP--;
+              log(`${spell.emoji} ${spell.name}! Subsequent spells: ${chosen>0?'+':''}${chosen} priority.`, 'player');
+              renderSpellButtons(); updateActionUI();
+              return;
+            }
+            _doCardQueueSpell(chosen);
+          });
+          return;
+        }
+        if(hasPassive('air_pressure_launch') && playerElement==='Air' &&
+           (status.player.momentumStacks||0) >= 10){
+          _showAirPriorityPopup([{label:'+1 (fast)', value:1},{label:'−1 (slow)', value:-1}], (chosen)=>{
+            _doCardQueueSpell(chosen);
+          });
+          return;
+        }
+        _doCardQueueSpell(0);
+        function _doCardQueueSpell(extraPri){
         const opts = {isFree, stormRushDependent: isStormRushDependent,
           isSpellAction: true,
           bookCatalogueId: (activeBook() && activeBook().catalogueId) ? activeBook().catalogueId : null,
           spellObj: spell,
+          priority: (spell.priority || 0) + (extraPri || 0),
         };
         if(spell.onQueue) opts.onQueue = () => spell.onQueue();
         if(spell.undoOnQueue) opts.undoOnQueue = () => spell.undoOnQueue();
@@ -1231,6 +1327,7 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
           updateHPBars(); renderStatusTags(); updateStatsUI();
         }, opts);
         renderSpellButtons();
+        } // end _doCardQueueSpell
       },
       false,
       false,
@@ -1359,29 +1456,46 @@ function _renderCardHand(isMyTurn, queueFull, cdPreviewReduce) {
 
 // ── DECK MODE: ARENA OVERLAY RENDERERS ────────────────────────────────────────
 
-// Left panel: one icon per spellbook, click to switch deck (always shown, even with 1 deck)
+// Left panel: always 3 deck slots shown as mini cards
+const DECK_SLOT_COUNT = 3;
 function _renderArenaDecks(isMyTurn, queueFull) {
   const el = document.getElementById('arena-deck-switcher');
-  if(!el || !player.spellbooks) return;
+  if(!el) return;
   el.style.display = 'flex';
   el.innerHTML = '';
-  player.spellbooks.forEach((book, i) => {
-    const isActive = i === player.activeBookIdx;
-    const _desc = book.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'
-      ? (SPELLBOOK_CATALOGUE[book.catalogueId]||{}).desc || '' : '';
-    const btn = document.createElement('button');
-    btn.className = 'arena-deck-icon' + (isActive ? ' active' : '');
-    btn.disabled = isActive || !isMyTurn || queueFull;
-    btn.title = book.name + (_desc ? '\n' + _desc : '');
-    const iconId = book.catalogueId || 'standard';
-    const svgIcon = typeof DECK_ICONS !== 'undefined' && DECK_ICONS[iconId]
-      ? DECK_ICONS[iconId]
-      : `<span style="font-size:1.4rem;line-height:1">${book.emoji||'🃏'}</span>`;
-    const shortName = book.name.replace(/['''s]/g,'').split(' ').slice(0,2).join('\n');
-    btn.innerHTML = `<span class="adi-icon">${svgIcon}</span><span class="adi-name">${shortName}</span>`;
-    btn.onclick = () => { if(typeof queueSwitchBook === 'function') queueSwitchBook(i); };
-    el.appendChild(btn);
-  });
+  for(let i = 0; i < DECK_SLOT_COUNT; i++) {
+    const book = player.spellbooks && player.spellbooks[i];
+    const isActive = book && i === player.activeBookIdx;
+    const slot = document.createElement('button');
+    if(!book) {
+      slot.className = 'arena-deck-slot empty';
+      slot.disabled = true;
+      slot.innerHTML =
+        `<div class="ads-art"><svg viewBox="0 0 24 24" width="36" height="36" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="#2a2018" stroke-width="1.5" stroke-dasharray="3 2"/></svg></div>` +
+        `<div class="ads-name">Empty</div>`;
+    } else {
+      const _desc = book.catalogueId && typeof SPELLBOOK_CATALOGUE !== 'undefined'
+        ? (SPELLBOOK_CATALOGUE[book.catalogueId]||{}).desc || '' : '';
+      slot.className = 'arena-deck-slot' + (isActive ? ' active' : '');
+      slot.disabled = isActive || !isMyTurn || queueFull;
+      slot.title = book.name + (_desc ? '\n' + _desc : '');
+      const iconId = book.catalogueId || 'standard';
+      const catEntry = typeof SPELLBOOK_CATALOGUE !== 'undefined' && SPELLBOOK_CATALOGUE[iconId];
+      const accentColor = catEntry && catEntry.element
+        ? ({ Fire:'#e05830', Water:'#3090d0', Ice:'#70c8e0', Lightning:'#e8d040',
+             Earth:'#907040', Nature:'#50a830', Plasma:'#c040d0', Air:'#90b8cc' }[catEntry.element] || '#c8a060')
+        : '#c8a060';
+      const svgArt = typeof DECK_ICONS !== 'undefined' && DECK_ICONS[iconId]
+        ? DECK_ICONS[iconId]
+        : `<svg viewBox="0 0 24 24" width="36" height="36" xmlns="http://www.w3.org/2000/svg"><text x="12" y="17" text-anchor="middle" font-size="14">${book.emoji||'📖'}</text></svg>`;
+      const shortName = book.name.split(' ').slice(0, 2).join(' ');
+      slot.innerHTML =
+        `<div class="ads-art" style="--accent:${accentColor}">${svgArt}</div>` +
+        `<div class="ads-name" style="color:${accentColor}">${shortName}</div>`;
+      slot.onclick = () => { if(typeof queueSwitchBook === 'function') queueSwitchBook(i); };
+    }
+    el.appendChild(slot);
+  }
 }
 
 // Bottom-right: end turn button + actions remaining
@@ -1402,6 +1516,18 @@ function _renderArenaEndTurn(isMyTurn) {
   if(label) {
     label.textContent = `${queued} / ${total} actions`;
   }
+  // Items / Deck toggle button
+  let itemToggleBtn = document.getElementById('arena-item-toggle-btn');
+  if(!itemToggleBtn) {
+    itemToggleBtn = document.createElement('button');
+    itemToggleBtn.id = 'arena-item-toggle-btn';
+    itemToggleBtn.className = 'arena-item-toggle-btn';
+    panel.appendChild(itemToggleBtn);
+  }
+  const itemCount = (player.inventory||[]).length;
+  itemToggleBtn.textContent = _showingItemHand ? '← Deck' : `Items (${itemCount})`;
+  itemToggleBtn.style.display = itemCount > 0 || _showingItemHand ? '' : 'none';
+  itemToggleBtn.onclick = () => { _showingItemHand = !_showingItemHand; renderSpellButtons(); };
   // Mirror actions count into the deck stats panel
   const dspActions = document.getElementById('dsp-actions');
   if(dspActions) {
@@ -1414,23 +1540,75 @@ function _renderArenaEndTurn(isMyTurn) {
 function _renderArenaPassives() {
   const el = document.getElementById('arena-passives');
   if(!el) return;
+  const passiveIds = player.passives || [];
+  if(passiveIds.length === 0){ el.style.display = 'none'; return; }
   el.style.display = 'flex';
-  el.innerHTML = '';
-  const book = (typeof activeBook === 'function') ? activeBook() : null;
-  const passiveIds = book ? book.passives : (player.passives||[]);
-  passiveIds.forEach(pid => {
-    let pdef = null;
-    Object.values(PASSIVE_CHOICES||{}).forEach(arr => {
-      const found = (arr||[]).find(p => p.id === pid);
-      if(found) pdef = found;
+  el.style.cursor = 'pointer';
+  el.onclick = _showPassivePanel;
+  el.innerHTML = `<span class="arena-passives-label">Passives ▶</span>`;
+}
+
+function _showPassivePanel() {
+  const overlay = document.getElementById('passive-panel-overlay');
+  const list    = document.getElementById('passive-panel-list');
+  const empty   = document.getElementById('passive-panel-empty');
+  if(!overlay || !list) return;
+  list.innerHTML = '';
+  const passiveIds = player.passives || [];
+  const passiveCap = player.passiveSlots || 6;
+  const countEl = document.getElementById('passive-panel-count');
+  if(countEl) countEl.textContent = `${passiveIds.length} / ${passiveCap}`;
+  if(passiveIds.length === 0){
+    if(empty) empty.style.display = 'block';
+    list.style.display = 'none';
+  } else {
+    if(empty) empty.style.display = 'none';
+    list.style.display = 'flex';
+    passiveIds.forEach(pid => {
+      let pdef = null;
+      Object.values(PASSIVE_CHOICES||{}).forEach(arr => {
+        const found = (arr||[]).find(p => p.id === pid);
+        if(found) pdef = found;
+      });
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#120f0b;border:1px solid #2a2010;border-radius:6px;padding:.65rem .8rem;';
+      const nameRow = document.createElement('div');
+      nameRow.style.cssText = 'display:flex;align-items:center;gap:.45rem;margin-bottom:.3rem;';
+      const iconWrap = document.createElement('span');
+      iconWrap.innerHTML = pdef ? passiveIconSVG(pdef, 20) : '';
+      const nameEl = document.createElement('span');
+      nameEl.style.cssText = 'font-family:\'Cinzel\',serif;font-size:.82rem;color:#c8a060;';
+      nameEl.textContent = pdef ? (pdef.title||pdef.name||pid) : pid;
+      nameRow.appendChild(iconWrap);
+      nameRow.appendChild(nameEl);
+      if(pdef && pdef.legendary){
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size:.55rem;color:#e8a020;border:1px solid #8a5010;border-radius:3px;padding:.1rem .3rem;margin-left:auto;letter-spacing:.05em;';
+        badge.textContent = 'LEGENDARY';
+        nameRow.appendChild(badge);
+      }
+      card.appendChild(nameRow);
+      if(pdef && pdef.desc){
+        const descEl = document.createElement('div');
+        descEl.style.cssText = 'font-size:.7rem;color:#a09080;line-height:1.4;';
+        descEl.textContent = pdef.desc;
+        card.appendChild(descEl);
+      }
+      if(pdef && pdef.detail){
+        const detEl = document.createElement('div');
+        detEl.style.cssText = 'font-size:.63rem;color:#5a6a5a;margin-top:.3rem;line-height:1.35;border-top:1px solid #1a1a12;padding-top:.3rem;';
+        detEl.textContent = pdef.detail;
+        card.appendChild(detEl);
+      }
+      list.appendChild(card);
     });
-    const pip = document.createElement('div');
-    pip.className = 'arena-passive-pip';
-    pip.innerHTML = pdef ? passiveIconSVG(pdef, 13) : '<svg viewBox="0 0 16 16" width="13" height="13" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="4" fill="#a09080" opacity=".6"/></svg>';
-    if(pdef) pip.title = (pdef.title||pdef.name||pid) + '\n' + (pdef.desc||'');
-    else pip.title = pid;
-    el.appendChild(pip);
-  });
+  }
+  overlay.style.display = 'flex';
+}
+
+function _closePassivePanel() {
+  const overlay = document.getElementById('passive-panel-overlay');
+  if(overlay) overlay.style.display = 'none';
 }
 
 // ===============================

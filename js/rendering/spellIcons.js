@@ -711,6 +711,49 @@ const SPELL_ICON_DATA = {
     `<polygon points="1,6 9,6 9,4 14,8 9,12 9,10 1,10" fill="currentColor"/>
      <polygon points="1,11 7,11 7,9.5 11,12.5 7,15.5 7,14 1,14" fill="currentColor" opacity=".5"/>`,
 
+  dynamic_drift:
+    `<line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1" opacity=".4"/>
+     <path d="M2 8 Q5 4 8 8 Q11 12 14 8" fill="none" stroke="currentColor" stroke-width="2.5"/>
+     <circle cx="8" cy="8" r="2" fill="currentColor" opacity=".7"/>
+     <polygon points="12,6 15,8 12,10" fill="currentColor" opacity=".6"/>`,
+
+  gust_forward:
+    `<line x1="1" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="2"/>
+     <line x1="1" y1="8" x2="13" y2="8" stroke="currentColor" stroke-width="2"/>
+     <line x1="1" y1="11" x2="10" y2="11" stroke="currentColor" stroke-width="2"/>
+     <polygon points="11,3 15,8 11,13" fill="currentColor" opacity=".85"/>`,
+
+  queue_slash:
+    `<line x1="2" y1="2" x2="14" y2="14" stroke="currentColor" stroke-width="2.5"/>
+     <circle cx="4" cy="5" r="1.5" fill="currentColor" opacity=".6"/>
+     <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity=".7"/>
+     <circle cx="12" cy="11" r="1.5" fill="currentColor" opacity=".6"/>
+     <path d="M1 13 Q5 11 10 13" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".5"/>`,
+
+  slipcut:
+    `<path d="M2 10 Q5 7 8 10 Q11 13 14 10" fill="none" stroke="currentColor" stroke-width="2"/>
+     <line x1="5" y1="3" x2="11" y2="3" stroke="currentColor" stroke-width="2"/>
+     <line x1="8" y1="3" x2="8" y2="7" stroke="currentColor" stroke-width="1.5"/>
+     <polygon points="5,6 8,9 11,6" fill="currentColor" opacity=".7"/>`,
+
+  wind_surge:
+    `<path d="M1 6 Q4 4 7 6 Q10 8 13 6" fill="none" stroke="currentColor" stroke-width="2"/>
+     <path d="M1 10 Q4 8 7 10 Q10 12 13 10" fill="none" stroke="currentColor" stroke-width="2"/>
+     <polygon points="12,4 15,6 12,8" fill="currentColor" opacity=".8"/>
+     <polygon points="12,8 15,10 12,12" fill="currentColor" opacity=".8"/>`,
+
+  winds_end:
+    `<path d="M2 8 Q5 3 8 3 Q11 3 13 6 Q15 9 12 12 Q9 15 6 12 Q3 9 6 7 Q8 5 10 8" fill="none" stroke="currentColor" stroke-width="2"/>
+     <line x1="9" y1="9" x2="14" y2="13" stroke="currentColor" stroke-width="2.5"/>
+     <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity=".6"/>`,
+
+  absolute_zero:
+    `<path d="M8 1 Q14 5 13 11 Q11 15 8 15 Q5 15 3 11 Q2 5 8 1" fill="currentColor" opacity=".15"/>
+     <path d="M8 1 Q14 5 13 11 Q11 15 8 15 Q5 15 3 11 Q2 5 8 1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="8" y1="4" x2="8" y2="12" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="4" y1="6" x2="12" y2="10" stroke="currentColor" stroke-width="1.5"/>
+     <line x1="12" y1="6" x2="4" y2="10" stroke="currentColor" stroke-width="1.5"/>`,
+
   // ── NEUTRAL ───────────────────────────────────────────────────────────────
   _armor:
     `<path d="M3 2 Q3 11 8 14 Q13 11 13 2 Q8 0 3 2Z" fill="currentColor" opacity=".25"/>

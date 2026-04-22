@@ -124,6 +124,11 @@ function startRound(){
     // Foam expires
     if(e.status.foamStacks>0) e.status.foamStacks--;
 
+    // Gale Bind (Air+Nature duo): temporary root expires before normal decay
+    if(e.status._galeBind > 0){
+      e.status.rootStacks = Math.max(0, e.status.rootStacks - e.status._galeBind);
+      e.status._galeBind = 0;
+    }
     // Root decay
     if(e.status.rootStacks>0){
       e.status.rootStacks--;
@@ -288,6 +293,7 @@ function startRound(){
 
   combat.turnInBattle++;
   combat.actionQueue=[];
+  combat._aoPriorityShift=0;
   combat.actionsLeft=actionsPerTurnFor('player') + artifactExtraActions();
   // ── Air: Slipstream talent — bonus action every N turns ──
   if(playerElement==='Air' && player._slipstreamInterval && combat.turnInBattle % player._slipstreamInterval === 0){
@@ -300,6 +306,20 @@ function startRound(){
     combat.actionsLeft += bonus;
     log(`💨 +${bonus} bonus action${bonus>1?'s':''} from Sleeper Gust!`, 'status');
     status.player.nextTurnBonusActions = 0;
+  }
+  // ── Duo: Thermal Draft (Air+Fire) — Momentum from total enemy Burn ──
+  if(hasPassive('duo_thermal_draft') && playerElement==='Air'){
+    const totalBurn = combat.enemies.reduce((s,e)=>s+(e.alive?(e.status.burnStacks||0):0),0);
+    const momGain = Math.round(totalBurn * 0.15);
+    if(momGain > 0){ addMomentumStacks(momGain); log(`🔥💨 Thermal Draft: +${momGain} Momentum (${totalBurn} Burn).`,'status'); }
+  }
+  // ── Air: Tailwind Carry bonus action ──
+  if(playerElement==='Air' && combat._tailwindBonusNextTurn){
+    combat._tailwindBonusNextTurn = false;
+    combat.actionsLeft++;
+    combat._tailwindBonusActionPriority = combat._tailwindBonusPriority || 1;
+    const _tcPri = combat._tailwindBonusActionPriority;
+    log(`🌬️ Tailwind Carry: +1 action (first queued spell gets priority ${_tcPri > 0 ? '+' : ''}${_tcPri}).`, 'status');
   }
   if((status.player.nextTurnActionPenalty||0) > 0){
     const penalty = status.player.nextTurnActionPenalty;
@@ -374,6 +394,22 @@ function startRound(){
   setPlayerTurnUI(true);
 }
 
+// ── Air: extra priority added to each queued action ─────────────────────────
+function _airQueuePriorityBonus(){
+  if(playerElement !== 'Air') return 0;
+  let bonus = 0;
+  // Prevailing Wind: permanent +1 or -1 for all actions
+  if(hasPassive('air_prevailing_wind')) bonus += (player._prevailingWindPriority || 0);
+  // Tailwind Carry: first queued action next turn gets the pre-loaded priority
+  if(combat._tailwindBonusActionPriority != null){
+    bonus += combat._tailwindBonusActionPriority;
+    combat._tailwindBonusActionPriority = null;
+  }
+  // Windfall Seed (Air+Nature duo): +1 priority while any Momentum Seed is germinating
+  if((status.player.seeds||[]).some(s => s.type === 'momentum')) bonus += 1;
+  return bonus;
+}
+
 // ===============================
 // QUEUE-BASED SIMULTANEOUS SYSTEM
 // ===============================
@@ -395,6 +431,7 @@ function queueAction(label, fn, opts){
     bookCatalogueId:    (opts && opts.bookCatalogueId) || null,
     spellObj:           (opts && opts.spellObj) || null,
     hintFn:             (opts && opts.hintFn) || null,
+    priority:           ((opts && opts.priority) || 0) + (combat._aoPriorityShift || 0) + _airQueuePriorityBonus(),
   });
   renderQueue();
   updateActionUI();
@@ -447,35 +484,109 @@ function renderQueue(){
     slots.innerHTML = '';
     if(playedRow) {
       playedRow.innerHTML = '';
-      let _dragSrcIdx = null;
-      combat.actionQueue.forEach((a, i) => {
+      // ── Build interleaved preview (same logic as commitEndTurn) ────────────
+      const _previewFlat = (() => {
+        const pq = combat.actionQueue;
+        const eq = combat.prebuiltEnemyQueues;
+        if (!eq || pq.length === 0 && !eq.some(q => q && q.length)) {
+          return pq.map((a, qi) => ({ isPlayer:true, action:a, qIdx:qi, eab:0 }));
+        }
+        const participants = [];
+        if (pq.length > 0) participants.push({ id:'player', queue:pq });
+        combat.enemies.forEach((e, i) => {
+          if (!e.alive) return;
+          const q = (eq[i] || []);
+          if (q.length > 0) participants.push({ id:'enemy_'+i, idx:i, queue:q });
+        });
+        participants.sort((a, b) => {
+          if (b.queue.length !== a.queue.length) return b.queue.length - a.queue.length;
+          if (a.id==='player') return -1;
+          if (b.id==='player') return 1;
+          return 0;
+        });
+        const flat = [];
+        const maxLen = Math.max(...participants.map(p => p.queue.length), 0);
+        for (let slot = 0; slot < maxLen; slot++) {
+          participants.forEach(p => {
+            if (slot < p.queue.length)
+              flat.push({ isPlayer: p.id==='player', p, action: p.queue[slot], qIdx: slot, eab:0 });
+          });
+        }
+        flat.forEach((e, i) => { e._nat = i; });
+        flat.sort((a, b) => {
+          const pa = (a.action && a.action.priority) || 0;
+          const pb = (b.action && b.action.priority) || 0;
+          if (pb !== pa) return pb - pa;
+          return a._nat - b._nat;
+        });
+        flat.forEach((entry, i) => {
+          if (entry.isPlayer)
+            entry.eab = flat.slice(0, i).filter(e => !e.isPlayer).length;
+        });
+        return flat;
+      })();
+
+      let _dragSrcQIdx = null;
+      _previewFlat.forEach(entry => {
+        const { isPlayer, action, qIdx, eab } = entry;
         const pc = document.createElement('div');
-        pc.className = 'played-card';
-        pc.draggable = true;
-        const _pcIcon = (a.spellObj && typeof spellIconSVG === 'function')
-          ? spellIconSVG(a.spellObj, 22)
-          : `<span>${(a.label||'').split(' ')[0]||'✦'}</span>`;
-        pc.innerHTML = `<div class="pc-emoji">${_pcIcon}</div><div class="pc-name">${(a.label||'').replace(/^[^\s]+\s*/,'')}</div>`;
-        pc.title = 'Drag to reorder · Click to unqueue';
-        // Click to unqueue
-        pc.onclick = () => removeFromQueue(i);
-        // Drag to reorder
-        pc.addEventListener('dragstart', e => {
-          _dragSrcIdx = i;
-          pc.style.opacity = '0.5';
-          e.dataTransfer.effectAllowed = 'move';
-        });
-        pc.addEventListener('dragend', () => { pc.style.opacity = ''; });
-        pc.addEventListener('dragover', e => { e.preventDefault(); pc.classList.add('drag-over'); e.dataTransfer.dropEffect = 'move'; });
-        pc.addEventListener('dragleave', () => pc.classList.remove('drag-over'));
-        pc.addEventListener('drop', e => {
-          e.preventDefault(); pc.classList.remove('drag-over');
-          if(_dragSrcIdx === null || _dragSrcIdx === i) return;
-          const moved = combat.actionQueue.splice(_dragSrcIdx, 1)[0];
-          combat.actionQueue.splice(i, 0, moved);
-          _dragSrcIdx = null;
-          renderQueue(); renderSpellButtons();
-        });
+
+        if (isPlayer) {
+          pc.className = 'played-card';
+          pc.draggable = true;
+          const _pcIcon = (action.spellObj && typeof spellIconSVG === 'function')
+            ? spellIconSVG(action.spellObj, 22)
+            : `<span>${(action.label||'').split(' ')[0]||'✦'}</span>`;
+          const _pcPri = action.priority || 0;
+          const _priBadge = _pcPri !== 0
+            ? `<div class="pc-priority" style="font-size:.65rem;color:${_pcPri>0?'#7af':'#f97'};line-height:1;">${_pcPri>0?'↑':'↓'}${Math.abs(_pcPri)}</div>`
+            : '';
+          const _eabBadge = eab > 0
+            ? `<div style="font-size:.52rem;color:#f97;line-height:1;margin-top:1px;" title="Enemy acts ${eab}x before this spell">⚔${eab}</div>`
+            : '';
+          pc.innerHTML = `<div class="pc-emoji">${_pcIcon}</div><div class="pc-name">${(action.label||'').replace(/^[^\s]+\s*/,'')}</div>${_priBadge}${_eabBadge}`;
+          pc.title = 'Drag to reorder · Click to unqueue';
+          pc.onclick = () => removeFromQueue(qIdx);
+          pc.addEventListener('dragstart', e => {
+            _dragSrcQIdx = qIdx;
+            pc.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          pc.addEventListener('dragend', () => { pc.style.opacity = ''; });
+          pc.addEventListener('dragover', e => { e.preventDefault(); pc.classList.add('drag-over'); e.dataTransfer.dropEffect = 'move'; });
+          pc.addEventListener('dragleave', () => pc.classList.remove('drag-over'));
+          pc.addEventListener('drop', e => {
+            e.preventDefault(); pc.classList.remove('drag-over');
+            if (_dragSrcQIdx === null || _dragSrcQIdx === qIdx) return;
+            const moved = combat.actionQueue.splice(_dragSrcQIdx, 1)[0];
+            combat.actionQueue.splice(qIdx, 0, moved);
+            _dragSrcQIdx = null;
+            renderQueue(); renderSpellButtons();
+          });
+        } else {
+          // Enemy action card
+          const _eEnemy = combat.enemies[entry.p.idx];
+          const _eName  = _eEnemy ? _eEnemy.name : 'Enemy';
+          const _pcPri  = (action.priority) || 0;
+          const _priBadge = _pcPri !== 0
+            ? `<div class="pc-priority" style="font-size:.65rem;color:${_pcPri>0?'#f97':'#7af'};line-height:1;">${_pcPri>0?'↑':'↓'}${Math.abs(_pcPri)}</div>`
+            : '';
+          const _ie   = action._intentEntry;
+          const _hint = _ie ? (_ie.hintFn ? _ie.hintFn() : (_ie.hint || '')) : '';
+          const _eElem = _eEnemy ? (_eEnemy.element || 'Neutral') : 'Neutral';
+          const _eRawId = (_ie && _ie.id) || '';
+          const _eStrippedId = _eRawId.replace(/^(fire|water|ice|lightning|earth|nature|plasma|air)_/, '');
+          const _eIconId = (typeof SPELL_ICON_DATA !== 'undefined' && SPELL_ICON_DATA[_eRawId]) ? _eRawId
+                         : (typeof SPELL_ICON_DATA !== 'undefined' && SPELL_ICON_DATA[_eStrippedId]) ? _eStrippedId : null;
+          const _eIcon = (_eIconId && typeof spellIconSVG === 'function')
+            ? spellIconSVG({id: _eIconId, element: _eElem}, 22)
+            : `<span>${(action.label||'').split(' ')[0]||'⚔'}</span>`;
+          pc.className = 'played-card enemy-queued-card';
+          pc.style.cssText = 'background:#1a0a0a;border-color:#5a1a1a;cursor:default;opacity:.85;';
+          pc.innerHTML = `<div class="pc-emoji">${_eIcon}</div><div class="pc-name" style="color:#d08080;">${action.label||'Attack'}</div>${_priBadge}`;
+          pc.title = `${_eName}: ${action.label||'Attack'}${_hint ? '\n' + _hint : ''}`;
+        }
+
         playedRow.appendChild(pc);
       });
       // Drop zone on card-hand-area to drag a played card back to hand (unqueue)
@@ -484,7 +595,7 @@ function renderQueue(){
         handArea.ondragover = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
         handArea.ondrop = e => {
           e.preventDefault();
-          if(_dragSrcIdx !== null) { removeFromQueue(_dragSrcIdx); _dragSrcIdx = null; }
+          if(_dragSrcQIdx !== null) { removeFromQueue(_dragSrcQIdx); _dragSrcQIdx = null; }
         };
       }
     }
@@ -605,6 +716,10 @@ function commitEndTurn(){
 
   const normalPlayerActions = allPlayerActions.filter(a => !a.isPlasma);
   const plasmaPlayerActions = allPlayerActions.filter(a => a.isPlasma);
+  combat._playerActionsTotal      = normalPlayerActions.length;
+  combat._playerActionIdx         = 0;
+  combat._queueAbsPrioritySum     = 0;
+  combat._turnTotalAbsPrioritySum = normalPlayerActions.reduce((s, a) => s + Math.abs(a.priority || 0), 0);
 
   // Use pre-built enemy queues (built at round start so intents were visible during planning)
   const allEnemyQueues = combat.prebuiltEnemyQueues ||
@@ -648,19 +763,64 @@ function commitEndTurn(){
     });
   }
 
+  // Priority sort: stable sort by priority descending, preserving round-robin tiebreak
+  flatActions.forEach((entry, i) => { entry._nat = i; });
+  flatActions.sort((a, b) => {
+    const pa = (a.action && a.action.priority) || 0;
+    const pb = (b.action && b.action.priority) || 0;
+    if (pb !== pa) return pb - pa;
+    return a._nat - b._nat;
+  });
+  // Compute EAB (enemy actions before) for each player action
+  flatActions.forEach((entry, i) => {
+    if (entry.p.id === 'player') {
+      entry.enemyActionsBefore = flatActions.slice(0, i).filter(e => e.p.id !== 'player').length;
+    }
+  });
+  // Tailwind Carry: track if all player actions resolved first (EAB=0)
+  combat._tailwindAllFirst = flatActions.some(e => e.p.id === 'player');
+  flatActions.forEach(e => {
+    if(e.p.id === 'player' && (e.enemyActionsBefore||0) > 0) combat._tailwindAllFirst = false;
+  });
+
   // Plasma actions go at the very end
   plasmaPlayerActions.forEach(a => {
     flatActions.push({p:{id:'player'}, action:a, isPlasmaFinal:true});
   });
 
+  // Afterburn: burn ticks before actions resolve
+  if(combat._afterburnActive) _tickAfterburn('before');
+
   combat._gen = (combat._gen||0) + 1;
   resolveFlat(flatActions, 0, combat._gen);
+}
+
+function _tickAfterburn(phase){
+  combat.enemies.forEach((e, i) => {
+    if(!e.alive || !(e.status.burnStacks > 0)) return;
+    setActiveEnemy(i);
+    const bdmg = Math.ceil(e.status.burnStacks * burnDmgPerStack('player', effectPowerFor('player','enemy')));
+    if(bdmg > 0) applyEffectDamage('player','enemy', bdmg, `🔥💨 Afterburn (${phase})`);
+  });
+  if(!combat.over) setActiveEnemy(combat.targetIdx);
 }
 
 function resolveFlat(flatActions, idx, chainGen){
   // Stale chain guard: abort if a newer chain has started (e.g. post-revive)
   if(combat._gen !== chainGen) return;
   if(idx >= flatActions.length){
+    // Afterburn: burn ticks after all actions resolve
+    if(!combat.over && combat._afterburnActive){
+      _tickAfterburn('after');
+      combat._afterburnActive = false;
+    }
+    // Tailwind Carry: all player actions went first → bonus action next turn
+    if(!combat.over && hasPassive('air_tailwind_carry') && playerElement==='Air' && combat._tailwindAllFirst){
+      const _tcChoice = player._tailwindCarryChoice || 'fast';
+      combat._tailwindBonusPriority = _tcChoice === 'slow' ? -1 : 1;
+      combat._tailwindBonusNextTurn = true;
+      log('🌬️ Tailwind Carry! Bonus action next turn (priority ' + (combat._tailwindBonusPriority > 0 ? '+' : '') + combat._tailwindBonusPriority + ').', 'status');
+    }
     // All actions done — now check deferred death
     if(player.hp <= 0 && !combat.over){
       endBattle(false);
@@ -682,7 +842,28 @@ function resolveFlat(flatActions, idx, chainGen){
     const snapTgt = action.targetIdx != null ? action.targetIdx : combat.targetIdx;
     combat.targetIdx = snapTgt;
     setActiveEnemy(snapTgt);
+    combat._playerActionIdx = (combat._playerActionIdx || 0) + 1;
+    combat.currentQueuePosition = flatActions[idx].enemyActionsBefore != null ? flatActions[idx].enemyActionsBefore : 0;
+    // Vortex Strike: consecutive player actions, first in each run
+    const _prevWasPlayer = idx > 0 && flatActions[idx - 1].p.id === 'player';
+    if(!_prevWasPlayer) combat._vortexUsedThisSequence = false;
+    combat._vortexStrikeActive = hasPassive('air_vortex_strike') && playerElement==='Air' && _prevWasPlayer && !combat._vortexUsedThisSequence;
+    if(combat._vortexStrikeActive){ combat._vortexUsedThisSequence = true; log('🌀 Vortex Strike! +50% damage.', 'status'); }
     action.fn();
+    combat.currentQueuePosition = 0;
+    combat._vortexStrikeActive = false;
+    combat._queueAbsPrioritySum = (combat._queueAbsPrioritySum || 0) + Math.abs(action.priority || 0);
+    // Headwind: bonus hit when acting first (EAB=0)
+    if(!combat.over && playerElement==='Air' && hasPassive('air_headwind') &&
+       (flatActions[idx].enemyActionsBefore||0) === 0 && !isPlasmaFinal){
+      const _hwDmg = Math.round(10 + attackPowerFor('player','enemy') * 0.5);
+      applyDirectDamage('player','enemy', _hwDmg, '💨 Headwind');
+    }
+    // Turbulence: momentum from enemy actions before
+    if(!combat.over && playerElement==='Air' && hasPassive('air_turbulence') && !isPlasmaFinal){
+      const _turbGain = Math.min(2, flatActions[idx].enemyActionsBefore||0) * 2;
+      if(_turbGain > 0) addMomentumStacks(_turbGain);
+    }
     if(!combat.over && action.isSpellAction) _applyBookSpellEffect(action);
     updateHPBars(); renderStatusTags();
     if(!isPlasmaFinal && player.hp <= 0 && !combat.over){
@@ -783,7 +964,7 @@ function buildEnemyQueueFor(idx, count){
         const snapHint = snapItem.id==='enemy_healing_draught'?'Heals 20% max HP':'+15 Block';
         const intentEntry = {label:snapItem.emoji+' '+snapItem.name, hidden:false, hint:snapHint};
         e.intentQueue.push(intentEntry);
-        q.push({label:snapItem.emoji+' '+snapItem.name, intentIdx:e.intentQueue.length-1, fn:()=>{
+        q.push({label:snapItem.emoji+' '+snapItem.name, intentIdx:e.intentQueue.length-1, _intentEntry:intentEntry, fn:()=>{
           if(combat.over||!combat.enemies[snapIdx].alive) return;
           snapItem.fn(snapIdx);
           updateHPBars(); renderStatusTags(); updateStatsUI();
@@ -816,7 +997,7 @@ function buildEnemyQueueFor(idx, count){
         const _snapGymDmg = _gymDmg; const _snapGymEl = _gymEl;
         const intentEntry = {label:chargeLabel, hidden:_intentHidden(), hintFn:()=>_liveAttackHint(snapIdx, _snapGymDmg, _snapGymEl)};
         e.intentQueue.push(intentEntry);
-        q.push({label:chargeLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
+        q.push({label:chargeLabel, intentIdx:e.intentQueue.length-1, _intentEntry:intentEntry, fn:()=>{
           setActiveEnemy(snapIdx);
           const gem = combat.enemies[snapIdx];
           const dmg = isCharge ? Math.round(gem.enemyDmg * 2.5) : gem.enemyDmg;
@@ -832,9 +1013,11 @@ function buildEnemyQueueFor(idx, count){
           ability.cd = ability.baseCd;
           const snapAbility = ability;
           const abilLabel = snapAbility.emoji+' '+snapAbility.name;
-          const intentEntry = {label:abilLabel, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility.id]||'', id:snapAbility.id};
+          const intentEntry = {label:abilLabel, hidden:_intentHidden(), id:snapAbility.id,
+            hintFn: snapAbility.hintFn ? ()=>snapAbility.hintFn() : null,
+            hint: snapAbility.hintFn ? null : (ENEMY_ABILITY_HINTS[snapAbility.id]||'')};
           e.intentQueue.push(intentEntry);
-          q.push({label:abilLabel, intentIdx:e.intentQueue.length-1, fn:()=>{
+          q.push({label:abilLabel, intentIdx:e.intentQueue.length-1, _intentEntry:intentEntry, fn:()=>{
             if(combat.over) return;
             if(!combat.enemies[snapIdx].alive) return;
             setActiveEnemy(snapIdx);
@@ -847,7 +1030,7 @@ function buildEnemyQueueFor(idx, count){
           const _snapDmg2 = e.enemyDmg; const _snapEl2 = _el2;
           const intentEntry = {label:'⚔ Attack', hidden:_intentHidden(), hintFn:()=>_liveAttackHint(snapIdx, _snapDmg2, _snapEl2)};
           e.intentQueue.push(intentEntry);
-          q.push({label:'⚔ Attack', intentIdx:e.intentQueue.length-1, fn:()=>{
+          q.push({label:'⚔ Attack', intentIdx:e.intentQueue.length-1, _intentEntry:intentEntry, fn:()=>{
             setActiveEnemy(snapIdx);
             const e2 = combat.enemies[snapIdx];
             const el = primaryElement(e2.element||'');
@@ -872,9 +1055,11 @@ function buildEnemyQueueFor(idx, count){
         ability2.cd = ability2.baseCd;
         const snapAbility2 = ability2;
         const abilLabel2 = snapAbility2.emoji+' '+snapAbility2.name;
-        const intentEntry2 = {label:abilLabel2, hidden:_intentHidden(), hint:ENEMY_ABILITY_HINTS[snapAbility2.id]||'', id:snapAbility2.id};
+        const intentEntry2 = {label:abilLabel2, hidden:_intentHidden(), id:snapAbility2.id,
+          hintFn: snapAbility2.hintFn ? ()=>snapAbility2.hintFn() : null,
+          hint: snapAbility2.hintFn ? null : (ENEMY_ABILITY_HINTS[snapAbility2.id]||'')};
         e.intentQueue.push(intentEntry2);
-        q.push({label:abilLabel2, intentIdx:e.intentQueue.length-1, fn:()=>{
+        q.push({label:abilLabel2, intentIdx:e.intentQueue.length-1, _intentEntry:intentEntry2, fn:()=>{
           if(combat.over) return;
           if(!combat.enemies[snapIdx].alive) return;
           setActiveEnemy(snapIdx);
@@ -979,7 +1164,7 @@ function endBattle(won){
   if(won){
     const isGym=combat.enemies.some(e=>e.isGym);
     log(`⚔ Victory!`,"win");
-    applyHeal('player', BATTLE_HEAL, '✦ Post-battle heal');
+    if(player._ktRecoveryPct) applyHeal('player', Math.floor(maxHPFor('player') * player._ktRecoveryPct), '💊 Recovery');
     const goldBase=combat.totalGold||0;
     const gold=Math.round(goldBase*(1+(player._goldBonus||0)));
     player.gold+=gold;

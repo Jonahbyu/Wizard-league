@@ -12,14 +12,13 @@ function _isPlasmaPassive(passiveId) {
   return (PASSIVE_CHOICES['Plasma'] || []).some(p => p.id === passiveId);
 }
 
-// Returns the subset of player.spellbooks that can accept the given item.
+// Returns the subset of player.spellbooks that can accept the given spell.
 function _validDestBooksFor(kind, itemDef) {
-  const isPlasmaAbility = kind === 'spell'   && itemDef && itemDef.isPlasmaAbility;
-  const isPlasmaPass    = kind === 'passive' && _isPlasmaPassive(
-    typeof itemDef === 'string' ? itemDef : (itemDef && itemDef.id));
+  if (kind === 'passive') return []; // passives are global, not book-routed
+  const isPlasmaAbility = itemDef && itemDef.isPlasmaAbility;
   return player.spellbooks.map((b, idx) => ({ b, idx })).filter(({ b }) => {
-    if (b.isPlasmaBook) return isPlasmaAbility || isPlasmaPass;
-    return !isPlasmaAbility && !isPlasmaPass;
+    if (b.isPlasmaBook) return isPlasmaAbility;
+    return !isPlasmaAbility;
   });
 }
 
@@ -31,6 +30,7 @@ function _validDestBooksFor(kind, itemDef) {
 let _bdCallback = null;
 
 function _pickBookDest(kind, itemDef, cb) {
+  if (kind === 'passive') { cb(undefined); return; } // passives are global
   const validBooks = _validDestBooksFor(kind, itemDef);
   if (validBooks.length <= 1) {
     cb(validBooks.length === 1 ? validBooks[0].idx : player.activeBookIdx);
@@ -57,7 +57,7 @@ function _pickBookDest(kind, itemDef, cb) {
   list.innerHTML = '';
   validBooks.forEach(({ b, idx }) => {
     const usedSpells = b.spells.filter(s => !s.isBuiltin).length;
-    const free  = kind === 'passive' ? b.passiveSlots - b.passives.length : b.spellSlots - usedSpells;
+    const free  = b.spellSlots - usedSpells;
     const full  = free <= 0;
     const hint  = full ? 'Full' : `${free} slot${free !== 1 ? 's' : ''} free`;
     const hcol  = full ? '#8a4a20' : '#4aaa6a';
@@ -140,19 +140,32 @@ function _beRenderBrowse() {
     });
   }
 
-  // Passives
-  cont.appendChild(_beSectionHdr(`✦ Passives — ${book.passives.length} / ${book.passiveSlots}`));
-  if (book.passives.length === 0) {
-    cont.appendChild(_beEmpty('No passives yet.'));
-  } else {
-    book.passives.forEach(pid => {
-      const def = _lookupPassiveDef(pid);
-      cont.appendChild(_beItemRow(
-        def ? `${def.emoji} ${def.title}` : pid,
-        def ? (def.desc || '') : '',
-        () => { _beMoveItem = { kind:'passive', id:pid, srcBookIdx:_beTab }; _beRender(); }
-      ));
-    });
+  // Passives — global (not per-book)
+  if (_beTab === 0) {
+    const globalPassives = player.passives || [];
+    const passiveCap     = player.passiveSlots || 6;
+    cont.appendChild(_beSectionHdr(`✦ Passives (Global) — ${globalPassives.length} / ${passiveCap}`));
+    if (globalPassives.length === 0) {
+      cont.appendChild(_beEmpty('No passives yet.'));
+    } else {
+      globalPassives.forEach(pid => {
+        const def = _lookupPassiveDef(pid);
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:.4rem;padding:.3rem .45rem;background:#0d0b09;border:1px solid #1a1512;border-radius:4px;margin-bottom:.2rem;';
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-size:.7rem;color:#c8a060;font-family:\'Cinzel\',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        nameEl.textContent = def ? `${def.emoji} ${def.title}` : pid;
+        const descEl = document.createElement('div');
+        descEl.style.cssText = 'font-size:.58rem;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        descEl.textContent = def ? (def.desc || '') : '';
+        info.appendChild(nameEl);
+        info.appendChild(descEl);
+        row.appendChild(info);
+        cont.appendChild(row);
+      });
+    }
   }
 }
 
@@ -194,7 +207,7 @@ function _beRenderPickDest() {
 
   dests.forEach(({ b, idx }) => {
     const usedSpells = b.spells.filter(s => !s.isBuiltin).length;
-    const free  = item.kind === 'passive' ? b.passiveSlots - b.passives.length : b.spellSlots - usedSpells;
+    const free  = b.spellSlots - usedSpells;
     const isFull = free <= 0;
 
     if (!isFull) {
@@ -217,13 +230,8 @@ function _beRenderPickDest() {
       const swapList = document.createElement('div');
       swapList.style.cssText = 'display:none;flex-direction:column;gap:.25rem;padding:.25rem 0 0 .7rem;';
 
-      // Swap targets
-      const swapItems = item.kind === 'passive'
-        ? b.passives.map(pid => {
-            const d = _lookupPassiveDef(pid);
-            return { label: d ? d.emoji + ' ' + d.title : pid, ref: pid };
-          })
-        : b.spells.filter(s => !s.isBuiltin).map(sp => ({ label: sp.emoji + ' ' + sp.name, ref: sp }));
+      // Swap targets (spells only — passives are global)
+      const swapItems = b.spells.filter(s => !s.isBuiltin).map(sp => ({ label: sp.emoji + ' ' + sp.name, ref: sp }));
 
       swapItems.forEach(sw => {
         const swBtn = document.createElement('button');
@@ -231,10 +239,7 @@ function _beRenderPickDest() {
         swBtn.style.cssText = 'font-size:.66rem;border-color:#1a1a1a;';
         swBtn.innerHTML = `<span>${sw.label}</span><span class="boo-remove-hint" style="color:#6a8a9a;">Swap</span>`;
         swBtn.onclick = () => {
-          const destIdx = item.kind === 'passive'
-            ? b.passives.indexOf(sw.ref)
-            : b.spells.indexOf(sw.ref);
-          _beDoSwap(idx, destIdx);
+          _beDoSwap(idx, b.spells.indexOf(sw.ref));
         };
         swapList.appendChild(swBtn);
       });
@@ -257,19 +262,12 @@ function _beRenderPickDest() {
 // ── Move / swap executors ─────────────────────────────────────────────────────
 function _beDoMove(destBookIdx) {
   const item = _beMoveItem;
-  if (!item) return;
+  if (!item || item.kind !== 'spell') return;
   const src  = player.spellbooks[item.srcBookIdx];
   const dest = player.spellbooks[destBookIdx];
   if (!src || !dest) return;
-
-  if (item.kind === 'spell') {
-    src.spells  = src.spells.filter(s => s !== item.spellObj);
-    dest.spells.push(item.spellObj);
-  } else {
-    src.passives  = src.passives.filter(id => id !== item.id);
-    dest.passives.push(item.id);
-  }
-
+  src.spells  = src.spells.filter(s => s !== item.spellObj);
+  dest.spells.push(item.spellObj);
   if (item.srcBookIdx === player.activeBookIdx || destBookIdx === player.activeBookIdx) syncActiveBook();
   _beMoveItem = null;
   _beTab      = destBookIdx;
@@ -278,29 +276,17 @@ function _beDoMove(destBookIdx) {
 
 function _beDoSwap(destBookIdx, destItemIdx) {
   const item = _beMoveItem;
-  if (!item) return;
+  if (!item || item.kind !== 'spell') return;
   const src  = player.spellbooks[item.srcBookIdx];
   const dest = player.spellbooks[destBookIdx];
   if (!src || !dest) return;
-
-  if (item.kind === 'spell') {
-    const movingSpell = item.spellObj;
-    const swapSpell   = dest.spells[destItemIdx];
-    if (!swapSpell) return;
-    src.spells  = src.spells.filter(s => s !== movingSpell);
-    dest.spells = dest.spells.filter(s => s !== swapSpell);
-    dest.spells.push(movingSpell);
-    src.spells.push(swapSpell);
-  } else {
-    const movingPassive = item.id;
-    const swapPassive   = dest.passives[destItemIdx];
-    if (!swapPassive) return;
-    src.passives  = src.passives.filter(id => id !== movingPassive);
-    dest.passives = dest.passives.filter(id => id !== swapPassive);
-    dest.passives.push(movingPassive);
-    src.passives.push(swapPassive);
-  }
-
+  const movingSpell = item.spellObj;
+  const swapSpell   = dest.spells[destItemIdx];
+  if (!swapSpell) return;
+  src.spells  = src.spells.filter(s => s !== movingSpell);
+  dest.spells = dest.spells.filter(s => s !== swapSpell);
+  dest.spells.push(movingSpell);
+  src.spells.push(swapSpell);
   if (item.srcBookIdx === player.activeBookIdx || destBookIdx === player.activeBookIdx) syncActiveBook();
   _beMoveItem = null;
   _beTab      = destBookIdx;

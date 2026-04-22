@@ -5,6 +5,7 @@ const LIBRARY_ELEMENTS = ['Fire', 'Water', 'Ice', 'Lightning', 'Earth', 'Nature'
 const _LIB_EL_EMOJI = { Fire:'🔥', Water:'💧', Ice:'❄️', Lightning:'⚡', Earth:'🪨', Nature:'🌿', Plasma:'🔮', Air:'🌀', Duo:'✦' };
 
 let _libActiveEl = null;
+let _libRoot = null; // null = standalone overlay, else popup panel element
 const _LIB_SPECIAL_TABS = ['Mechanics', 'Combat'];
 const _LIB_SPECIAL_EMOJI = { Mechanics: '⚙️', Combat: '⚔️' };
 
@@ -125,8 +126,12 @@ function _libPassiveFormulaHtml(passive) {
   return name + `<div style="color:#555;font-size:.62rem;">No additional formula data.</div>`;
 }
 
+function _libGetTabs()    { return (_libRoot || document.getElementById('spell-library-overlay')).querySelector('.lib-tabs'); }
+function _libGetContent() { return (_libRoot || document.getElementById('spell-library-overlay')).querySelector('.lib-content'); }
+
 // ─── OVERLAY ───────────────────────────────────────────────────────────────
 function showLibrary() {
+  _libRoot = null;
   const visibleEls = (!sandboxMode)
     ? LIBRARY_ELEMENTS.filter(el => RELEASED_ELEMENTS.includes(el) || el === 'Duo')
     : LIBRARY_ELEMENTS;
@@ -147,7 +152,7 @@ function _libRender() {
 }
 
 function _libRenderTabs() {
-  const tabs = document.getElementById('lib-tabs');
+  const tabs = _libGetTabs();
   if (!tabs) return;
   tabs.innerHTML = '';
   tabs.style.flexDirection = 'column';
@@ -208,7 +213,7 @@ function _libRenderTabs() {
 }
 
 function _libRenderContent() {
-  const cont = document.getElementById('lib-content');
+  const cont = _libGetContent();
   if (!cont) return;
   cont.innerHTML = '';
   const el = _libActiveEl;

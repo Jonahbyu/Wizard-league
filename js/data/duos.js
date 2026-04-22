@@ -20,6 +20,21 @@ const DUO_CATALOGUE = [
     spells:   ['burning_grove', 'char_bloom'],
     passives: ['duo_wildfire_seeds', 'duo_scorched_earth'],
   },
+  {
+    elements: ['Air', 'Nature'],
+    spells:   ['windfall_seed', 'gale_bind'],
+    passives: ['duo_gale_root', 'duo_rushing_growth'],
+  },
+  {
+    elements: ['Air', 'Lightning'],
+    spells:   ['storm_window', 'arc_load'],
+    passives: ['duo_velocity_arc', 'duo_galestrike'],
+  },
+  {
+    elements: ['Air', 'Fire'],
+    spells:   ['ember_flurry', 'afterburn'],
+    passives: ['duo_thermal_draft', 'duo_bellows'],
+  },
 ];
 
 // Returns true if the player has unlocked the duo for the given element pair.
@@ -61,8 +76,7 @@ function _eligibleDuoSpells() {
 
 // Returns all unlocked duo passives the player doesn't already own.
 function _eligibleDuoPassives() {
-  const owned = new Set();
-  (player.spellbooks || []).forEach(b => b.passives.forEach(id => owned.add(id)));
+  const owned = new Set(player.passives || []);
 
   const eligible = [];
   DUO_CATALOGUE.forEach(duo => {
